@@ -19,6 +19,7 @@ subprojects {
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
+<<<<<<< HEAD
 buildscript {
     repositories {
         google()
@@ -28,3 +29,5 @@ buildscript {
         classpath("com.google.gms:google-services:4.3.15")
     }
 }
+=======
+>>>>>>> 342e06ed1caacbcca71c104f21a2b079b8cdf416

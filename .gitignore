@@ -1,10 +1,13 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 build/
 .dart_tool/
 .idea/
 packages/
 pubspec.lock
 =======
+=======
+>>>>>>> 342e06ed1caacbcca71c104f21a2b079b8cdf416
 # Miscellaneous
 *.class
 *.log
@@ -50,4 +53,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+<<<<<<< HEAD
 >>>>>>> 342e06e (Initial commit)
+=======
+>>>>>>> 342e06ed1caacbcca71c104f21a2b079b8cdf416

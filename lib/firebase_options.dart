@@ -85,5 +85,9 @@ class DefaultFirebaseOptions {
     storageBucket: 'agrimate-ab312.firebasestorage.app',
     measurementId: 'G-VR6YMSR3EW',
   );
+<<<<<<< HEAD
 
 }
+=======
+}
+>>>>>>> 342e06ed1caacbcca71c104f21a2b079b8cdf416

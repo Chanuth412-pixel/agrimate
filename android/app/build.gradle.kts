@@ -45,6 +45,9 @@ android {
 flutter {
     source = "../.."
 }
+<<<<<<< HEAD
 
 
 apply<com.google.gms.googleservices.GoogleServicesPlugin>()
+=======
+>>>>>>> 342e06ed1caacbcca71c104f21a2b079b8cdf416
