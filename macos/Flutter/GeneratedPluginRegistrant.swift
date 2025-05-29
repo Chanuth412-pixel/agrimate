@@ -5,7 +5,6 @@
 import FlutterMacOS
 import Foundation
 
-<<<<<<< HEAD
 import cloud_firestore
 import file_selector_macos
 import firebase_core
@@ -16,8 +15,4 @@ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   FileSelectorPlugin.register(with: registry.registrar(forPlugin: "FileSelectorPlugin"))
   FLTFirebaseCorePlugin.register(with: registry.registrar(forPlugin: "FLTFirebaseCorePlugin"))
   FLTFirebaseStoragePlugin.register(with: registry.registrar(forPlugin: "FLTFirebaseStoragePlugin"))
-=======
-
-func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
->>>>>>> 342e06ed1caacbcca71c104f21a2b079b8cdf416
 }

@@ -6,7 +6,6 @@
 
 #include "generated_plugin_registrant.h"
 
-<<<<<<< HEAD
 #include <cloud_firestore/cloud_firestore_plugin_c_api.h>
 #include <file_selector_windows/file_selector_windows.h>
 #include <firebase_core/firebase_core_plugin_c_api.h>
@@ -21,8 +20,4 @@ void RegisterPlugins(flutter::PluginRegistry* registry) {
       registry->GetRegistrarForPlugin("FirebaseCorePluginCApi"));
   FirebaseStoragePluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("FirebaseStoragePluginCApi"));
-=======
-
-void RegisterPlugins(flutter::PluginRegistry* registry) {
->>>>>>> 342e06ed1caacbcca71c104f21a2b079b8cdf416
 }
