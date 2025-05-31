@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';  // Import Firestore for accessing the Farmer's collection
+import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 
 class FarmerLogInScreen extends StatefulWidget {
   const FarmerLogInScreen({super.key});
@@ -19,22 +20,21 @@ class _FarmerLogInScreenState extends State<FarmerLogInScreen> {
       final id = _idController.text.trim();  // Unique ID entered by the user (Firestore document ID)
       final name = _nameController.text.trim(); // Name entered by the user
 
-      print('Attempting login with ID: $id and Name: $name');  // Debugging print statement
-
-      // Directly reference the document using the unique ID (Firestore document ID)
+      // Fetch the document from Firestore based on the farmer's ID
       DocumentSnapshot docSnapshot = await FirebaseFirestore.instance
           .collection('Farmers')
           .doc(id)  // Use the document ID directly (no need for where() query)
           .get();
 
-      print('Document data: ${docSnapshot.data()}');  // Debugging print statement
-
       if (docSnapshot.exists) {
         // Check if the name matches the one in Firestore
         if (docSnapshot['name'] == name) {
-          // If name matches, navigate to the Farmer Profile screen
+          // Save the farmerId in SharedPreferences
+          SharedPreferences prefs = await SharedPreferences.getInstance();
+          await prefs.setString('farmerId', id); // Store the farmer's ID
+
+          // Navigate to the Farmer Profile screen
           Navigator.pushReplacementNamed(context, '/farmerProfile');
-          print('Login successful!');  // Debugging print statement
         } else {
           // Name doesn't match, show an error
           print('Name does not match ID in Firestore.');

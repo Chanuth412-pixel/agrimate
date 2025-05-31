@@ -15,12 +15,12 @@ import 'screens/role_selection_screen.dart';  // RoleSelectionScreen import
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize Firebase with options
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform, // Firebase initialization options
   );
-  
+
   // Run the app
   runApp(MyApp());
 }
@@ -42,8 +42,8 @@ class MyApp extends StatelessWidget {
         '/createCustomerProfile': (context) => CreateCustomerProfileScreen(),  // Customer Sign-Up
         '/farmerProfile': (context) => FarmerProfileScreen(),  // Farmer Profile
         '/customerProfile': (context) => CustomerProfileScreen(),  // Customer Profile
-        '/farmerLogIn': (context) => FarmerLogInScreen(),  // Farmer Log In
-        '/customerLogIn': (context) => CustomerLogInScreen(),  // Customer Log In
+        '/farmerLogIn': (context) => FarmerLogInScreen(),  // Correct import for Farmer Log In screen
+        '/customerLogIn': (context) => CustomerLogInScreen(),  // Correct import for Customer Log In screen
         '/farmerSelection': (context) => RoleSelectionScreen(role: 'Farmer'),  // Farmer Role Selection
         '/customerSelection': (context) => RoleSelectionScreen(role: 'Customer'),  // Customer Role Selection
       },
