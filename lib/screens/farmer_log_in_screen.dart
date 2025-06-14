@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';  // Import Firestore for accessing the Farmer's collection
-import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class FarmerLogInScreen extends StatefulWidget {
   const FarmerLogInScreen({super.key});
@@ -11,47 +11,38 @@ class FarmerLogInScreen extends StatefulWidget {
 
 class _FarmerLogInScreenState extends State<FarmerLogInScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _idController = TextEditingController();
-  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
-  // Function to log in the farmer
   Future<void> _logInFarmer() async {
     try {
-      final id = _idController.text.trim();  // Unique ID entered by the user (Firestore document ID)
-      final name = _nameController.text.trim(); // Name entered by the user
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
 
-      // Fetch the document from Firestore based on the farmer's ID
-      DocumentSnapshot docSnapshot = await FirebaseFirestore.instance
+      final querySnapshot = await FirebaseFirestore.instance
           .collection('Farmers')
-          .doc(id)  // Use the document ID directly (no need for where() query)
+          .where('email', isEqualTo: email)
+          .limit(1)
           .get();
 
-      if (docSnapshot.exists) {
-        // Check if the name matches the one in Firestore
-        if (docSnapshot['name'] == name) {
-          // Save the farmerId in SharedPreferences
+      if (querySnapshot.docs.isNotEmpty) {
+        final doc = querySnapshot.docs.first;
+        if (doc['password'] == password) {
           SharedPreferences prefs = await SharedPreferences.getInstance();
-          await prefs.setString('farmerId', id); // Store the farmer's ID
+          await prefs.setString('farmerId', doc.id);
 
-          // Navigate to the Farmer Profile screen
           Navigator.pushReplacementNamed(context, '/farmerProfile');
         } else {
-          // Name doesn't match, show an error
-          print('Name does not match ID in Firestore.');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Name does not match ID.')),
+            const SnackBar(content: Text('Incorrect password.')),
           );
         }
       } else {
-        // No document found with the given uniqueID
-        print('No matching profile found for this ID.');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No profile found for this ID.')),
+          const SnackBar(content: Text('Email not found.')),
         );
       }
     } catch (e) {
-      // Handle errors (e.g., network issues, Firestore errors)
-      print('Error during login: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -61,51 +52,163 @@ class _FarmerLogInScreenState extends State<FarmerLogInScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Farmer Log In")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Input field for the Unique ID (for Farmer)
-              TextFormField(
-                controller: _idController,
-                decoration: const InputDecoration(labelText: "Unique ID"),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your Unique ID';
-                  }
-                  return null;
-                },
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          Positioned(
+            left: 35,
+            top: 63,
+            child: const SizedBox(
+              width: 305,
+              height: 28,
+              child: Text(
+                'Farmer Profile',
+                style: TextStyle(
+                  color: Color(0xFF171717),
+                  fontSize: 28,
+                  fontFamily: 'Roboto',
+                  fontWeight: FontWeight.w700,
+                  height: 1.14,
+                  letterSpacing: -0.80,
+                ),
               ),
-              const SizedBox(height: 20),
-              // Input field for the Farmer's Name
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: "Name"),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your name';
-                  }
-                  return null;
-                },
+            ),
+          ),
+          Positioned(
+            left: 35,
+            top: 148,
+            child: const SizedBox(
+              width: 305,
+              child: Text(
+                'Let’s Sign You In',
+                style: TextStyle(
+                  color: Color(0xFF171717),
+                  fontSize: 24,
+                  fontFamily: 'Roboto',
+                  fontWeight: FontWeight.w700,
+                  height: 1.33,
+                  letterSpacing: -0.80,
+                ),
               ),
-              const SizedBox(height: 30),
-              ElevatedButton(
+            ),
+          ),
+          Positioned(
+            left: 35,
+            top: 188,
+            child: const SizedBox(
+              width: 305,
+              child: Opacity(
+                opacity: 0.60,
+                child: Text(
+                  'Welcome back, you’ve been missed!',
+                  style: TextStyle(
+                    color: Color(0xFF171717),
+                    fontSize: 14,
+                    fontFamily: 'Roboto',
+                    fontWeight: FontWeight.w500,
+                    height: 1.71,
+                    letterSpacing: -0.40,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 35,
+            top: 252,
+            child: buildInputField("Email", _emailController),
+          ),
+          Positioned(
+            left: 35,
+            top: 360,
+            child: buildInputField("Password", _passwordController, obscure: true),
+          ),
+          Positioned(
+            left: 35,
+            top: 604,
+            child: SizedBox(
+              width: 305,
+              height: 44,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xCC02C697),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
                 onPressed: () {
-                  // Check if the form is valid
                   if (_formKey.currentState?.validate() ?? false) {
-                    // Call the logInFarmer function to verify the ID and Name
                     _logInFarmer();
                   }
                 },
-                child: const Text("Log In"),
+                child: const Text(
+                  'LOG IN',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontFamily: 'Roboto',
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                  ),
+                ),
               ),
-            ],
+            ),
           ),
-        ),
+          Positioned(
+            left: 0,
+            top: 40,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildInputField(String label, TextEditingController controller, {bool obscure = false}) {
+    return SizedBox(
+      width: 305,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF8F92A1),
+              fontSize: 12,
+              fontFamily: 'Roboto',
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.17,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: controller,
+            obscureText: obscure,
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(vertical: 10),
+              border: InputBorder.none,
+            ),
+            style: const TextStyle(
+              fontSize: 16,
+              fontFamily: 'Roboto',
+              color: Colors.black,
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your $label';
+              }
+              return null;
+            },
+          ),
+          const Divider(
+            color: Color(0xFF8F92A1),
+            thickness: 1,
+          ),
+        ],
       ),
     );
   }

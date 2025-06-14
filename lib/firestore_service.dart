@@ -75,38 +75,53 @@ class FirestoreService {
   }
 
   // Method to verify the customer sign-in using unique ID and name
-  Future<bool> verifyCustomerSignIn(String uniqueID, String name) async {
-    try {
-      DocumentSnapshot docSnapshot = await _db.collection('Customers').doc(uniqueID).get();
+  Future<bool> verifyCustomerSignInByEmailAndPassword(String email, String password) async {
+  try {
+    final querySnapshot = await _db
+        .collection('Customers')
+        .where('email', isEqualTo: email)
+        .limit(1)
+        .get();
 
-      if (docSnapshot.exists) {
-        String storedName = docSnapshot['name'];
-        return storedName == name; // Compare the stored name with the entered name
-      } else {
-        return false; // Profile not found
-      }
-    } catch (e) {
-      print('Error verifying customer profile: $e');
-      throw Exception('Error verifying customer profile: $e');
+    if (querySnapshot.docs.isNotEmpty) {
+      final doc = querySnapshot.docs.first;
+      String storedPassword = doc['password'];
+      return storedPassword == password;
+    } else {
+      return false; // Email not found
     }
+  } catch (e) {
+    print('Error verifying customer login: $e');
+    throw Exception('Error verifying customer login: $e');
   }
+}
+
 
   // Method to verify the farmer sign-in using unique ID and name
-  Future<bool> verifyFarmerSignIn(String uniqueID, String name) async {
-    try {
-      DocumentSnapshot docSnapshot = await _db.collection('Farmers').doc(uniqueID).get();
+  Future<bool> verifyFarmerSignInByEmailAndPassword(String email, String password) async {
+  try {
+    // Search for farmer with matching email
+    final querySnapshot = await _db
+        .collection('Farmers')
+        .where('email', isEqualTo: email)
+        .limit(1)
+        .get();
 
-      if (docSnapshot.exists) {
-        String storedName = docSnapshot['name'];
-        return storedName == name; // Compare the stored name with the entered name
-      } else {
-        return false; // Profile not found
-      }
-    } catch (e) {
-      print('Error verifying farmer profile: $e');
-      throw Exception('Error verifying farmer profile: $e');
+    if (querySnapshot.docs.isNotEmpty) {
+      final doc = querySnapshot.docs.first;
+      final storedPassword = doc['password'];
+
+      // Check if password matches
+      return storedPassword == password;
+    } else {
+      return false; // Email not found
     }
+  } catch (e) {
+    print('Error verifying farmer sign-in: $e');
+    throw Exception('Error verifying farmer sign-in: $e');
   }
+}
+
 
   // Method to query farmers for a customer based on location and preferred crops
   Future<QuerySnapshot> getFarmersForCustomer(String location, List<String> preferredCrops) async {

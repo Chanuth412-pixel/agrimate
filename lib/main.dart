@@ -31,7 +31,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Agrimate',
       theme: ThemeData(
-        primarySwatch: Colors.green, // Theme color for the app
+        primarySwatch: Colors.green,
+        fontFamily: 'Roboto', // Theme color for the app
       ),
       initialRoute: '/', // Starting route when app loads
 

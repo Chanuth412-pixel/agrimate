@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:agrimate/firestore_service.dart'; // Firestore service import
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CreateFarmerProfileScreen extends StatefulWidget {
   @override
@@ -7,98 +8,213 @@ class CreateFarmerProfileScreen extends StatefulWidget {
       _CreateFarmerProfileScreenState();
 }
 
-class _CreateFarmerProfileScreenState
-    extends State<CreateFarmerProfileScreen> {
-  final _formKey = GlobalKey<FormState>(); // Global key for form validation
-  final FirestoreService _firestoreService = FirestoreService(); // Firestore service instance
+class _CreateFarmerProfileScreenState extends State<CreateFarmerProfileScreen> {
+  final _formKey = GlobalKey<FormState>();
 
-  // TextEditingControllers to capture user inputs
   final nameController = TextEditingController();
-  final phoneController = TextEditingController(); // Controller for phone number
   final locationController = TextEditingController();
+  final phoneController = TextEditingController();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
 
-  // Function to create farmer profile
-  void _createFarmerProfile() async {
-    if (!_formKey.currentState!.validate()) return; // Validate the form fields
+  Future<void> _createFarmerProfile() async {
+    if (!_formKey.currentState!.validate()) return;
 
-    // Get data from the controllers
-    String name = nameController.text;
-    String location = locationController.text;
-    String phone = phoneController.text;  // Get phone number
+    final name = nameController.text.trim();
+    final location = locationController.text.trim();
+    final phone = phoneController.text.trim();
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
 
-    // Ensure location and phone are not empty
-    if (location.isEmpty || phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Please enter a valid location and phone number')));
-      return;
-    }
-
-    // Call Firestore service to create the farmer profile
     try {
-      // Pass the phone number along with name and location
-      await _firestoreService.createFarmerProfile(
-        name, location, phone);
+      final userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: email, password: password);
 
-      // Show a success message
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Farmer Profile Created')));
+      final uid = userCredential.user?.uid;
 
-      // Clear the form after submission
+      await FirebaseFirestore.instance.collection('farmers').doc(uid).set({
+        'name': name,
+        'location': location,
+        'phone': phone,
+        'email': email,
+        'uid': uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Farmer profile created successfully')),
+      );
+
       _clearForm();
+    } on FirebaseAuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Auth error: ${e.message}')),
+      );
     } catch (e) {
-      // Show error message if Firestore operation fails
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error creating profile: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
     }
   }
 
-  // Function to clear the form fields
   void _clearForm() {
     nameController.clear();
     locationController.clear();
-    phoneController.clear(); // Clear phone number
+    phoneController.clear();
+    emailController.clear();
+    passwordController.clear();
+  }
+
+  Widget _buildInputField(String label, TextEditingController controller,
+      {bool obscure = false, TextInputType type = TextInputType.text}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF8F92A1),
+              fontSize: 12,
+              fontFamily: 'DM Sans',
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.17,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: 44,
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: Color(0xFF02C697),
+                  width: 1,
+                  style: BorderStyle.solid,
+                ),
+              ),
+            ),
+            child: TextFormField(
+              controller: controller,
+              obscureText: obscure,
+              keyboardType: type,
+              validator: (val) =>
+                  val == null || val.isEmpty ? 'Enter $label' : null,
+              style: const TextStyle(
+                fontFamily: 'DM Sans',
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.only(bottom: 4),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Create Farmer Profile')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey, // Assign the global key for form validation
-          child: Column(
-            children: [
-              // Farmer Name
-              TextFormField(
-                controller: nameController,
-                decoration: InputDecoration(labelText: 'Farmer Name'),
-                validator: (val) => val!.isEmpty ? 'Please enter the name' : null,
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Container(
+          width: 375,
+          height: 812,
+          decoration: const BoxDecoration(color: Colors.white),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                children: [
+                  const SizedBox(height: 40),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.black),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Farmer Profile',
+                        style: TextStyle(
+                          color: Color(0xFF171717),
+                          fontSize: 28,
+                          fontFamily: 'DM Sans',
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.80,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Opacity(
+                    opacity: 0.20,
+                    child: Divider(color: Color(0xFF8F92A1), thickness: 1),
+                  ),
+                  const SizedBox(height: 34),
+                  const Text(
+                    'Getting Started',
+                    style: TextStyle(
+                      color: Color(0xFF171717),
+                      fontSize: 24,
+                      fontFamily: 'DM Sans',
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.80,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Create an account to continue!',
+                    style: TextStyle(
+                      color: Color(0xFF171717),
+                      fontSize: 14,
+                      fontFamily: 'DM Sans',
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: -0.40,
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  _buildInputField('Name', nameController),
+                  _buildInputField('Location', locationController),
+                  _buildInputField('Phone Number', phoneController,
+                      type: TextInputType.phone),
+                  _buildInputField('Email', emailController,
+                      type: TextInputType.emailAddress),
+                  _buildInputField('Password', passwordController,
+                      obscure: true),
+                  const SizedBox(height: 30),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xCC02C697),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      onPressed: _createFarmerProfile,
+                      child: const Text(
+                        'SIGN UP',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontFamily: 'DM Sans',
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                ],
               ),
-              
-              // Farmer Location
-              TextFormField(
-                controller: locationController,
-                decoration: InputDecoration(labelText: 'Location (e.g., City or Lat/Lng)'),
-                validator: (val) => val!.isEmpty ? 'Please enter a location' : null,
-              ),
-              
-              // Farmer Phone Number
-              TextFormField(
-                controller: phoneController,
-                decoration: InputDecoration(labelText: 'Phone Number'),
-                keyboardType: TextInputType.phone,
-                validator: (val) => val!.isEmpty ? 'Please enter the phone number' : null,
-              ),
-              
-              SizedBox(height: 20),
-              
-              // Submit button
-              ElevatedButton(
-                onPressed: _createFarmerProfile,  // Call the correct method
-                child: Text('Create Profile'),
-              ),
-            ],
+            ),
           ),
         ),
       ),

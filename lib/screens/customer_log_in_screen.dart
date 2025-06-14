@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../firestore_service.dart'; // Import FirestoreService for customer sign-in
+import '../firestore_service.dart';
 
 class CustomerLogInScreen extends StatefulWidget {
   const CustomerLogInScreen({super.key});
@@ -10,30 +10,26 @@ class CustomerLogInScreen extends StatefulWidget {
 
 class _CustomerLogInScreenState extends State<CustomerLogInScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _idController = TextEditingController();
-  final TextEditingController _nameController = TextEditingController();
-  final FirestoreService _firestoreService = FirestoreService(); // FirestoreService instance
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final FirestoreService _firestoreService = FirestoreService();
 
-  // Function to log in the customer
   Future<void> _logInCustomer() async {
     try {
-      final id = _idController.text.trim(); // Unique ID entered by the user
-      final name = _nameController.text.trim(); // Name entered by the user
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
 
-      // Verify the Customer's Sign-In
-      bool isVerified = await _firestoreService.verifyCustomerSignIn(id, name);
+      bool isVerified =
+          await _firestoreService.verifyCustomerSignInByEmailAndPassword(email, password);
 
       if (isVerified) {
-        // If verified, navigate to the Customer Profile Screen
         Navigator.pushReplacementNamed(context, '/customerProfile');
       } else {
-        // If not verified, show an error message
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid ID or Name. Please try again.')),
+          const SnackBar(content: Text('Invalid Email or Password. Please try again.')),
         );
       }
     } catch (e) {
-      // Handle errors (network issues, Firestore errors)
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -43,51 +39,142 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Customer Log In")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Input field for the Unique ID (for Customer)
-              TextFormField(
-                controller: _idController,
-                decoration: const InputDecoration(labelText: "Unique ID"),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your Unique ID';
-                  }
-                  return null;
-                },
+      backgroundColor: Colors.white,
+      body: Container(
+        width: 375,
+        height: 812,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 35),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.black),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Customer Profile',
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF171717),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Let’s Sign You In',
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF171717),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Opacity(
+                    opacity: 0.6,
+                    child: Text(
+                      'Welcome back, you’ve been missed!',
+                      style: TextStyle(
+                        fontFamily: 'Roboto',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF171717),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        buildInputField("Email", _emailController),
+                        const SizedBox(height: 20),
+                        buildInputField("Password", _passwordController, obscure: true),
+                        const SizedBox(height: 40),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 44,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xCC02C697),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            onPressed: () {
+                              if (_formKey.currentState?.validate() ?? false) {
+                                _logInCustomer();
+                              }
+                            },
+                            child: const Text(
+                              'LOG IN',
+                              style: TextStyle(
+                                fontFamily: 'Roboto',
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 20),
-              // Input field for the Customer's Name
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: "Name"),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 30),
-              // Log In Button
-              ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState?.validate() ?? false) {
-                    _logInCustomer(); // Call the log-in function for Customer
-                  }
-                },
-                child: const Text("Log In"),
-              ),
-            ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget buildInputField(String label, TextEditingController controller, {bool obscure = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF8F92A1),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          obscureText: obscure,
+          decoration: const InputDecoration(
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(vertical: 10),
+            border: InputBorder.none,
+          ),
+          style: const TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 16,
+            color: Colors.black,
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter your $label';
+            }
+            return null;
+          },
+        ),
+        const Divider(
+          color: Color(0xFF8F92A1),
+          thickness: 1,
+        ),
+      ],
     );
   }
 }
