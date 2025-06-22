@@ -1,3 +1,5 @@
+
+
 /* import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -258,7 +260,7 @@ class _CreateFarmerProfileScreenState extends State<CreateFarmerProfileScreen> {
     final password = passwordController.text.trim();
 
     try {
-      // ✅ Get current location
+      //Get current location
       final position = await _getCurrentLocation();
 
       final userCredential = await FirebaseAuth.instance
@@ -273,7 +275,7 @@ class _CreateFarmerProfileScreenState extends State<CreateFarmerProfileScreen> {
         'email': email,
         'uid': uid,
         'createdAt': FieldValue.serverTimestamp(),
-        'position': GeoPoint(position.latitude, position.longitude), // ✅ Save GPS
+        'position': GeoPoint(position.latitude, position.longitude), //Save GPS
       });
 
       ScaffoldMessenger.of(context).showSnackBar(

@@ -1,3 +1,5 @@
+
+
 /* import 'package:flutter/material.dart';
 import '../firestore_service.dart';
 
@@ -206,13 +208,13 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen> {
       bool isVerified = await _firestoreService.verifyCustomerSignIn(email, password);
 
       if (isVerified) {
-        // ✅ Get current location
+        //Get current location
         Position? location = await _getCurrentLocation();
 
         if (location != null) {
           print('Login location: ${location.latitude}, ${location.longitude}');
 
-          // ✅ Optional: Save location to Firestore
+          // Optional: Save location to Firestore
           await _firestoreService.saveLoginLocation(email, location.latitude, location.longitude);
         }
 

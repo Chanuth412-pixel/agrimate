@@ -5,8 +5,6 @@
 
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs access to your location to track login places.</string>
-
-
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs your location to register your farm.</string>
 

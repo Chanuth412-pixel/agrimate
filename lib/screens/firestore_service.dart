@@ -1,3 +1,5 @@
+
+
 /* import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FirestoreService {
@@ -158,7 +160,7 @@ class FirestoreService {
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance; */
 
-  /// ✅ Create farmer profile with optional GPS location
+  /// Create farmer profile with optional GPS location
   /* Future<void> createFarmerProfile(String name, String locationName, String phone,
       {double? latitude, double? longitude}) async {
     try {
@@ -198,7 +200,7 @@ class FirestoreService {
       }
     }
 
-  /// ✅ Create customer profile and return the document ID
+  ///Create customer profile and return the document ID
   Future<String> createCustomerProfile(String name, String location, String phone, List<String> preferredCrops) async {
     try {
       DocumentReference docRef = await _db.collection('Customers').add({
@@ -216,7 +218,7 @@ class FirestoreService {
     }
   }
 
-  /// ✅ Save customer login location (to be used for nearby farmer matching)
+  ///Save customer login location (to be used for nearby farmer matching)
   Future<void> saveLoginLocation(String email, double lat, double lon) async {
     try {
       await _db.collection('customer_locations').doc(email).set({
@@ -327,7 +329,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  /// ✅ Create farmer profile with optional GPS (position)
+  ///Create farmer profile with optional GPS (position)
   Future<void> createFarmerProfile(
     String uid,
     String name,
@@ -358,7 +360,7 @@ class FirestoreService {
     }
   }
 
-  /// ✅ Create customer profile and return the document ID
+  ///Create customer profile and return the document ID
   Future<String> createCustomerProfile(
     String name,
     String location,
@@ -381,7 +383,7 @@ class FirestoreService {
     }
   }
 
-  /// ✅ Save customer login location (GeoPoint)
+  /// Save customer login location (GeoPoint)
   Future<void> saveLoginLocation(String email, double lat, double lon) async {
     try {
       await _db.collection('customer_locations').doc(email).set({
