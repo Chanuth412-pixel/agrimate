@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class RoleSelectionScreen extends StatelessWidget {
   final String role;
 
-  RoleSelectionScreen({super.key, required this.role});
+  const RoleSelectionScreen({super.key, required this.role});
 
   @override
   Widget build(BuildContext context) {

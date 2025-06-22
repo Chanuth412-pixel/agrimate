@@ -4,6 +4,8 @@ import 'firestore_service.dart'; // Import FirestoreService
 import 'farmer_detail_screen.dart'; // Import the screen to show farmer details
 
 class FarmerProfileScreen extends StatefulWidget {
+  const FarmerProfileScreen({super.key});
+
   @override
   _FarmerProfileScreenState createState() => _FarmerProfileScreenState();
 }

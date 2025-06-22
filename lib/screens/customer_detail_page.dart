@@ -4,7 +4,7 @@ class CustomerDetailPage extends StatelessWidget {
   final Map<String, dynamic> customerData;  // Required named parameter
 
   // Constructor to receive customerData
-  CustomerDetailPage({required this.customerData});
+  const CustomerDetailPage({super.key, required this.customerData});
 
   @override
   Widget build(BuildContext context) {

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'customer_detail_page.dart';  // Import the CustomerDetailPage
 
 class CustomerProfileScreen extends StatelessWidget {
+  const CustomerProfileScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     // Sample data, replace with dynamic data if needed
@@ -77,7 +79,7 @@ class VegetableButton extends StatelessWidget {
   final String vegetableName;
   final BuildContext context;
 
-  VegetableButton({required this.vegetableName, required this.context});
+  const VegetableButton({super.key, required this.vegetableName, required this.context});
 
   @override
   Widget build(BuildContext context) {

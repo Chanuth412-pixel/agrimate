@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CreateCustomerProfileScreen extends StatefulWidget {
+  const CreateCustomerProfileScreen({super.key});
+
   @override
   _CreateCustomerProfileScreenState createState() =>
       _CreateCustomerProfileScreenState();

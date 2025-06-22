@@ -4,7 +4,7 @@ class FarmerDetailScreen extends StatelessWidget {
   final Map<String, dynamic> farmerData;
 
   // Constructor to receive farmer data from the previous screen
-  FarmerDetailScreen({required this.farmerData});
+  const FarmerDetailScreen({super.key, required this.farmerData});
 
   @override
   Widget build(BuildContext context) {
