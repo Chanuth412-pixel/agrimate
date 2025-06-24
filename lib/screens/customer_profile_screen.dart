@@ -1,72 +1,81 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'customer_detail_page.dart';  // Import the CustomerDetailPage
 
 class CustomerProfileScreen extends StatelessWidget {
   const CustomerProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Sample data, replace with dynamic data if needed
-    Map<String, dynamic> customerData = {
-      'name': 'John Doe',
-      'location': 'New York',
-      'phone': '+123456789',
-    };
+    final userId = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Customer Profile')),
+      appBar: AppBar(
+        title: const Text('Customer Dashboard'),
+        backgroundColor: const Color(0xFF02C697),
+      ),
+      backgroundColor: Colors.white,
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start, // Aligning the text to the left
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Display customer data in a neat format
-            Text(
-              'Name: ${customerData['name']}',
-              style: TextStyle(fontSize: 18),
+            const Text('Recommended Crops',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 120,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: const [
+                    CropCard(name: 'Tomato', icon: Icons.local_florist, color: Colors.redAccent),
+                    SizedBox(width: 12),
+                    CropCard(name: 'Carrot', icon: Icons.grass, color: Colors.orangeAccent),
+                    SizedBox(width: 12),
+                    CropCard(name: 'Brinjal', icon: Icons.emoji_nature, color: Colors.deepPurpleAccent),
+                  ],
+                ),
+              ),
             ),
-            SizedBox(height: 10),
-            Text(
-              'Location: ${customerData['location']}',
-              style: TextStyle(fontSize: 18),
-            ),
-            SizedBox(height: 10),
-            Text(
-              'Phone: ${customerData['phone']}',
-              style: TextStyle(fontSize: 18),
-            ),
-            SizedBox(height: 30), // Adding some space before the button section
+            const SizedBox(height: 30),
+            const Text('Ongoing Transactions',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('transactions')
+                    .where('customerId', isEqualTo: userId)
+                    .where('status', isNotEqualTo: 'completed')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-            // Button to navigate to CustomerDetailPage
-            ElevatedButton(
-              onPressed: () {
-                // Pass the customer data to the CustomerDetailPage
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CustomerDetailPage(customerData: customerData),
-                  ),
-                );
-              },
-              child: Text("View Customer Details"),
-            ),
-            
-            SizedBox(height: 30), // Adding space before vegetable buttons
+                  final transactions = snapshot.data!.docs;
 
-            // Vegetable Buttons
-            Column(
-              children: [
-                VegetableButton(vegetableName: "Carrot", context: context),
-                SizedBox(height: 10), // Add space between buttons
-                VegetableButton(vegetableName: "Bean", context: context),
-                SizedBox(height: 10),
-                VegetableButton(vegetableName: "Cabbage", context: context),
-                SizedBox(height: 10),
-                VegetableButton(vegetableName: "Tomato", context: context),
-                SizedBox(height: 10),
-                VegetableButton(vegetableName: "Brinjal", context: context),
-              ],
-            )
+                  if (transactions.isEmpty) {
+                    return const Center(child: Text('No ongoing transactions.'));
+                  }
+
+                  return ListView.builder(
+                    itemCount: transactions.length,
+                    itemBuilder: (context, index) {
+                      final tx = transactions[index];
+                      return Card(
+                        child: ListTile(
+                          title: Text('${tx['crop']} - ${tx['quantity']}kg'),
+                          subtitle: Text('Farmer: ${tx['farmerId']}'),
+                          trailing: Text('₹${tx['pricePerKg']}'),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
@@ -74,24 +83,43 @@ class CustomerProfileScreen extends StatelessWidget {
   }
 }
 
-// A reusable widget for each vegetable button
-class VegetableButton extends StatelessWidget {
-  final String vegetableName;
-  final BuildContext context;
+class CropCard extends StatelessWidget {
+  final String name;
+  final IconData icon;
+  final Color color;
 
-  const VegetableButton({super.key, required this.vegetableName, required this.context});
+  const CropCard({
+    super.key,
+    required this.name,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: () {
-        // Action for the vegetable button, for now just a placeholder
-        print('Selected $vegetableName');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$vegetableName selected')),
-        );
-      },
-      child: Text(vegetableName),
+    return Container(
+      width: 100,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color, width: 1),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 30),
+          const SizedBox(height: 8),
+          Text(
+            name,
+            style: TextStyle(
+              fontSize: 14,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

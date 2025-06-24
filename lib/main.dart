@@ -12,6 +12,7 @@ import 'screens/customer_profile_screen.dart';
 import 'screens/farmer_log_in_screen.dart';  // Correct import for Farmer Log In screen
 import 'screens/customer_log_in_screen.dart'; // Correct import for Customer Log In screen
 import 'screens/role_selection_screen.dart';  // RoleSelectionScreen import
+import 'screens/add_harvest_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,15 +41,16 @@ class MyApp extends StatelessWidget {
 
       // Define the routes for different screens
       routes: {
-        '/': (context) => ProfileSelectionScreen(),  // Initial screen where user selects profile
-        '/createFarmerProfile': (context) => CreateFarmerProfileScreen(),  // Farmer Sign-Up
-        '/createCustomerProfile': (context) => CreateCustomerProfileScreen(),  // Customer Sign-Up
-        '/farmerProfile': (context) => FarmerProfileScreen(),  // Farmer Profile
-        '/customerProfile': (context) => CustomerProfileScreen(),  // Customer Profile
-        '/farmerLogIn': (context) => FarmerLogInScreen(),  // Correct import for Farmer Log In screen
-        '/customerLogIn': (context) => CustomerLogInScreen(),  // Correct import for Customer Log In screen
-        '/farmerSelection': (context) => RoleSelectionScreen(role: 'Farmer'),  // Farmer Role Selection
-        '/customerSelection': (context) => RoleSelectionScreen(role: 'Customer'),  // Customer Role Selection
+        '/': (context) => ProfileSelectionScreen(),
+        '/createFarmerProfile': (context) => CreateFarmerProfileScreen(),
+        '/createCustomerProfile': (context) => CreateCustomerProfileScreen(),
+        '/farmerProfile': (context) => const FarmerProfileScreen(),
+        '/addHarvest': (context) => const AddHarvestScreen(),
+        '/customerProfile': (context) => CustomerProfileScreen(),
+        '/farmerLogIn': (context) => FarmerLogInScreen(),
+        '/customerLogIn': (context) => CustomerLogInScreen(),
+        '/farmerSelection': (context) => RoleSelectionScreen(role: 'Farmer'),
+  '/customerSelection': (context) => RoleSelectionScreen(role: 'Customer'),
       },
     );
   }
