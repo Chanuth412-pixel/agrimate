@@ -13,6 +13,7 @@ import 'screens/farmer_log_in_screen.dart';  // Correct import for Farmer Log In
 import 'screens/customer_log_in_screen.dart'; // Correct import for Customer Log In screen
 import 'screens/role_selection_screen.dart';  // RoleSelectionScreen import
 import 'screens/add_harvest_screen.dart';
+import 'screens/add_crop_customer_c1.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,6 +51,7 @@ class MyApp extends StatelessWidget {
         '/farmerLogIn': (context) => FarmerLogInScreen(),
         '/customerLogIn': (context) => CustomerLogInScreen(),
         '/farmerSelection': (context) => RoleSelectionScreen(role: 'Farmer'),
+        '/addCropCustomer': (context) => const AddCropCustomerC1(cropName: ''),
   '/customerSelection': (context) => RoleSelectionScreen(role: 'Customer'),
       },
     );

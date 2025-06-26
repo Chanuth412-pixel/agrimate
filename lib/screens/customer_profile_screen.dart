@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'add_crop_customer_c1.dart'; // ✅ Import your crop detail screen
 
 class CustomerProfileScreen extends StatelessWidget {
   const CustomerProfileScreen({super.key});
@@ -28,12 +29,51 @@ class CustomerProfileScreen extends StatelessWidget {
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: const [
-                    CropCard(name: 'Tomato', icon: Icons.local_florist, color: Colors.redAccent),
-                    SizedBox(width: 12),
-                    CropCard(name: 'Carrot', icon: Icons.grass, color: Colors.orangeAccent),
-                    SizedBox(width: 12),
-                    CropCard(name: 'Brinjal', icon: Icons.emoji_nature, color: Colors.deepPurpleAccent),
+                  children: [
+                    CropCard(
+                      name: 'Tomato',
+                      icon: Icons.local_florist,
+                      color: Colors.redAccent,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const AddCropCustomerC1(cropName: 'Tomato'),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                    CropCard(
+                      name: 'Carrot',
+                      icon: Icons.grass,
+                      color: Colors.orangeAccent,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const AddCropCustomerC1(cropName: 'Carrot'),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                    CropCard(
+                      name: 'Brinjal',
+                      icon: Icons.emoji_nature,
+                      color: Colors.deepPurpleAccent,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const AddCropCustomerC1(cropName: 'Brinjal'),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -57,7 +97,8 @@ class CustomerProfileScreen extends StatelessWidget {
                   final transactions = snapshot.data!.docs;
 
                   if (transactions.isEmpty) {
-                    return const Center(child: Text('No ongoing transactions.'));
+                    return const Center(
+                        child: Text('No ongoing transactions.'));
                   }
 
                   return ListView.builder(
@@ -66,7 +107,8 @@ class CustomerProfileScreen extends StatelessWidget {
                       final tx = transactions[index];
                       return Card(
                         child: ListTile(
-                          title: Text('${tx['crop']} - ${tx['quantity']}kg'),
+                          title:
+                              Text('${tx['crop']} - ${tx['quantity']}kg'),
                           subtitle: Text('Farmer: ${tx['farmerId']}'),
                           trailing: Text('₹${tx['pricePerKg']}'),
                         ),
@@ -87,39 +129,45 @@ class CropCard extends StatelessWidget {
   final String name;
   final IconData icon;
   final Color color;
+  final VoidCallback? onTap;
 
   const CropCard({
     super.key,
     required this.name,
     required this.icon,
     required this.color,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 100,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color, width: 1),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 30),
-          const SizedBox(height: 8),
-          Text(
-            name,
-            style: TextStyle(
-              fontSize: 14,
-              color: color,
-              fontWeight: FontWeight.w600,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 100,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color, width: 1),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 30),
+            const SizedBox(height: 8),
+            Text(
+              name,
+              style: TextStyle(
+                fontSize: 14,
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
+

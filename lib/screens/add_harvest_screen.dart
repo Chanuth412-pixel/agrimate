@@ -11,22 +11,17 @@ class AddHarvestScreen extends StatefulWidget {
 }
 
 class _AddHarvestScreenState extends State<AddHarvestScreen> {
-  // ─── controllers ─────────────────────────────────────────────
   final _formKey = GlobalKey<FormState>();
   final _planting = TextEditingController();
-  final _harvest  = TextEditingController();
-  final _qty      = TextEditingController();
-  final _price    = TextEditingController();
+  final _harvest = TextEditingController();
+  final _qty = TextEditingController();
+  final _price = TextEditingController();
 
-  // ─── dropdown list ───────────────────────────────────────────
   final _crops = ['Tomato', 'Carrot', 'Brinjal'];
   String? _selectedCrop;
-
-  // ─── output text ─────────────────────────────────────────────
   String _precautions = '';
 
-  // dummy environment values
-  final double _temp = 10;
+  final double _temp = 10;   // Dummy environmental data
   final double _rain = 60;
 
   @override
@@ -45,53 +40,39 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
     if (d != null) ctr.text = DateFormat('yyyy-MM-dd').format(d);
   }
 
-  // ─── GEMINI 1.0 PRO  (stable v1) ─────────────────────────────
-  Future<String> _askGemini({
-    required String crop,
-    required double t,
-    required double r,
-  }) async {
-    const key   = 'AIzaSyAnW6rLBhz6p6VC-Rmq6a08ZpdxjlYOkzg';
-    const model = 'models/gemini-1.0-pro';
+  // ✅ Updated method to call OpenRouter Mixtral API
+  Future<String> _askOpenRouterAPI(String crop) async {
+    const String apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
+    const String apiKey = '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';
 
-    final uri = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1/$model:generateContent?key=$key');
+    final body = jsonEncode({
+      "model": "mistralai/mixtral-8x7b-instruct",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Give me 3 important precautions to take when growing $crop. Make it customized to the crop in conditions with temperature $_temp°C and rainfall $_rain mm. Make the advice specific to these weather conditions.Nothing else"
+        }
+      ]
+    });
 
-    final prompt = '''
-You are an expert agricultural assistant. The farmer grows $crop.
-Current temperature = $t °C, rainfall = $r mm.
-Ideal for $crop: 15–25 °C and 80–120 mm rainfall.
-List three concise precautions in bullet points.
-''';
-
-    // Console debug
-    print('🔸 POST $uri');
     try {
       final res = await http.post(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'contents': [
-            {
-              'parts': [
-                {'text': prompt}
-              ]
-            }
-          ]
-        }),
+        Uri.parse(apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey',
+          'HTTP-Referer': 'https://your-app-name.com',
+          'X-Title': 'Crop Precaution App',
+        },
+        body: body,
       );
-
-      print('🔸 Status ${res.statusCode}');
-      print('🔸 Body   ${res.body.length > 400 ? res.body.substring(0, 400) + "…" : res.body}');
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        return data['candidates'][0]['content']['parts'][0]['text'] ?? '';
+        return data['choices'][0]['message']['content'] ?? 'No precautions found.';
+      } else {
+        return 'Error: ${res.statusCode}\n${res.body}';
       }
-      if (res.statusCode == 429 || res.statusCode == 403) {
-        return 'Gemini quota exceeded or key disabled.';
-      }
-      return 'Gemini error ${res.statusCode}:\n${res.body}';
     } catch (e) {
       return 'Network error: $e';
     }
@@ -101,15 +82,13 @@ List three concise precautions in bullet points.
     if (!_formKey.currentState!.validate()) return;
 
     final crop = _selectedCrop ?? 'Unknown';
-    setState(() => _precautions = 'Loading Gemini precautions …');
+    setState(() => _precautions = 'Loading data …');
 
-    final txt = await _askGemini(crop: crop, t: _temp, r: _rain);
+    final txt = await _askOpenRouterAPI(crop);
 
-    setState(() =>
-        _precautions = '**⚠️ This is not ideal for $crop.**\n\n$txt');
+    setState(() => _precautions = '**Precautions for $crop**\n\n$txt');
   }
 
-  // ─── field helpers ───────────────────────────────────────────
   Widget _dateField(String label, TextEditingController ctr) => Padding(
         padding: const EdgeInsets.only(bottom: 18),
         child: TextFormField(
@@ -137,7 +116,6 @@ List three concise precautions in bullet points.
         ),
       );
 
-  // ─── build UI ───────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
