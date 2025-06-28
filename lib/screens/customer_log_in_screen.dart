@@ -1,190 +1,5 @@
-
-
-/* import 'package:flutter/material.dart';
-import '../firestore_service.dart';
-
-class CustomerLogInScreen extends StatefulWidget {
-  const CustomerLogInScreen({super.key});
-
-  @override
-  _CustomerLogInScreenState createState() => _CustomerLogInScreenState();
-}
-
-class _CustomerLogInScreenState extends State<CustomerLogInScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final FirestoreService _firestoreService = FirestoreService();
-
-  Future<void> _logInCustomer() async {
-    try {
-      final email = _emailController.text.trim();
-      final password = _passwordController.text.trim();
-
-      bool isVerified =
-          await _firestoreService.verifyCustomerSignInByEmailAndPassword(email, password);
-
-      if (isVerified) {
-        Navigator.pushReplacementNamed(context, '/customerProfile');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid Email or Password. Please try again.')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Container(
-        width: 375,
-        height: 812,
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 35),
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 400),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.black),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Customer Profile',
-                    style: TextStyle(
-                      fontFamily: 'Roboto',
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF171717),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Let’s Sign You In',
-                    style: TextStyle(
-                      fontFamily: 'Roboto',
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF171717),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Opacity(
-                    opacity: 0.6,
-                    child: Text(
-                      'Welcome back, you’ve been missed!',
-                      style: TextStyle(
-                        fontFamily: 'Roboto',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF171717),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        buildInputField("Email", _emailController),
-                        const SizedBox(height: 20),
-                        buildInputField("Password", _passwordController, obscure: true),
-                        const SizedBox(height: 40),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 44,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xCC02C697),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            ),
-                            onPressed: () {
-                              if (_formKey.currentState?.validate() ?? false) {
-                                _logInCustomer();
-                              }
-                            },
-                            child: const Text(
-                              'LOG IN',
-                              style: TextStyle(
-                                fontFamily: 'Roboto',
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget buildInputField(String label, TextEditingController controller, {bool obscure = false}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Roboto',
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF8F92A1),
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          obscureText: obscure,
-          decoration: const InputDecoration(
-            isDense: true,
-            contentPadding: EdgeInsets.symmetric(vertical: 10),
-            border: InputBorder.none,
-          ),
-          style: const TextStyle(
-            fontFamily: 'Roboto',
-            fontSize: 16,
-            color: Colors.black,
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please enter your $label';
-            }
-            return null;
-          },
-        ),
-        const Divider(
-          color: Color(0xFF8F92A1),
-          thickness: 1,
-        ),
-      ],
-    );
-  }
-}
- */
-
-
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -317,7 +132,7 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.white, // White Background
       body: SizedBox(
         width: 375,
         height: 812,
@@ -337,7 +152,7 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen> {
                     ),
                     const SizedBox(height: 10),
                     const Text(
-                      'Customer Profile',
+                      'Customer Login',
                       style: TextStyle(
                         fontFamily: 'Roboto',
                         fontSize: 28,
@@ -347,25 +162,12 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen> {
                     ),
                     const SizedBox(height: 20),
                     const Text(
-                      'Let’s Sign You In',
+                      'Please sign in to continue.',
                       style: TextStyle(
                         fontFamily: 'Roboto',
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
                         color: Color(0xFF171717),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    const Opacity(
-                      opacity: 0.6,
-                      child: Text(
-                        'Welcome back, you’ve been missed!',
-                        style: TextStyle(
-                          fontFamily: 'Roboto',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF171717),
-                        ),
                       ),
                     ),
                     const SizedBox(height: 40),
@@ -378,7 +180,7 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen> {
                       height: 44,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xCC02C697),
+                          backgroundColor: const Color(0xFF14DAE2), // Button Color
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6),
                           ),
@@ -399,6 +201,41 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen> {
                           ),
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 20),
+                    Center(
+                      child: Text(
+                        'Forgot Password?',
+                        style: TextStyle(
+                          color: const Color(0xFF14DAE2),
+                          fontFamily: 'Roboto',
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 25),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Don\'t have an account?',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushNamed(context, '/createAccount');
+                          },
+                          child: const Text(
+                            'Sign up',
+                            style: TextStyle(
+                              color: Color(0xFF14DAE2),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
