@@ -11,10 +11,51 @@ class CustomerLogInScreen extends StatefulWidget {
   _CustomerLogInScreenState createState() => _CustomerLogInScreenState();
 }
 
-class _CustomerLogInScreenState extends State<CustomerLogInScreen> {
+class _CustomerLogInScreenState extends State<CustomerLogInScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
+  // Animation controllers
+  late AnimationController _logoController;
+  late AnimationController _textController;
+  late AnimationController _buttonController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _logoController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+    _textController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+    _buttonController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+
+    // Start the animations when the screen loads
+    _logoController.forward();
+    Future.delayed(const Duration(milliseconds: 500), () {
+      _textController.forward();
+    });
+    Future.delayed(const Duration(seconds: 1), () {
+      _buttonController.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _logoController.dispose();
+    _textController.dispose();
+    _buttonController.dispose();
+    super.dispose();
+  }
 
   Future<void> _logInCustomer() async {
     final email = _emailController.text.trim();
@@ -146,20 +187,44 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.black),
-                      onPressed: () => Navigator.pop(context),
+                    // Logo with Fade-in Animation
+                    AnimatedBuilder(
+                      animation: _logoController,
+                      builder: (context, child) {
+                        return Opacity(
+                          opacity: _logoController.value,
+                          child: Center(
+                            child: SizedBox(
+                              width: 175,
+                              height: 175,
+                              child: Image.asset('images/login.svg'), // Replace with your logo path
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Customer Login',
-                      style: TextStyle(
-                        fontFamily: 'Roboto',
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF171717),
-                      ),
+
+                    const SizedBox(height: 20),
+
+                    // "Login" Text with Fade-in Animation
+                    AnimatedBuilder(
+                      animation: _textController,
+                      builder: (context, child) {
+                        return Opacity(
+                          opacity: _textController.value,
+                          child: const Text(
+                            'Customer Login',
+                            style: TextStyle(
+                              fontFamily: 'Roboto',
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF171717),
+                            ),
+                          ),
+                        );
+                      },
                     ),
+
                     const SizedBox(height: 20),
                     const Text(
                       'Please sign in to continue.',
@@ -171,49 +236,77 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen> {
                       ),
                     ),
                     const SizedBox(height: 40),
-                    buildInputField("Email", _emailController),
-                    const SizedBox(height: 20),
-                    buildInputField("Password", _passwordController, obscure: true),
-                    const SizedBox(height: 40),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 44,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF14DAE2), // Button Color
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
+
+                    // Email and Password Input Fields with Fade-in Animation
+                    AnimatedBuilder(
+                      animation: _textController,
+                      builder: (context, child) {
+                        return Opacity(
+                          opacity: _textController.value,
+                          child: Column(
+                            children: [
+                              buildInputField("Email", _emailController),
+                              const SizedBox(height: 20),
+                              buildInputField("Password", _passwordController, obscure: true),
+                            ],
                           ),
-                        ),
-                        onPressed: () {
-                          if (_formKey.currentState?.validate() ?? false) {
-                            _logInCustomer();
-                          }
-                        },
-                        child: const Text(
-                          'LOG IN',
-                          style: TextStyle(
-                            fontFamily: 'Roboto',
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
+
+                    const SizedBox(height: 40),
+
+                    // Login Button with Fade-in Animation and Light Green Color
+                    AnimatedBuilder(
+                      animation: _buttonController,
+                      builder: (context, child) {
+                        return Opacity(
+                          opacity: _buttonController.value,
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: 44,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xCC02C697), // Light Green Button Color
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                              onPressed: () {
+                                if (_formKey.currentState?.validate() ?? false) {
+                                  _logInCustomer();
+                                }
+                              },
+                              child: const Text(
+                                'LOG IN',
+                                style: TextStyle(
+                                  fontFamily: 'Roboto',
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+
                     const SizedBox(height: 20),
                     Center(
                       child: Text(
                         'Forgot Password?',
                         style: TextStyle(
-                          color: const Color(0xFF14DAE2),
+                          color: const Color(0xCC02C697), // Light Green Text Color
                           fontFamily: 'Roboto',
                           fontSize: 14,
                         ),
                       ),
                     ),
                     const SizedBox(height: 25),
+
+                    // Sign-up Option with Fade-in Animation and Light Green Color
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -226,12 +319,12 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen> {
                         ),
                         TextButton(
                           onPressed: () {
-                            Navigator.pushNamed(context, '/createAccount');
+                            Navigator.pushNamed(context, '/createCustomerProfile'); // Updated route
                           },
                           child: const Text(
                             'Sign up',
                             style: TextStyle(
-                              color: Color(0xFF14DAE2),
+                              color: Color(0xCC02C697), // Light Green Text Color
                             ),
                           ),
                         ),

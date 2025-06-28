@@ -19,6 +19,7 @@ class _CreateCustomerProfileScreenState extends State<CreateCustomerProfileScree
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
+  // Method to create customer profile
   Future<void> _createCustomerProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -29,11 +30,13 @@ class _CreateCustomerProfileScreenState extends State<CreateCustomerProfileScree
     final password = passwordController.text.trim();
 
     try {
+      // Step 1: Create user with FirebaseAuth
       final userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: email, password: password);
 
       final uid = userCredential.user?.uid;
 
+      // Step 2: Save customer details in Firestore
       await FirebaseFirestore.instance.collection('customers').doc(uid).set({
         'name': name,
         'location': location,
@@ -43,10 +46,12 @@ class _CreateCustomerProfileScreenState extends State<CreateCustomerProfileScree
         'createdAt': FieldValue.serverTimestamp(),
       });
 
+      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Customer profile created successfully')),
       );
 
+      // Clear form inputs after successful profile creation
       _clearForm();
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -59,6 +64,7 @@ class _CreateCustomerProfileScreenState extends State<CreateCustomerProfileScree
     }
   }
 
+  // Method to clear the form inputs
   void _clearForm() {
     nameController.clear();
     locationController.clear();
@@ -67,6 +73,7 @@ class _CreateCustomerProfileScreenState extends State<CreateCustomerProfileScree
     passwordController.clear();
   }
 
+  // Method to build form input fields
   Widget _buildInputField(String label, TextEditingController controller,
       {bool obscure = false, TextInputType type = TextInputType.text}) {
     return Padding(

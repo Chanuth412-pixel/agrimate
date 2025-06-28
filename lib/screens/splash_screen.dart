@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:agrimate/screens/role_selection_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -7,40 +8,28 @@ class SplashScreen extends StatefulWidget {
   _SplashScreenState createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-
+class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
 
-    // Initialize the animation controller
-    _controller = AnimationController(
-      duration: const Duration(seconds: 4),
-      vsync: this,
-    );
+    // Debugging the splash screen lifecycle
+    print("SplashScreen initialized");
 
-    // Create the fade animation
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
+    // Wait for the first frame to be built, then navigate
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      print("Post frame callback executed");
 
-    // Start the animation
-    _controller.forward();
-
-    // Transition after 4 seconds
-    Future.delayed(const Duration(seconds: 4), () {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/profileSelection');
-      }
+      Future.delayed(const Duration(seconds: 3), () {
+        print("Navigating to RoleSelectionScreen...");
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const RoleSelectionScreen(), // role = null by default
+          ),
+        );
+      });
     });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();  // Dispose of the animation controller
-    super.dispose();
   }
 
   @override
@@ -48,9 +37,16 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
-        child: FadeTransition(
-          opacity: _fadeAnimation,  // Apply the fade animation
-          child: Image.asset('assets/images/splash_logo.png'), // Your logo image
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            CircularProgressIndicator(),
+            SizedBox(height: 20),
+            Text(
+              'Welcome to Agrimate!',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+          ],
         ),
       ),
     );
