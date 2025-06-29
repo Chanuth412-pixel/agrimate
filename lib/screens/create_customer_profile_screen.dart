@@ -10,7 +10,8 @@ class CreateCustomerProfileScreen extends StatefulWidget {
       _CreateCustomerProfileScreenState();
 }
 
-class _CreateCustomerProfileScreenState extends State<CreateCustomerProfileScreen> {
+class _CreateCustomerProfileScreenState extends State<CreateCustomerProfileScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
 
   final nameController = TextEditingController();
@@ -18,6 +19,55 @@ class _CreateCustomerProfileScreenState extends State<CreateCustomerProfileScree
   final phoneController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+
+  // Animation controllers
+  late AnimationController _logoController;
+  late AnimationController _textController;
+  late AnimationController _inputController;
+  late AnimationController _buttonController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _logoController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+    _textController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+    _inputController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+    _buttonController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+
+    // Start animations
+    _logoController.forward();
+    Future.delayed(const Duration(milliseconds: 500), () {
+      _textController.forward();
+    });
+    Future.delayed(const Duration(seconds: 1), () {
+      _inputController.forward();
+    });
+    Future.delayed(const Duration(seconds: 1), () {
+      _buttonController.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _logoController.dispose();
+    _textController.dispose();
+    _inputController.dispose();
+    _buttonController.dispose();
+    super.dispose();
+  }
 
   // Method to create customer profile
   Future<void> _createCustomerProfile() async {
@@ -189,37 +239,81 @@ class _CreateCustomerProfileScreenState extends State<CreateCustomerProfileScree
                     ),
                   ),
                   const SizedBox(height: 40),
-                  _buildInputField('Name', nameController),
-                  _buildInputField('Location', locationController),
-                  _buildInputField('Phone Number', phoneController,
-                      type: TextInputType.phone),
-                  _buildInputField('Email', emailController,
-                      type: TextInputType.emailAddress),
-                  _buildInputField('Password', passwordController,
-                      obscure: true),
+
+                  // Logo Animation
+                  AnimatedBuilder(
+                    animation: _logoController,
+                    builder: (context, child) {
+                      return Opacity(
+                        opacity: _logoController.value,
+                        child: Center(
+                          child: SizedBox(
+                            width: 175,
+                            height: 175,
+                            child: Image.asset('images/logo.png'), // Replace with your logo path
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Input Fields with Fade-in Animation
+                  AnimatedBuilder(
+                    animation: _inputController,
+                    builder: (context, child) {
+                      return Opacity(
+                        opacity: _inputController.value,
+                        child: Column(
+                          children: [
+                            _buildInputField('Name', nameController),
+                            _buildInputField('Location', locationController),
+                            _buildInputField('Phone Number', phoneController,
+                                type: TextInputType.phone),
+                            _buildInputField('Email', emailController,
+                                type: TextInputType.emailAddress),
+                            _buildInputField('Password', passwordController,
+                                obscure: true),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+
                   const SizedBox(height: 30),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 44,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xCC02C697),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
+
+                  // Sign-up Button with Fade-in Animation
+                  AnimatedBuilder(
+                    animation: _buttonController,
+                    builder: (context, child) {
+                      return Opacity(
+                        opacity: _buttonController.value,
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 44,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xCC02C697),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            onPressed: _createCustomerProfile,
+                            child: const Text(
+                              'SIGN UP',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontFamily: 'DM Sans',
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      onPressed: _createCustomerProfile,
-                      child: const Text(
-                        'SIGN UP',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontFamily: 'DM Sans',
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 30),
                 ],

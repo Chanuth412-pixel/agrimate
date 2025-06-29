@@ -135,10 +135,17 @@ class _FarmerLogInScreenState extends State<FarmerLogInScreen> with TickerProvid
         TextFormField(
           controller: controller,
           obscureText: obscure,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             isDense: true,
-            contentPadding: EdgeInsets.symmetric(vertical: 10),
-            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+            hintText: label,
+            hintStyle: const TextStyle(color: Color(0xFF8F92A1)),
+            filled: true,
+            fillColor: const Color(0xFFF4F6F9),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
           ),
           style: const TextStyle(
             fontFamily: 'Roboto',
@@ -152,10 +159,7 @@ class _FarmerLogInScreenState extends State<FarmerLogInScreen> with TickerProvid
             return null;
           },
         ),
-        const Divider(
-          color: Color(0xFF8F92A1),
-          thickness: 1,
-        ),
+        const SizedBox(height: 16),
       ],
     );
   }
@@ -187,7 +191,7 @@ class _FarmerLogInScreenState extends State<FarmerLogInScreen> with TickerProvid
                             child: SizedBox(
                               width: 175,
                               height: 175,
-                              child: Image.asset('images/login.svg'), // Replace with your logo path
+                              child: Image.asset('assets/images/login.svg'), // Replace with your logo path
                             ),
                           ),
                         );

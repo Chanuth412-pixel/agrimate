@@ -7,7 +7,7 @@ publish_to: "none"  # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.3.0 <4.0.0"
+  sdk: ">=3.8.0 <4.0.0"
 
 dependencies:
   flutter:
@@ -24,8 +24,8 @@ dependencies:
   cloud_firestore: ^4.17.3
   image_picker: ^1.1.0
   http: ^0.13.6
-  
 
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -37,6 +37,7 @@ flutter:
   assets:
     - assets/fonts/
     - assets/images/
+    - assets/images/splash_logo.png
 
   fonts:
     - family: Roboto
