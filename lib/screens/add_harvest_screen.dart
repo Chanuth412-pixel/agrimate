@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 
 class AddHarvestScreen extends StatefulWidget {
   const AddHarvestScreen({super.key});
@@ -17,10 +20,23 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
   final _qty = TextEditingController();
   final _price = TextEditingController();
 
-  final _crops = ['Tomato', 'Carrot', 'Brinjal'];
+  final _crops = ['tomato', 'carrot', 'brinjal'];
+  final _cropDisplayNames = ['Tomato', 'Carrot', 'Brinjal'];
+  // Note: Make sure these exact names match the field names in your Firestore documents
   String? _selectedCrop;
+  
+  // Store the last previewed values to detect changes
+  String? _lastPreviewedCrop;
+  String? _lastPreviewedPlanting;
+  String? _lastPreviewedHarvest;
+  String? _lastPreviewedQty;
+  String? _lastPreviewedPrice;
   String _precautions = '';
   String _weatherSummary = '';
+  String _demandSupplyStatus = '';
+  String _priceStatus = '';
+  String _actualPrecautions = ''; // Store the actual precautions separately
+  bool _hasPreviewed = false;
 
   double _temp = 0; // To hold the fetched temperature
   double _rain = 0; // To hold the fetched rainfall data
@@ -29,6 +45,57 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
   void initState() {
     super.initState();
     _planting.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    _calculateHarvestDate();
+    
+    // Add listeners to detect input changes
+    _planting.addListener(_onInputChanged);
+    _harvest.addListener(_onInputChanged);
+    _qty.addListener(_onInputChanged);
+    _price.addListener(_onInputChanged);
+  }
+
+  @override
+  void dispose() {
+    _planting.removeListener(_onInputChanged);
+    _harvest.removeListener(_onInputChanged);
+    _qty.removeListener(_onInputChanged);
+    _price.removeListener(_onInputChanged);
+    super.dispose();
+  }
+
+  void _onInputChanged() {
+    // Check if any input has changed since last preview
+    if (_hasPreviewed) {
+      bool hasChanged = _lastPreviewedCrop != _selectedCrop ||
+          _lastPreviewedPlanting != _planting.text ||
+          _lastPreviewedHarvest != _harvest.text ||
+          _lastPreviewedQty != _qty.text ||
+          _lastPreviewedPrice != _price.text;
+      
+      if (hasChanged) {
+        setState(() {
+          _hasPreviewed = false;
+          _precautions = '';
+          _demandSupplyStatus = '';
+          _priceStatus = '';
+          _weatherSummary = '';
+          _actualPrecautions = '';
+        });
+      }
+    }
+  }
+
+  void _calculateHarvestDate() {
+    // Calculate 60 days from today
+    DateTime sixtyDaysFromNow = DateTime.now().add(const Duration(days: 60));
+    
+    // Find the first Sunday after 60 days
+    DateTime harvestDate = sixtyDaysFromNow;
+    while (harvestDate.weekday != DateTime.sunday) {
+      harvestDate = harvestDate.add(const Duration(days: 1));
+    }
+    
+    _harvest.text = DateFormat('yyyy-MM-dd').format(harvestDate);
   }
 
   Future<void> _pickDate(TextEditingController ctr) async {
@@ -82,11 +149,87 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
     }
   }
 
+  // Check demand and supply from Firestore
+  Future<String> _checkDemandSupply(String crop, int quantity) async {
+    try {
+      final supplyDoc = await FirebaseFirestore.instance
+          .collection('this_week')
+          .doc('supply')
+          .get();
+      
+      final demandDoc = await FirebaseFirestore.instance
+          .collection('this_week')
+          .doc('demand')
+          .get();
+
+      if (supplyDoc.exists && demandDoc.exists) {
+        final supplyData = supplyDoc.data() as Map<String, dynamic>;
+        final demandData = demandDoc.data() as Map<String, dynamic>;
+
+        // Debug: Print the actual data structure
+        print('Supply Data: $supplyData');
+        print('Demand Data: $demandData');
+        print('Selected Crop: $crop');
+
+        // Get current supply and demand for the selected crop
+        final currentSupply = supplyData[crop] ?? 0;
+        final currentDemand = demandData[crop] ?? 0;
+
+        print('Current Supply for $crop: $currentSupply');
+        print('Current Demand for $crop: $currentDemand');
+
+        // Calculate new supply after adding this harvest
+        final newSupply = currentSupply + quantity;
+
+        if (newSupply >= currentDemand) {
+          return '⚠️ CAUTION: Imbalanced quantity (mismatched with supply and demand) — likely to result in high excess.';
+        } else {
+          return '✅ Well-balanced quantity (based on supply and demand) — ideal for selling with minimal excess';
+        }
+      } else {
+        return '❓ Unable to check demand/supply: Data not available.';
+      }
+    } catch (e) {
+      return '❌ Error checking demand/supply: $e';
+    }
+  }
+
+  // Check price against Firestore price collection
+  Future<String> _checkPrice(String crop, int inputPrice) async {
+    try {
+      final priceDoc = await FirebaseFirestore.instance
+          .collection('price')
+          .doc(crop)
+          .get();
+
+      if (priceDoc.exists) {
+        final priceData = priceDoc.data() as Map<String, dynamic>;
+        final suggestedPrice = priceData['suggested_price'] ?? 0;
+        final capPrice = priceData['cap_price'] ?? 0;
+
+        print('Price Data for $crop: $priceData');
+        print('Input Price: $inputPrice, Suggested Price: $suggestedPrice, Cap Price: $capPrice');
+
+        if (inputPrice > capPrice) {
+          return '❌ PRICE TOO HIGH: Your price (LKR $inputPrice) exceeds the cap price (LKR $capPrice) for $crop. Please reduce your price.';
+        } else if (inputPrice < suggestedPrice) {
+          return '⚠️ LOW PRICE: Your price (LKR $inputPrice) is below suggested price (LKR $suggestedPrice) for $crop. Consider increasing your price.';
+        } else {
+          return '✅ GOOD PRICE: Your price (LKR $inputPrice) is within acceptable range. Suggested: LKR $suggestedPrice, Cap: LKR $capPrice';
+        }
+      } else {
+        return '❓ Unable to check price: Price data not available for $crop.';
+      }
+    } catch (e) {
+      return '❌ Error checking price: $e';
+    }
+  }
+
   // Updated method to call OpenRouter Mixtral API
   Future<String> _askOpenRouterAPI(String crop) async {
     const String apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
     const String apiKey =
-        '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'; // Your OpenRouter API key
+        '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'; // Your OpenRouter API key
 
     final body = jsonEncode({
       "model": "mistralai/mixtral-8x7b-instruct",
@@ -94,7 +237,7 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
         {
           "role": "user",
           "content":
-              "Give me 3 important precautions to take when growing $crop. Make it customized to the crop in conditions with temperature $_temp°C and rainfall $_rain mm. Make the advice specific to these weather conditions. Nothing else and give nothing more than the 3 precautions"
+              "Given the following weather data, tell me in the first line whether the conditions are in the ideal range for farming $crop. Then list 3 important precautions to take, each with a short explanation. Make the advice specific to the crop and the given weather conditions (temperature: $_temp°C, rainfall: $_rain mm). Use clear, simple language. Return nothing else apart from the three precautions and the first-line assessment"
         }
       ]
     });
@@ -136,33 +279,154 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
     }
   }
 
-  Future<void> _submit() async {
+  Future<void> _preview() async {
     if (!_formKey.currentState!.validate()) return;
 
     final crop = _selectedCrop ?? 'Unknown';
-    setState(() => _precautions = 'Loading data …');
+    final quantity = int.parse(_qty.text);
+    final price = int.parse(_price.text);
+    
+    setState(() {
+      _precautions = 'Loading data...';
+      _demandSupplyStatus = 'Checking demand/supply...';
+      _priceStatus = 'Checking price...';
+    });
 
-    // Example city for weather fetching, you can replace it with user input
-    String city = "Kandy"; // Replace this with the actual city for weather data
-    await _fetchWeatherData(city); // Fetch the weather data (temp and rain)
-
-    // Fetch crop precautions based on weather
+    // Fetch weather + precautions + demand/supply + price
+    String city = "Kandy";
+    await _fetchWeatherData(city);
     final txt = await _askOpenRouterAPI(crop);
+    final demandSupplyStatus = await _checkDemandSupply(crop, quantity);
+    final priceStatus = await _checkPrice(crop, price);
 
-    setState(() => _precautions = '**Precautions for $crop**\n\n$txt');
+    setState(() {
+      _precautions = 'Precautions for $crop\n\n$txt';
+      _actualPrecautions = txt; // Store the actual precautions without the header
+      _demandSupplyStatus = demandSupplyStatus;
+      _priceStatus = priceStatus;
+      _hasPreviewed = true;
+      
+      // Store the current values for change detection
+      _lastPreviewedCrop = crop;
+      _lastPreviewedPlanting = _planting.text;
+      _lastPreviewedHarvest = _harvest.text;
+      _lastPreviewedQty = _qty.text;
+      _lastPreviewedPrice = _price.text;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Preview completed! You can now submit your harvest data.'),
+        backgroundColor: Colors.green,
+      ),
+    );
   }
 
-  Widget _dateField(String label, TextEditingController ctr) => Padding(
+  Future<void> _submit() async {
+    if (!_hasPreviewed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please preview your data first before submitting!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Check if price is acceptable before submitting
+    final crop = _selectedCrop ?? 'Unknown';
+    final price = int.parse(_price.text);
+    final priceStatus = await _checkPrice(crop, price);
+    
+    if (priceStatus.contains('❌ PRICE TOO HIGH')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot submit: Price exceeds cap price!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!_formKey.currentState!.validate()) return;
+
+    final quantity = int.parse(_qty.text);
+    
+    setState(() => _precautions = 'Saving data...');
+
+    // Build harvest data object
+    final harvestEntry = {
+      'crop': crop,
+      'plantingDate': _planting.text,
+      'harvestDate': _harvest.text,
+      'quantity': quantity,
+      'available': quantity,
+      'expectedPrice': price,
+      'precautions': _actualPrecautions, // Use the stored actual precautions
+    };
+
+    try {
+      final userId = FirebaseAuth.instance.currentUser!.uid;
+
+      await FirebaseFirestore.instance
+          .collection('Harvests')
+          .doc(userId)
+          .set({
+            'harvests': FieldValue.arrayUnion([harvestEntry]),
+          }, SetOptions(merge: true));
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Harvest data submitted successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Reset the form after successful submission
+      setState(() {
+        _hasPreviewed = false;
+        _precautions = '';
+        _demandSupplyStatus = '';
+        _priceStatus = '';
+        _weatherSummary = '';
+        _actualPrecautions = '';
+        _planting.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        _calculateHarvestDate();
+        _qty.clear();
+        _price.clear();
+        _selectedCrop = null;
+        
+        // Reset the last previewed values
+        _lastPreviewedCrop = null;
+        _lastPreviewedPlanting = null;
+        _lastPreviewedHarvest = null;
+        _lastPreviewedQty = null;
+        _lastPreviewedPrice = null;
+      });
+    } catch (e) {
+      print('Error saving data: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error saving harvest data'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+
+
+  Widget _dateField(String label, TextEditingController ctr, {bool isReadOnly = false}) => Padding(
         padding: const EdgeInsets.only(bottom: 18),
         child: TextFormField(
           controller: ctr,
           readOnly: true,
-          onTap: () => _pickDate(ctr),
+          onTap: isReadOnly ? null : () => _pickDate(ctr),
           validator: (v) => v == null || v.isEmpty ? 'Enter $label' : null,
           decoration: InputDecoration(
             labelText: label,
             border: const OutlineInputBorder(),
-            suffixIcon: const Icon(Icons.calendar_today),
+            suffixIcon: isReadOnly ? null : const Icon(Icons.calendar_today),
           ),
         ),
       );
@@ -189,30 +453,56 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
           Form(
             key: _formKey,
             child: Column(children: [
-              _dateField('Planting Date', _planting),
-              _dateField('Harvest Date',  _harvest),
               Padding(
                 padding: const EdgeInsets.only(bottom: 18),
                 child: DropdownButtonFormField<String>(
                   decoration: const InputDecoration(labelText: 'Select Crop', border: OutlineInputBorder()),
                   value: _selectedCrop,
-                  items: _crops.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                  onChanged: (v) => setState(() => _selectedCrop = v),
+                  items: _crops.asMap().entries.map((entry) {
+                    int index = entry.key;
+                    String cropValue = entry.value;
+                    String displayName = _cropDisplayNames[index];
+                    return DropdownMenuItem(
+                      value: cropValue,
+                      child: Text(displayName),
+                    );
+                  }).toList(),
+                  onChanged: (v) {
+                    setState(() => _selectedCrop = v);
+                    _onInputChanged(); // Trigger change detection
+                  },
                   validator: (v) => v == null ? 'Select crop' : null,
                 ),
               ),
+              _dateField('Planting Date', _planting),
+              _dateField('Harvest Date',  _harvest, isReadOnly: true),
               _textField('Quantity (kg)',         _qty,   type: TextInputType.number),
-              _textField('Expected Price (₹/kg)', _price, type: TextInputType.number),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF02C697),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+              _textField('Expected Price (LKR/kg)', _price, type: TextInputType.number),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _preview,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text('Preview'),
+                    ),
                   ),
-                  child: const Text('Submit Harvest Details'),
-                ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _hasPreviewed ? _submit : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _hasPreviewed ? const Color(0xFF02C697) : Colors.grey,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text('Submit'),
+                    ),
+                  ),
+                ],
               ),
             ])),
           const SizedBox(height: 28),
@@ -221,6 +511,24 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
           const Text('Upcoming Weather', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
           Text(_weatherSummary, style: const TextStyle(fontSize: 14)),
+          const SizedBox(height: 20),
+          const Text('Market Analysis', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          _demandSupplyStatus.isEmpty
+              ? const Text(
+                  'Click Preview to check market conditions.',
+                  style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+                )
+              : Text(_demandSupplyStatus, style: const TextStyle(fontSize: 14)),
+          const SizedBox(height: 20),
+          const Text('Price Analysis', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          _priceStatus.isEmpty
+              ? const Text(
+                  'Click Preview to check price recommendations.',
+                  style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+                )
+              : Text(_priceStatus, style: const TextStyle(fontSize: 14)),
           const SizedBox(height: 20),
           const Text('Precautions for Crop Care', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
