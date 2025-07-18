@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 
 class AddHarvestScreen extends StatefulWidget {
@@ -228,8 +229,7 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
   // Updated method to call OpenRouter Mixtral API
   Future<String> _askOpenRouterAPI(String crop) async {
     const String apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
-    const String apiKey =
-        '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'; // Your OpenRouter API key
+    final String apiKey = dotenv.env['OPENAI_API_KEY'] ?? '';
 
     final body = jsonEncode({
       "model": "mistralai/mixtral-8x7b-instruct",
