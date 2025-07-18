@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
+import '../l10n/app_localizations.dart';
 
 class FarmerLogInScreen extends StatefulWidget {
   const FarmerLogInScreen({super.key});
@@ -135,17 +136,10 @@ class _FarmerLogInScreenState extends State<FarmerLogInScreen> with TickerProvid
         TextFormField(
           controller: controller,
           obscureText: obscure,
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             isDense: true,
-            contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-            hintText: label,
-            hintStyle: const TextStyle(color: Color(0xFF8F92A1)),
-            filled: true,
-            fillColor: const Color(0xFFF4F6F9),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
-            ),
+            contentPadding: EdgeInsets.symmetric(vertical: 10),
+            border: InputBorder.none,
           ),
           style: const TextStyle(
             fontFamily: 'Roboto',
@@ -154,12 +148,15 @@ class _FarmerLogInScreenState extends State<FarmerLogInScreen> with TickerProvid
           ),
           validator: (value) {
             if (value == null || value.isEmpty) {
-              return 'Please enter your $label';
+              return AppLocalizations.of(context)!.pleaseEnterField(label);
             }
             return null;
           },
         ),
-        const SizedBox(height: 16),
+        const Divider(
+          color: Color(0xFF8F92A1),
+          thickness: 1,
+        ),
       ],
     );
   }
@@ -206,9 +203,9 @@ class _FarmerLogInScreenState extends State<FarmerLogInScreen> with TickerProvid
                       builder: (context, child) {
                         return Opacity(
                           opacity: _textController.value,
-                          child: const Text(
-                            'Farmer Login',
-                            style: TextStyle(
+                          child: Text(
+                            AppLocalizations.of(context)!.farmerLogin,
+                            style: const TextStyle(
                               fontFamily: 'Roboto',
                               fontSize: 28,
                               fontWeight: FontWeight.bold,
@@ -290,7 +287,7 @@ class _FarmerLogInScreenState extends State<FarmerLogInScreen> with TickerProvid
                     const SizedBox(height: 20),
                     Center(
                       child: Text(
-                        'Forgot Password?',
+                        AppLocalizations.of(context)!.forgotPassword,
                         style: TextStyle(
                           color: const Color(0xCC02C697), // Light Green Text Color
                           fontFamily: 'Roboto',
@@ -315,9 +312,9 @@ class _FarmerLogInScreenState extends State<FarmerLogInScreen> with TickerProvid
                           onPressed: () {
                             Navigator.pushNamed(context, '/createFarmerProfile'); // Updated route
                           },
-                          child: const Text(
-                            'Sign up',
-                            style: TextStyle(
+                          child: Text(
+                            AppLocalizations.of(context)!.signUp,
+                            style: const TextStyle(
                               color: Color(0xCC02C697), // Light Green Text Color
                             ),
                           ),

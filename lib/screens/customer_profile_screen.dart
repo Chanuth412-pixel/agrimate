@@ -3,6 +3,54 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'add_crop_customer_c1.dart';
 import 'customer_detail_page.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+const Map<String, List<Map<String, String>>> cropRecipes = {
+  'Tomato': [
+    {
+      'name': 'Tomato Salad',
+      'method': 'Slice fresh tomatoes, add olive oil, chopped basil, and feta cheese. Toss and serve chilled.'
+    },
+    {
+      'name': 'Tomato Soup',
+      'method': 'Cook tomatoes, garlic, and onion in a pot. Add herbs, simmer, then blend until smooth.'
+    },
+    {
+      'name': 'Stuffed Tomatoes',
+      'method': 'Hollow out tomatoes, fill with cooked quinoa, sautéed veggies, and herbs. Bake until tender.'
+    }
+  ],
+  'Brinjal': [
+    {
+      'name': 'Brinjal Curry',
+      'method': 'Cook eggplant with coconut milk, spices, and herbs until soft. Serve with rice.'
+    },
+    {
+      'name': 'Grilled Brinjal',
+      'method': 'Slice brinjal, brush with olive oil, grill with garlic until golden.'
+    },
+    {
+      'name': 'Brinjal Stir Fry',
+      'method': 'Stir fry eggplant with bell peppers, soy sauce, and ginger until cooked.'
+    }
+  ],
+  'Carrot': [
+    {
+      'name': 'Carrot Soup',
+      'method': 'Cook carrots, ginger, and onion in broth. Blend until smooth and creamy.'
+    },
+    {
+      'name': 'Carrot Salad',
+      'method': 'Grate carrots, mix with lemon juice, raisins, and nuts. Serve fresh.'
+    },
+    {
+      'name': 'Carrot Stir Fry',
+      'method': 'Stir fry carrots with peas, cumin, and coriander for a quick side dish.'
+    }
+  ],
+};
 
 class CustomerProfileScreen extends StatefulWidget {
   const CustomerProfileScreen({super.key});
@@ -12,6 +60,41 @@ class CustomerProfileScreen extends StatefulWidget {
 }
 
 class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
+  String get _openAIApiKey => dotenv.env['OPENAI_API_KEY'] ?? '';
+
+  Future<String> _fetchCustomRecipe({
+    required String crop,
+    required String amount,
+    required String mealTime,
+    String language = 'English',
+  }) async {
+    final prompt = language == 'Sinhala'
+        ? 'ඔබට $amount ක් ඇති $crop සඳහා $mealTime සඳහා සෞඛ්‍ය සම්පන්න හා රසවත් වට්ටෝරුක් ලබා දෙන්න. වට්ටෝරු නම සහ විස්තරාත්මක ක්‍රමය ඇතුළත් කරන්න.'
+        : 'Give me a healthy and tasty recipe using $amount of $crop for $mealTime. Include the recipe name and detailed method.';
+    // Use the same endpoint/model as add_harvest_screen.dart (OpenRouter call)
+    final response = await http.post(
+      Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_openAIApiKey',
+      },
+      body: jsonEncode({
+        'model': 'openai/gpt-3.5-turbo',
+        'messages': [
+          {'role': 'user', 'content': prompt}
+        ],
+        'max_tokens': 400,
+        'temperature': 0.7,
+      }),
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['choices'][0]['message']['content'] ?? 'No recipe found.';
+    } else {
+      return 'Error: ${response.statusCode}\n${response.body}';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser?.uid;
@@ -178,6 +261,129 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final crop = await showDialog<String>(
+                        context: context,
+                        builder: (context) => SimpleDialog(
+                          title: const Text('Select a Crop'),
+                          children: [
+                            SimpleDialogOption(
+                              onPressed: () => Navigator.pop(context, 'Tomato'),
+                              child: const Text('Tomato'),
+                            ),
+                            SimpleDialogOption(
+                              onPressed: () => Navigator.pop(context, 'Brinjal'),
+                              child: const Text('Brinjal'),
+                            ),
+                            SimpleDialogOption(
+                              onPressed: () => Navigator.pop(context, 'Carrot'),
+                              child: const Text('Carrot'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (crop != null) {
+                        String? amount;
+                        String? mealTime;
+                        String language = 'English';
+                        await showDialog(
+                          context: context,
+                          builder: (context) {
+                            final amountController = TextEditingController();
+                            String? selectedMealTime;
+                            String selectedLanguage = 'English';
+                            return AlertDialog(
+                              title: Text('Customize Recipe for $crop'),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  TextField(
+                                    controller: amountController,
+                                    keyboardType: TextInputType.text,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Amount (e.g. 200g, 2 pieces)',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  DropdownButtonFormField<String>(
+                                    value: selectedMealTime,
+                                    hint: const Text('Select Meal Time'),
+                                    items: const [
+                                      DropdownMenuItem(value: 'Breakfast', child: Text('Breakfast')),
+                                      DropdownMenuItem(value: 'Brunch', child: Text('Brunch')),
+                                      DropdownMenuItem(value: 'Lunch', child: Text('Lunch')),
+                                      DropdownMenuItem(value: 'Dinner', child: Text('Dinner')),
+                                      DropdownMenuItem(value: 'Snack', child: Text('Snack')),
+                                    ],
+                                    onChanged: (v) => selectedMealTime = v,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  DropdownButtonFormField<String>(
+                                    value: selectedLanguage,
+                                    items: const [
+                                      DropdownMenuItem(value: 'English', child: Text('English')),
+                                      DropdownMenuItem(value: 'Sinhala', child: Text('සිංහල')),
+                                    ],
+                                    onChanged: (v) => selectedLanguage = v ?? 'English',
+                                    decoration: const InputDecoration(labelText: 'Recipe Language'),
+                                  ),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                  },
+                                  child: const Text('Cancel'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    amount = amountController.text.trim();
+                                    mealTime = selectedMealTime;
+                                    language = selectedLanguage;
+                                    if (amount != null && amount!.isNotEmpty && mealTime != null) {
+                                      Navigator.pop(context);
+                                    }
+                                  },
+                                  child: const Text('Get Recipe'),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                        if (amount != null && amount!.isNotEmpty && mealTime != null) {
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => const Center(child: CircularProgressIndicator()),
+                          );
+                          final recipe = await _fetchCustomRecipe(
+                            crop: crop,
+                            amount: amount!,
+                            mealTime: mealTime!,
+                            language: language,
+                          );
+                          Navigator.pop(context); // Remove loading dialog
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: Text('$crop Recipe'),
+                              content: SingleChildScrollView(child: Text(recipe)),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('Close'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    child: const Text('Get Recipes'),
                   ),
                   const SizedBox(height: 32),
                   Row(

@@ -1,0 +1,21 @@
+{
+  "appTitle": "ආග්‍රිමේට්",
+  "login": "ඇතුල් වන්න",
+  "signUp": "ලියාපදිංචි වන්න",
+  "email": "ඊමේල්",
+  "password": "මුරපදය",
+  "forgotPassword": "මුරපදය අමතකද?",
+  "dontHaveAccount": "ගිණුමක් නැද්ද?",
+  "alreadyHaveAccount": "දැනටමත් ගිණුමක් තිබේද?",
+  "selectRole": "භූමිකාව තෝරන්න",
+  "pleaseSignIn": "කරුණාකර ඇතුල් වීමට උත්සාහ කරන්න.",
+  "pleaseChooseRole": "කරුණාකර ඉදිරියට යාමට ඔබේ භූමිකාව තෝරන්න:",
+  "farmer": "ගොවියා",
+  "customer": "පාරිභෝගිකයා",
+  "driver": "රියදුරු",
+  "pleaseEnterField": "කරුණාකර ඔබගේ {field} ඇතුළත් කරන්න",
+  "customerLogin": "පාරිභෝගික ඇතුල් වීම",
+  "driverLogin": "රියදුරු ඇතුල් වීම",
+  "farmerLogin": "ගොවියා ඇතුල් වීම",
+  "createDriverProfile": "රියදුරු පැතිකඩ සාදන්න"
+} 

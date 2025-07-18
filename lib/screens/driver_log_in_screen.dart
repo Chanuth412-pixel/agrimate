@@ -5,14 +5,14 @@ import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 
-class CustomerLogInScreen extends StatefulWidget {
-  const CustomerLogInScreen({super.key});
+class DriverLogInScreen extends StatefulWidget {
+  const DriverLogInScreen({super.key});
 
   @override
-  _CustomerLogInScreenState createState() => _CustomerLogInScreenState();
+  _DriverLogInScreenState createState() => _DriverLogInScreenState();
 }
 
-class _CustomerLogInScreenState extends State<CustomerLogInScreen>
+class _DriverLogInScreenState extends State<DriverLogInScreen>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
@@ -58,7 +58,7 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
     super.dispose();
   }
 
-  Future<void> _logInCustomer() async {
+  Future<void> _logInDriver() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
@@ -73,35 +73,35 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
         throw Exception("Login failed: UID is null.");
       }
 
-      // 2. Fetch customer profile from Firestore
+      // 2. Fetch driver profile from Firestore
       final docSnapshot =
-          await FirebaseFirestore.instance.collection('customers').doc(uid).get();
+          await FirebaseFirestore.instance.collection('drivers').doc(uid).get();
 
       if (!docSnapshot.exists) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Customer profile not found.')),
+          const SnackBar(content: Text('Driver profile not found.')),
         );
         return;
       }
 
       // 3. Save UID to SharedPreferences
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('customerId', uid);
+      await prefs.setString('driverId', uid);
 
       // 4. Optionally: Save login location
       final position = await _getCurrentLocation();
       if (position != null) {
-        await FirebaseFirestore.instance.collection('customers').doc(uid).update({
+        await FirebaseFirestore.instance.collection('drivers').doc(uid).update({
           'lastLoginLocation': GeoPoint(position.latitude, position.longitude),
           'lastLoginAt': FieldValue.serverTimestamp(),
         });
       }
 
-      // 5. Navigate to customer profile/dashboard
-      Navigator.pushReplacementNamed(context, '/customerProfile');
+      // 5. Navigate to driver profile/dashboard
+      Navigator.pushReplacementNamed(context, '/driverProfile');
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login failed: ${e.message}')),
+        SnackBar(content: Text('Login failed:  ${e.message}')),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -214,7 +214,7 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
                         return Opacity(
                           opacity: _textController.value,
                           child: Text(
-                            AppLocalizations.of(context)!.customerLogin,
+                            AppLocalizations.of(context)!.driverLogin,
                             style: const TextStyle(
                               fontFamily: 'Roboto',
                               fontSize: 28,
@@ -275,7 +275,7 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
                               ),
                               onPressed: () {
                                 if (_formKey.currentState?.validate() ?? false) {
-                                  _logInCustomer();
+                                  _logInDriver();
                                 }
                               },
                               child: Text(
@@ -320,7 +320,7 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
                         ),
                         TextButton(
                           onPressed: () {
-                            Navigator.pushNamed(context, '/createCustomerProfile'); // Updated route
+                            Navigator.pushNamed(context, '/createDriverProfile'); // Updated route
                           },
                           child: Text(
                             AppLocalizations.of(context)!.signUp,
@@ -340,4 +340,4 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
       ),
     );
   }
-}
+} 

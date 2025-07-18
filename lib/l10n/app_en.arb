@@ -1,0 +1,21 @@
+{
+  "appTitle": "Agrimate",
+  "login": "Login",
+  "signUp": "Sign Up",
+  "email": "Email",
+  "password": "Password",
+  "forgotPassword": "Forgot Password?",
+  "dontHaveAccount": "Don't have an account?",
+  "alreadyHaveAccount": "Already have an account?",
+  "selectRole": "Select Role",
+  "pleaseSignIn": "Please sign in to continue.",
+  "pleaseChooseRole": "Please choose your role to continue:",
+  "farmer": "Farmer",
+  "customer": "Customer",
+  "driver": "Driver",
+  "pleaseEnterField": "Please enter your {field}",
+  "customerLogin": "Customer Login",
+  "driverLogin": "Driver Login",
+  "farmerLogin": "Farmer Login",
+  "createDriverProfile": "Create Driver Profile"
+} 
