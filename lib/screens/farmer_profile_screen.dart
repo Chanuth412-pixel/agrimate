@@ -6,6 +6,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'farmer_detail_screen.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 class FarmerProfileScreen extends StatefulWidget {
   const FarmerProfileScreen({super.key});
@@ -167,18 +168,29 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     final userId = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Farmer Dashboard'),
+        elevation: 0,
+        title: const Text(
+          'Farmer Dashboard',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
         backgroundColor: const Color(0xFF02C697),
         actions: [
           IconButton(
-            icon: const Icon(Icons.person),
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.person, size: 20),
+            ),
             tooltip: 'View Profile',
             onPressed: () async {
               final user = FirebaseAuth.instance.currentUser;
-
               final doc = await FirebaseFirestore.instance
-                  .collection('farmers') // <-- Change this to your Farmer collection name
+                  .collection('farmers')
                   .doc(user?.uid)
                   .get();
 
@@ -197,6 +209,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
               );
             },
           ),
+          const SizedBox(width: 8),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -204,684 +217,852 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
           Navigator.pushNamed(context, '/addHarvest');
         },
         backgroundColor: const Color(0xFF02C697),
+        elevation: 4,
         icon: const Icon(Icons.add),
-        label: const Text("Add Harvest"),
+        label: const Text(
+          "Add Harvest",
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
       ),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Crop Demand Trends',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top curved container
+            Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFF02C697),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
                 ),
               ),
-              const SizedBox(height: 16),
-              Container(
-                height: 220,
-                decoration: BoxDecoration(
+              child: Container(
+                margin: const EdgeInsets.only(top: 10),
+                decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(30),
+                    topRight: Radius.circular(30),
+                  ),
                 ),
-                child: Stack(
-                  children: [
-                    ShaderMask(
-                      shaderCallback: (Rect bounds) {
-                        return LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            Colors.white,
-                            Colors.white.withOpacity(0.0),
-                            Colors.white.withOpacity(0.0),
-                            Colors.white,
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Crop Demand Trends Section
+                      Row(
+                        children: [
+                          const Icon(Icons.trending_up, color: Color(0xFF02C697)),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Crop Demand Trends',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF2D3748),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        height: 220,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              spreadRadius: 1,
+                              blurRadius: 5,
+                              offset: const Offset(0, 2),
+                            ),
                           ],
-                          stops: const [0.0, 0.1, 0.9, 1.0],
-                        ).createShader(bounds);
-                      },
-                      blendMode: BlendMode.dstOut,
-                      child: SingleChildScrollView(
-                        controller: _trendsScrollController,
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                          child: Row(
-                            children: [
-                              const SizedBox(width: 24),
-                              SizedBox(
-                                height: 200,
-                                child: FutureBuilder<DocumentSnapshot>(
-                                  future: FirebaseFirestore.instance
-                                      .collection('this_week')
-                                      .doc('trend')
-                                      .get(),
-                                  builder: (context, snapshot) {
-                                    if (!snapshot.hasData) {
-                                      return const Center(child: CircularProgressIndicator());
-                                    }
-                                    
-                                    final data = snapshot.data!.data() as Map<String, dynamic>?;
-                                    if (data == null) {
-                                      return _buildEmptyState('No trend data available.');
-                                    }
+                        ),
+                        child: Stack(
+                          children: [
+                            ShaderMask(
+                              shaderCallback: (Rect bounds) {
+                                return LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [
+                                    Colors.white,
+                                    Colors.white.withOpacity(0.0),
+                                    Colors.white.withOpacity(0.0),
+                                    Colors.white,
+                                  ],
+                                  stops: const [0.0, 0.1, 0.9, 1.0],
+                                ).createShader(bounds);
+                              },
+                              blendMode: BlendMode.dstOut,
+                              child: SingleChildScrollView(
+                                controller: _trendsScrollController,
+                                scrollDirection: Axis.horizontal,
+                                physics: const BouncingScrollPhysics(),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                                  child: Row(
+                                    children: [
+                                      const SizedBox(width: 24),
+                                      SizedBox(
+                                        height: 200,
+                                        child: FutureBuilder<DocumentSnapshot>(
+                                          future: FirebaseFirestore.instance
+                                              .collection('this_week')
+                                              .doc('trend')
+                                              .get(),
+                                          builder: (context, snapshot) {
+                                            if (!snapshot.hasData) {
+                                              return const Center(child: CircularProgressIndicator());
+                                            }
+                                            
+                                            final data = snapshot.data!.data() as Map<String, dynamic>?;
+                                            if (data == null) {
+                                              return _buildEmptyState('No trend data available.');
+                                            }
 
-                                    final crops = ['tomato', 'carrot', 'brinjal'];
-                                    final cropNames = ['Tomato', 'Carrot', 'Brinjal'];
-                                    
-                                    return Row(
-                                      children: List.generate(
-                                        crops.length,
-                                        (index) {
-                                          final cropKey = crops[index];
-                                          final cropName = cropNames[index];
-                                          final trendData = List<int>.from(data[cropKey] ?? [0, 0, 0, 0]);
-                                          
-                                          // Calculate average demand for overall score
-                                          final avgDemand = trendData.isNotEmpty 
-                                              ? trendData.reduce((a, b) => a + b) / trendData.length 
-                                              : 0;
-                                          
-                                          return Padding(
-                                            padding: const EdgeInsets.only(right: 16),
-                                            child: Container(
-                                              width: 200,
-                                              height: 180, // Fixed height for the container
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius: BorderRadius.circular(16),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.green.withOpacity(0.08),
-                                                    blurRadius: 12,
-                                                    offset: const Offset(0, 4),
-                                                  ),
-                                                ],
-                                              ),
-                                              padding: const EdgeInsets.all(12),
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    cropName,
-                                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    '4-Week Demand Forecast',
-                                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                      color: Colors.grey[600],
-                                                      fontWeight: FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                  Expanded(
-                                                    child: LineChart(
-                                                      LineChartData(
-                                                        gridData: FlGridData(show: false),
-                                                        titlesData: FlTitlesData(
-                                                          leftTitles: AxisTitles(
-                                                            sideTitles: SideTitles(
-                                                              showTitles: true,
-                                                              reservedSize: 28,
-                                                              interval: 25, // Changed from 20 to 25 for better spacing
-                                                              getTitlesWidget: (value, meta) {
-                                                                if (value == 0) return const Text('');
-                                                                return Text(
-                                                                  '${value.toInt()}%',
-                                                                  style: TextStyle(
-                                                                    color: Colors.grey[600],
-                                                                    fontSize: 10,
-                                                                  ),
-                                                                );
-                                                              },
+                                            final crops = ['tomato', 'carrot', 'brinjal'];
+                                            final cropNames = ['Tomato', 'Carrot', 'Brinjal'];
+                                            
+                                            return Row(
+                                              children: List.generate(
+                                                crops.length,
+                                                (index) {
+                                                  final cropKey = crops[index];
+                                                  final cropName = cropNames[index];
+                                                  final trendData = List<int>.from(data[cropKey] ?? [0, 0, 0, 0]);
+                                                  
+                                                  // Calculate average demand for overall score
+                                                  final avgDemand = trendData.isNotEmpty 
+                                                      ? trendData.reduce((a, b) => a + b) / trendData.length 
+                                                      : 0;
+                                                  
+                                                  return Padding(
+                                                    padding: const EdgeInsets.only(right: 16),
+                                                    child: Container(
+                                                      width: 200,
+                                                      height: 180, // Fixed height for the container
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white,
+                                                        borderRadius: BorderRadius.circular(16),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.green.withOpacity(0.08),
+                                                            blurRadius: 12,
+                                                            offset: const Offset(0, 4),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      padding: const EdgeInsets.all(12),
+                                                      child: Column(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          Text(
+                                                            cropName,
+                                                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                                              fontWeight: FontWeight.bold,
                                                             ),
                                                           ),
-                                                          rightTitles: AxisTitles(
-                                                            sideTitles: SideTitles(showTitles: false),
+                                                          const SizedBox(height: 4),
+                                                          Text(
+                                                            '4-Week Demand Forecast',
+                                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                              color: Colors.grey[600],
+                                                              fontWeight: FontWeight.w500,
+                                                            ),
                                                           ),
-                                                          topTitles: AxisTitles(
-                                                            sideTitles: SideTitles(showTitles: false),
-                                                          ),
-                                                          bottomTitles: AxisTitles(
-                                                            sideTitles: SideTitles(
-                                                              showTitles: true,
-                                                              reservedSize: 20,
-                                                              interval: 1,
-                                                              getTitlesWidget: (value, meta) {
-                                                                final weeks = ['W1', 'W2', 'W3', 'W4'];
-                                                                if (value >= 0 && value < weeks.length) {
-                                                                  return Padding(
-                                                                    padding: const EdgeInsets.only(top: 5),
-                                                                    child: Text(
-                                                                      weeks[value.toInt()],
-                                                                      style: TextStyle(
-                                                                        color: Colors.grey[600],
-                                                                        fontSize: 10,
-                                                                      ),
+                                                          const SizedBox(height: 8),
+                                                          Expanded(
+                                                            child: LineChart(
+                                                              LineChartData(
+                                                                gridData: FlGridData(show: false),
+                                                                titlesData: FlTitlesData(
+                                                                  leftTitles: AxisTitles(
+                                                                    sideTitles: SideTitles(
+                                                                      showTitles: true,
+                                                                      reservedSize: 28,
+                                                                      interval: 25, // Changed from 20 to 25 for better spacing
+                                                                      getTitlesWidget: (value, meta) {
+                                                                        if (value == 0) return const Text('');
+                                                                        return Text(
+                                                                          '${value.toInt()}%',
+                                                                          style: TextStyle(
+                                                                            color: Colors.grey[600],
+                                                                            fontSize: 10,
+                                                                          ),
+                                                                        );
+                                                                      },
                                                                     ),
-                                                                  );
-                                                                }
-                                                                return const Text('');
-                                                              },
+                                                                  ),
+                                                                  rightTitles: AxisTitles(
+                                                                    sideTitles: SideTitles(showTitles: false),
+                                                                  ),
+                                                                  topTitles: AxisTitles(
+                                                                    sideTitles: SideTitles(showTitles: false),
+                                                                  ),
+                                                                  bottomTitles: AxisTitles(
+                                                                    sideTitles: SideTitles(
+                                                                      showTitles: true,
+                                                                      reservedSize: 20,
+                                                                      interval: 1,
+                                                                      getTitlesWidget: (value, meta) {
+                                                                        final weeks = ['W1', 'W2', 'W3', 'W4'];
+                                                                        if (value >= 0 && value < weeks.length) {
+                                                                          return Padding(
+                                                                            padding: const EdgeInsets.only(top: 5),
+                                                                            child: Text(
+                                                                              weeks[value.toInt()],
+                                                                              style: TextStyle(
+                                                                                color: Colors.grey[600],
+                                                                                fontSize: 10,
+                                                                              ),
+                                                                            ),
+                                                                          );
+                                                                        }
+                                                                        return const Text('');
+                                                                      },
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                borderData: FlBorderData(show: false),
+                                                                minX: 0,
+                                                                maxX: 3,
+                                                                minY: 0,
+                                                                maxY: 100,
+                                                                lineBarsData: [
+                                                                  LineChartBarData(
+                                                                    spots: List.generate(
+                                                                      trendData.length,
+                                                                      (i) => FlSpot(i.toDouble(), trendData[i].toDouble()),
+                                                                    ),
+                                                                    isCurved: true,
+                                                                    color: _getDemandColor(
+                                                                      trendData.isNotEmpty 
+                                                                        ? trendData.reduce((a, b) => a + b) / trendData.length 
+                                                                        : 0
+                                                                    ),
+                                                                    barWidth: 2.5, // Slightly reduced from 3
+                                                                    isStrokeCapRound: true,
+                                                                    dotData: FlDotData(
+                                                                      show: true,
+                                                                      getDotPainter: (spot, percent, barData, index) {
+                                                                        return FlDotCirclePainter(
+                                                                          radius: 3, // Reduced from 4
+                                                                          color: Colors.white,
+                                                                          strokeWidth: 1.5, // Reduced from 2
+                                                                          strokeColor: barData.color ?? Colors.green,
+                                                                        );
+                                                                      },
+                                                                    ),
+                                                                    belowBarData: BarAreaData(
+                                                                      show: true,
+                                                                      color: _getDemandColor(
+                                                                        trendData.isNotEmpty 
+                                                                          ? trendData.reduce((a, b) => a + b) / trendData.length 
+                                                                          : 0
+                                                                      ).withOpacity(0.1),
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
                                                             ),
                                                           ),
-                                                        ),
-                                                        borderData: FlBorderData(show: false),
-                                                        minX: 0,
-                                                        maxX: 3,
-                                                        minY: 0,
-                                                        maxY: 100,
-                                                        lineBarsData: [
-                                                          LineChartBarData(
-                                                            spots: List.generate(
-                                                              trendData.length,
-                                                              (i) => FlSpot(i.toDouble(), trendData[i].toDouble()),
-                                                            ),
-                                                            isCurved: true,
-                                                            color: _getDemandColor(
-                                                              trendData.isNotEmpty 
-                                                                ? trendData.reduce((a, b) => a + b) / trendData.length 
-                                                                : 0
-                                                            ),
-                                                            barWidth: 2.5, // Slightly reduced from 3
-                                                            isStrokeCapRound: true,
-                                                            dotData: FlDotData(
-                                                              show: true,
-                                                              getDotPainter: (spot, percent, barData, index) {
-                                                                return FlDotCirclePainter(
-                                                                  radius: 3, // Reduced from 4
-                                                                  color: Colors.white,
-                                                                  strokeWidth: 1.5, // Reduced from 2
-                                                                  strokeColor: barData.color ?? Colors.green,
-                                                                );
-                                                              },
-                                                            ),
-                                                            belowBarData: BarAreaData(
-                                                              show: true,
-                                                              color: _getDemandColor(
-                                                                trendData.isNotEmpty 
-                                                                  ? trendData.reduce((a, b) => a + b) / trendData.length 
-                                                                  : 0
-                                                              ).withOpacity(0.1),
-                                                            ),
+                                                          const SizedBox(height: 4),
+                                                          Row(
+                                                            mainAxisAlignment: MainAxisAlignment.end,
+                                                            children: [
+                                                              Text(
+                                                                'Avg: ${(trendData.isNotEmpty ? trendData.reduce((a, b) => a + b) / trendData.length : 0).round()}%',
+                                                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                                  color: _getDemandColor(
+                                                                    trendData.isNotEmpty 
+                                                                      ? trendData.reduce((a, b) => a + b) / trendData.length 
+                                                                      : 0
+                                                                  ),
+                                                                  fontWeight: FontWeight.bold,
+                                                                ),
+                                                              ),
+                                                            ],
                                                           ),
                                                         ],
                                                       ),
                                                     ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Row(
-                                                    mainAxisAlignment: MainAxisAlignment.end,
-                                                    children: [
-                                                      Text(
-                                                        'Avg: ${(trendData.isNotEmpty ? trendData.reduce((a, b) => a + b) / trendData.length : 0).round()}%',
-                                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                          color: _getDemandColor(
-                                                            trendData.isNotEmpty 
-                                                              ? trendData.reduce((a, b) => a + b) / trendData.length 
-                                                              : 0
-                                                          ),
-                                                          fontWeight: FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ],
+                                                  );
+                                                },
                                               ),
-                                            ),
-                                          );
-                                        },
+                                            );
+                                          },
+                                        ),
                                       ),
-                                    );
-                                  },
+                                      const SizedBox(width: 24),
+                                    ],
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 24),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Left scroll indicator
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: GestureDetector(
-                        onTap: () => _scrollTrends(false),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.9),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 8,
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                Icons.chevron_left,
-                                color: Colors.grey[600],
-                              ),
                             ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Right scroll indicator
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: GestureDetector(
-                        onTap: () => _scrollTrends(true),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.9),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 8,
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                Icons.chevron_right,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                'Ongoing Transactions',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                height: 240,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Stack(
-                  children: [
-                    ShaderMask(
-                      shaderCallback: (Rect bounds) {
-                        return LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            Colors.white,
-                            Colors.white.withOpacity(0.0),
-                            Colors.white.withOpacity(0.0),
-                            Colors.white,
-                          ],
-                          stops: const [0.0, 0.1, 0.9, 1.0],
-                        ).createShader(bounds);
-                      },
-                      blendMode: BlendMode.dstOut,
-                      child: SingleChildScrollView(
-                        controller: _transactionsScrollController,
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                          child: Row(
-                            children: [
-                              const SizedBox(width: 24),
-                              SizedBox(
-                                height: 220,
-                                child: FutureBuilder<DocumentSnapshot>(
-                                  future: FirebaseFirestore.instance
-                                      .collection('Ongoing_Trans_Farm')
-                                      .doc(userId)
-                                      .get(),
-                                  builder: (context, snapshot) {
-                                    if (!snapshot.hasData) {
-                                      return const Center(child: CircularProgressIndicator());
-                                    }
-                                    final data = snapshot.data!.data() as Map<String, dynamic>?;
-                                    if (data == null || !data.containsKey('transactions')) {
-                                      return _buildEmptyState('No transactions found.');
-                                    }
-                                    final transactions = List<Map<String, dynamic>>.from(data['transactions']);
-                                    if (transactions.isEmpty) {
-                                      return _buildEmptyState('No transactions available.');
-                                    }
-                                    return Row(
-                                      children: List.generate(
-                                        transactions.length,
-                                        (index) {
-                                          final tx = transactions[index];
-                                          final crop = tx['Crop'] ?? 'Unknown';
-                                          final quantity = tx['Quantity Sold (1kg)'] ?? 0;
-                                          final price = tx['Sale Price Per kg'] ?? 0;
-                                          final status = tx['Status'] ?? 'Pending';
-                                          final customerName = tx['Farmer Name'] ?? 'N/A';
-                                          final phoneNO = tx['Phone_NO'] ?? 'N/A';
-                                          final deliveredOn = (tx['Date'] as Timestamp?)?.toDate() ?? DateTime.now();
-                                          return Padding(
-                                            padding: const EdgeInsets.only(right: 16),
-                                            child: Container(
-                                              width: 220,
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius: BorderRadius.circular(16),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.green.withOpacity(0.08),
-                                                    blurRadius: 12,
-                                                    offset: const Offset(0, 4),
-                                                  ),
-                                                ],
-                                              ),
-                                              padding: const EdgeInsets.all(16),
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Row(
-                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                    children: [
-                                                      Text(
-                                                        crop,
-                                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                                          fontWeight: FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                      _buildStatusChip(status),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                  Text('Customer: $customerName', style: Theme.of(context).textTheme.bodySmall),
-                                                  Text('Contact: $phoneNO', style: Theme.of(context).textTheme.bodySmall),
-                                                  Text('Deliver On: ${deliveredOn.day}/${deliveredOn.month}/${deliveredOn.year}', style: Theme.of(context).textTheme.bodySmall),
-                                                  const Divider(height: 20),
-                                                  Row(
-                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                    children: [
-                                                      _buildDetailBox('Quantity', '${quantity}kg', const Color(0xFFF3F4F6)),
-                                                      _buildDetailBox('Unit Price', 'LKR$price', const Color(0xFFF3F4F6)),
-                                                    ],
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          );
-                                        },
+                            // Scroll indicators
+                            Positioned(
+                              left: 0,
+                              top: 0,
+                              bottom: 0,
+                              child: GestureDetector(
+                                onTap: () => _scrollTrends(false),
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.9),
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.1),
+                                            blurRadius: 8,
+                                          ),
+                                        ],
                                       ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 24),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Left scroll indicator
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: GestureDetector(
-                        onTap: () => _scrollTransactions(false),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.9),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 8,
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                Icons.chevron_left,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Right scroll indicator
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: GestureDetector(
-                        onTap: () => _scrollTransactions(true),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.9),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 8,
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                Icons.chevron_right,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                'My Harvest Listings',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              FutureBuilder<DocumentSnapshot>(
-                future: FirebaseFirestore.instance
-                    .collection('Harvests')
-                    .doc(userId)
-                    .get(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  final data = snapshot.data!.data() as Map<String, dynamic>?;
-                  if (data == null || !data.containsKey('harvests')) {
-                    return _buildEmptyState('No harvests found.');
-                  }
-                  final harvests = List<Map<String, dynamic>>.from(data['harvests']);
-                  if (harvests.isEmpty) {
-                    return _buildEmptyState('No harvest entries.');
-                  }
-                  return ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: harvests.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final item = harvests[index];
-                      return GestureDetector(
-                        onTap: () => _showHarvestDetails(context, item),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.green.withOpacity(0.08),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      '${item['crop']} - ${item['quantity']}kg',
-                                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
+                                      child: Icon(
+                                        Icons.chevron_left,
+                                        color: Colors.grey[600],
                                       ),
                                     ),
                                   ),
-                                  // Weather indicator dots
-                                  Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: List.generate(7, (index) {
-                                          final date = DateTime.now().add(Duration(days: index));
-                                          final weatherList = _weatherData[item['crop']] ?? [];
-                                          final dayData = index < weatherList.length ? weatherList[index] : null;
-                                          
-                                          return Container(
-                                            width: 32,
-                                            height: 32,
-                                            margin: const EdgeInsets.symmetric(horizontal: 6),
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                                colors: dayData != null ? [
-                                                  _getWeatherGradientStart(dayData),
-                                                  _getWeatherGradientEnd(dayData),
-                                                ] : [
-                                                  Colors.grey[300]!,
-                                                  Colors.grey[400]!,
-                                                ],
-                                              ),
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            child: Icon(
-                                              dayData != null 
-                                                ? _getWeatherIcon(dayData)
-                                                : WeatherIcons.na,
-                                              size: 18,
-                                              color: Colors.white,
-                                            ),
-                                          );
-                                        }),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              bottom: 0,
+                              child: GestureDetector(
+                                onTap: () => _scrollTrends(true),
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.9),
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.1),
+                                            blurRadius: 8,
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: List.generate(7, (index) {
-                                          final date = DateTime.now().add(Duration(days: index));
-                                          final dayName = _getShortDayName(date.weekday);
-                                          return Container(
-                                            width: 44,
-                                            margin: const EdgeInsets.symmetric(horizontal: 0),
-                                            child: Text(
-                                              dayName,
-                                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          );
-                                        }),
+                                      child: Icon(
+                                        Icons.chevron_right,
+                                        color: Colors.grey[600],
                                       ),
-                                      const SizedBox(height: 8),
-                                      // Weather status message
-                                      Builder(
-                                        builder: (context) {
-                                          final weatherList = _weatherData[item['crop']] ?? [];
-                                          bool hasNonIdealDay = false;
-                                          
-                                          for (var dayData in weatherList) {
-                                            if (!(dayData['isIdealTemp'] && dayData['isIdealRain'])) {
-                                              hasNonIdealDay = true;
-                                              break;
-                                            }
-                                          }
-                                          
-                                          return Text(
-                                            hasNonIdealDay 
-                                              ? "⚠️ Heads up! Check the updated precautions."
-                                              : "🌱 All good! Perfect conditions for farming.",
-                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w500,
-                                              color: hasNonIdealDay ? Colors.orange[700] : Colors.green[700],
-                                            ),
-                                          );
-                                        },
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Ongoing Transactions Section
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.receipt_long, color: Color(0xFF02C697)),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Ongoing Transactions',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF2D3748),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    height: 240,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 5,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      children: [
+                        ShaderMask(
+                          shaderCallback: (Rect bounds) {
+                            return LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              colors: [
+                                Colors.white,
+                                Colors.white.withOpacity(0.0),
+                                Colors.white.withOpacity(0.0),
+                                Colors.white,
+                              ],
+                              stops: const [0.0, 0.1, 0.9, 1.0],
+                            ).createShader(bounds);
+                          },
+                          blendMode: BlendMode.dstOut,
+                          child: SingleChildScrollView(
+                            controller: _transactionsScrollController,
+                            scrollDirection: Axis.horizontal,
+                            physics: const BouncingScrollPhysics(),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                              child: Row(
+                                children: [
+                                  const SizedBox(width: 24),
+                                  SizedBox(
+                                    height: 220,
+                                    child: FutureBuilder<DocumentSnapshot>(
+                                      future: FirebaseFirestore.instance
+                                          .collection('Ongoing_Trans_Farm')
+                                          .doc(userId)
+                                          .get(),
+                                      builder: (context, snapshot) {
+                                        if (!snapshot.hasData) {
+                                          return const Center(child: CircularProgressIndicator());
+                                        }
+                                        final data = snapshot.data!.data() as Map<String, dynamic>?;
+                                        if (data == null || !data.containsKey('transactions')) {
+                                          return _buildEmptyState('No transactions found.');
+                                        }
+                                        final transactions = List<Map<String, dynamic>>.from(data['transactions']);
+                                        if (transactions.isEmpty) {
+                                          return _buildEmptyState('No transactions available.');
+                                        }
+                                        return Row(
+                                          children: List.generate(
+                                            transactions.length,
+                                            (index) {
+                                              final tx = transactions[index];
+                                              final crop = tx['Crop'] ?? 'Unknown';
+                                              final quantity = tx['Quantity Sold (1kg)'] ?? 0;
+                                              final price = tx['Sale Price Per kg'] ?? 0;
+                                              final status = tx['Status'] ?? 'Pending';
+                                              final customerName = tx['Farmer Name'] ?? 'N/A';
+                                              final phoneNO = tx['Phone_NO'] ?? 'N/A';
+                                              final deliveredOn = (tx['Date'] as Timestamp?)?.toDate() ?? DateTime.now();
+                                              return Padding(
+                                                padding: const EdgeInsets.only(right: 16),
+                                                child: Container(
+                                                  width: 220,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius: BorderRadius.circular(16),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.green.withOpacity(0.08),
+                                                        blurRadius: 12,
+                                                        offset: const Offset(0, 4),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  padding: const EdgeInsets.all(16),
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Row(
+                                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                        children: [
+                                                          Text(
+                                                            crop,
+                                                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                                              fontWeight: FontWeight.bold,
+                                                            ),
+                                                          ),
+                                                          _buildStatusChip(status),
+                                                        ],
+                                                      ),
+                                                      const SizedBox(height: 8),
+                                                      Text('Customer: $customerName', style: Theme.of(context).textTheme.bodySmall),
+                                                      Text('Contact: $phoneNO', style: Theme.of(context).textTheme.bodySmall),
+                                                      Text('Deliver On: ${deliveredOn.day}/${deliveredOn.month}/${deliveredOn.year}', style: Theme.of(context).textTheme.bodySmall),
+                                                      const Divider(height: 20),
+                                                      Row(
+                                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                        children: [
+                                                          _buildDetailBox('Quantity', '${quantity}kg', const Color(0xFFF3F4F6)),
+                                                          _buildDetailBox('Unit Price', 'LKR$price', const Color(0xFFF3F4F6)),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 24),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Scroll indicators
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: GestureDetector(
+                            onTap: () => _scrollTransactions(false),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              child: Center(
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.9),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 8,
                                       ),
                                     ],
                                   ),
-                                ],
+                                  child: Icon(
+                                    Icons.chevron_left,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Planting: ${item['plantingDate']}',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                              Text(
-                                'Harvest: ${item['harvestDate']}',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                              Text(
-                                'Price: LKR${item['expectedPrice']} per kg',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
+                            ),
                           ),
                         ),
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: GestureDetector(
+                            onTap: () => _scrollTransactions(true),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              child: Center(
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.9),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 8,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Icons.chevron_right,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // My Harvest Listings Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.eco, color: Color(0xFF02C697)),
+                      const SizedBox(width: 8),
+                      Text(
+                        'My Harvest Listings',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF2D3748),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  FutureBuilder<DocumentSnapshot>(
+                    future: FirebaseFirestore.instance
+                        .collection('Harvests')
+                        .doc(userId)
+                        .get(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32.0),
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF02C697),
+                            ),
+                          ),
+                        );
+                      }
+
+                      final data = snapshot.data!.data() as Map<String, dynamic>?;
+                      if (data == null || !data.containsKey('harvests')) {
+                        return _buildEmptyState('No harvests found.');
+                      }
+
+                      final harvests = List<Map<String, dynamic>>.from(data['harvests']);
+                      if (harvests.isEmpty) {
+                        return _buildEmptyState('No harvest entries.');
+                      }
+
+                      return ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: harvests.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final item = harvests[index];
+                          return Card(
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: InkWell( // Add InkWell for tap effect
+                              onTap: () => _showHarvestDetails(context, item),
+                              borderRadius: BorderRadius.circular(15),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Header with crop info and status
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(12),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFF02C697).withOpacity(0.1),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(
+                                                Icons.eco,
+                                                color: Color(0xFF02C697),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  item['crop'] ?? 'Unknown Crop',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                    color: Color(0xFF2D3748),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  'Quantity: ${item['quantity']} kg',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFF4A5568),
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  'Price: LKR ${item['price']}/kg',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFF4A5568),
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF02C697).withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                          child: const Text(
+                                            'Active',
+                                            style: TextStyle(
+                                              color: Color(0xFF02C697),
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    // Weather forecast section
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          '7-Day Weather Forecast',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF2D3748),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: Row(
+                                            children: List.generate(7, (index) {
+                                              final date = DateTime.now().add(Duration(days: index));
+                                              final weatherList = _weatherData[item['crop']] ?? [];
+                                              final dayData = index < weatherList.length ? weatherList[index] : null;
+                                              
+                                              return Container(
+                                                margin: const EdgeInsets.only(right: 8),
+                                                child: Column(
+                                                  children: [
+                                                    Container(
+                                                      width: 40,
+                                                      height: 40,
+                                                      decoration: BoxDecoration(
+                                                        gradient: LinearGradient(
+                                                          begin: Alignment.topLeft,
+                                                          end: Alignment.bottomRight,
+                                                          colors: dayData != null ? [
+                                                            _getWeatherGradientStart(dayData),
+                                                            _getWeatherGradientEnd(dayData),
+                                                          ] : [
+                                                            Colors.grey[300]!,
+                                                            Colors.grey[400]!,
+                                                          ],
+                                                        ),
+                                                        borderRadius: BorderRadius.circular(10),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.black.withOpacity(0.1),
+                                                            blurRadius: 4,
+                                                            offset: const Offset(0, 2),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: Icon(
+                                                        dayData != null 
+                                                          ? _getWeatherIcon(dayData)
+                                                          : WeatherIcons.na,
+                                                        size: 20,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      _getShortDayName(date.weekday),
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w500,
+                                                        color: Color(0xFF4A5568),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            }),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        // Weather status message
+                                        Builder(
+                                          builder: (context) {
+                                            final weatherList = _weatherData[item['crop']] ?? [];
+                                            bool hasNonIdealDay = false;
+                                            
+                                            for (var dayData in weatherList) {
+                                              if (!(dayData['isIdealTemp'] && dayData['isIdealRain'])) {
+                                                hasNonIdealDay = true;
+                                                break;
+                                              }
+                                            }
+                                            
+                                            return Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 8,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: hasNonIdealDay 
+                                                  ? const Color(0xFFFFF3E0)  // Light orange background
+                                                  : const Color(0xFFE8F5E9), // Light green background
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    hasNonIdealDay ? Icons.warning_amber : Icons.check_circle,
+                                                    size: 16,
+                                                    color: hasNonIdealDay ? Colors.orange[700] : Colors.green[700],
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    hasNonIdealDay 
+                                                      ? "Check updated precautions"
+                                                      : "Perfect farming conditions",
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w500,
+                                                      color: hasNonIdealDay ? Colors.orange[700] : Colors.green[700],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       );
                     },
-                  );
-                },
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 24),
+          ],
         ),
       ),
     );
@@ -1004,113 +1185,294 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   void _showHarvestDetails(BuildContext context, Map<String, dynamic> harvest) {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: 400,
+            maxHeight: 600, // Set a reasonable max height
           ),
-          child: Container(
-            constraints: const BoxConstraints(maxHeight: 600),
-            padding: const EdgeInsets.all(24),
-            child: SingleChildScrollView(
+          child: SingleChildScrollView(
+            child: Container(
+              padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header
+                  // Header with crop name and icon
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Harvest Details',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF02C697),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF02C697).withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.eco,
+                          color: Color(0xFF02C697),
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              harvest['crop'] ?? 'Unknown Crop',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2D3748),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF02C697).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Text(
+                                'Active',
+                                style: TextStyle(
+                                  color: Color(0xFF02C697),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () => Navigator.pop(context),
                         icon: const Icon(Icons.close),
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.grey[100],
-                          shape: const CircleBorder(),
-                        ),
+                        color: Colors.grey[600],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-                  
-                  // Crop and Quantity
+                  const SizedBox(height: 24),
+
+                  // Details section
                   Container(
-                    width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF02C697).withOpacity(0.1),
+                      color: Colors.grey[50],
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.grey[200]!,
+                        width: 1,
+                      ),
                     ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${harvest['crop']?.toString().toUpperCase()}',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF02C697),
-                          ),
+                        _buildDetailRow(
+                          'Quantity',
+                          '${harvest['quantity']} kg',
+                          Icons.scale,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Quantity: ${harvest['quantity']} kg',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                        const Divider(height: 16),
+                        _buildDetailRow(
+                          'Price',
+                          'LKR ${harvest['price']}/kg',
+                          Icons.attach_money,
+                        ),
+                        const Divider(height: 16),
+                        _buildDetailRow(
+                          'Planting Date',
+                          harvest['plantingDate'] ?? 'Not set',
+                          Icons.calendar_today,
+                        ),
+                        const Divider(height: 16),
+                        _buildDetailRow(
+                          'Harvest Date',
+                          harvest['harvestDate'] ?? 'Not set',
+                          Icons.event,
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  
-                  // Basic Details
-                  _buildDetailRow('Planting Date', harvest['plantingDate'] ?? 'N/A'),
-                  _buildDetailRow('Harvest Date', harvest['harvestDate'] ?? 'N/A'),
-                  _buildDetailRow('Expected Price', 'LKR ${harvest['expectedPrice']} per kg'),
-                  _buildDetailRow('Available Quantity', '${harvest['available']} kg'),
-                  const SizedBox(height: 20),
-                  
-                  // Precautions Section
-                  if (harvest['precautions'] != null && harvest['precautions'].toString().isNotEmpty) ...[
-                    Text(
-                      'Crop Care Precautions',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.orange[700],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.orange[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.orange[200]!),
-                      ),
-                      child: Text(
-                        harvest['precautions'].toString(),
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          height: 1.5,
-                          color: Colors.orange[800],
+                  const SizedBox(height: 24),
+
+                  // Weather forecast section
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Weather Forecast',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2D3748),
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 100, // Fixed height for weather section
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: 7,
+                          itemBuilder: (context, index) {
+                            final date = DateTime.now().add(Duration(days: index));
+                            final weatherList = _weatherData[harvest['crop']] ?? [];
+                            final dayData = index < weatherList.length ? weatherList[index] : null;
+                            
+                            return Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              child: Column(
+                                children: [
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: dayData != null ? [
+                                          _getWeatherGradientStart(dayData),
+                                          _getWeatherGradientEnd(dayData),
+                                        ] : [
+                                          Colors.grey[300]!,
+                                          Colors.grey[400]!,
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.1),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      dayData != null 
+                                        ? _getWeatherIcon(dayData)
+                                        : WeatherIcons.na,
+                                      size: 24,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _getShortDayName(date.weekday),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xFF4A5568),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Precautions Section
+                  if (harvest['precautions'] != null && harvest['precautions'].toString().isNotEmpty) ...[
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF3E0),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.warning_amber,
+                                size: 20,
+                                color: Colors.orange[700],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Precautions',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2D3748),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF3E0),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.orange[200]!,
+                            ),
+                          ),
+                          child: Text(
+                            harvest['precautions'].toString(),
+                            style: TextStyle(
+                              fontSize: 14,
+                              height: 1.5,
+                              color: Colors.orange[800],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 20),
                   ],
-                  
-                  // Close Button
+                  const SizedBox(height: 24),
+
+                  // Disease Detection Button
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final ImagePicker picker = ImagePicker();
+                        try {
+                          final XFile? image = await picker.pickImage(
+                            source: ImageSource.camera,
+                            imageQuality: 80,
+                          );
+                          
+                          if (image != null) {
+                            // Here you would typically:
+                            // 1. Upload the image
+                            // 2. Call disease detection API
+                            // 3. Show results
+                            
+                            // For now, show a placeholder message
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Image uploaded for disease detection. Analysis in progress...'),
+                                  backgroundColor: Color(0xFF02C697),
+                                ),
+                              );
+                            }
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error capturing image: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF02C697),
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1118,12 +1480,15 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        'Close',
+                      icon: const Icon(
+                        Icons.camera_alt,
+                        size: 20,
+                      ),
+                      label: const Text(
+                        'Detect Disease',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -1132,37 +1497,44 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
               ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              '$label:',
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.grey,
-              ),
-            ),
+  Widget _buildDetailRow(String label, String value, IconData icon) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF02C697).withOpacity(0.1),
+            shape: BoxShape.circle,
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+          child: Icon(
+            icon,
+            size: 16,
+            color: const Color(0xFF02C697),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF4A5568),
+            fontSize: 14,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Color(0xFF2D3748),
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
+      ],
     );
   }
 
