@@ -68,30 +68,67 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     required String mealTime,
     String language = 'English',
   }) async {
+    // Check if API key is loaded
+    if (_openAIApiKey.isEmpty) {
+      print('ERROR: API key is empty. Make sure .env file exists and contains OPENAI_API_KEY');
+      return 'Error: API key not found. Please check your configuration.';
+    }
+
+    print('DEBUG: API Key loaded (first 10 chars): ${_openAIApiKey.substring(0, 10)}...');
+    
     final prompt = language == 'Sinhala'
         ? 'ඔබට $amount ක් ඇති $crop සඳහා $mealTime සඳහා සෞඛ්‍ය සම්පන්න හා රසවත් වට්ටෝරුක් ලබා දෙන්න. වට්ටෝරු නම සහ විස්තරාත්මක ක්‍රමය ඇතුළත් කරන්න.'
         : 'Give me a healthy and tasty recipe using $amount of $crop for $mealTime. Include the recipe name and detailed method.';
-    // Use the same endpoint/model as add_harvest_screen.dart (OpenRouter call)
-    final response = await http.post(
-      Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $_openAIApiKey',
-      },
-      body: jsonEncode({
-        'model': 'openai/gpt-3.5-turbo',
-        'messages': [
-          {'role': 'user', 'content': prompt}
-        ],
-        'max_tokens': 400,
-        'temperature': 0.7,
-      }),
-    );
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['choices'][0]['message']['content'] ?? 'No recipe found.';
-    } else {
-      return 'Error: ${response.statusCode}\n${response.body}';
+    
+    try {
+      print('DEBUG: Sending API request to OpenRouter...');
+      
+      final response = await http.post(
+        Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_openAIApiKey',
+          'HTTP-Referer': 'https://agrimate.app',
+          'X-Title': 'Agrimate Recipe Generator',
+        },
+        body: jsonEncode({
+          'model': 'mistralai/mixtral-8x7b-instruct',
+          'messages': [
+            {
+              'role': 'system',
+              'content': 'You are a helpful cooking assistant that provides detailed recipes. Focus on healthy, tasty recipes that are easy to follow.'
+            },
+            {'role': 'user', 'content': prompt}
+          ],
+          'max_tokens': 400,
+          'temperature': 0.7,
+        }),
+      );
+
+      print('DEBUG: API Response Status: ${response.statusCode}');
+      print('DEBUG: API Response Headers: ${response.headers}');
+      print('DEBUG: API Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final recipe = data['choices'][0]['message']['content'];
+        if (recipe != null && recipe.isNotEmpty) {
+          return recipe;
+        } else {
+          print('ERROR: Empty recipe response from API');
+          return 'Error: Unable to generate recipe. Please try again.';
+        }
+      } else if (response.statusCode == 401) {
+        print('ERROR: Authentication failed. Status: ${response.statusCode}, Body: ${response.body}');
+        return 'Error: Authentication failed. Please check your API key configuration.';
+      } else {
+        print('ERROR: API request failed. Status: ${response.statusCode}, Body: ${response.body}');
+        return 'Error: Unable to generate recipe. Please try again later.';
+      }
+    } catch (e, stackTrace) {
+      print('ERROR: Exception during API call: $e');
+      print('Stack trace: $stackTrace');
+      return 'Error: Something went wrong. Please check your internet connection and try again.';
     }
   }
 

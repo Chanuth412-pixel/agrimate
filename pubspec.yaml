@@ -39,10 +39,10 @@ flutter:
   generate: true
 
   assets:
+    - .env
     - assets/fonts/
     - assets/images/
     - assets/images/splash_logo.png
-    - .env
 
   fonts:
     - family: Roboto

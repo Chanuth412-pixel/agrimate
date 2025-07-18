@@ -24,7 +24,13 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Load environment variables
-  await dotenv.load();
+  try {
+    await dotenv.load(fileName: ".env");
+    print('DEBUG: .env file loaded successfully');
+    print('DEBUG: OPENAI_API_KEY exists: ${dotenv.env['OPENAI_API_KEY']?.isNotEmpty == true}');
+  } catch (e) {
+    print('ERROR: Failed to load .env file: $e');
+  }
 
   // Initialize Firebase with options
   await Firebase.initializeApp(
