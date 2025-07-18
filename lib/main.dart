@@ -28,6 +28,15 @@ void main() async {
     await dotenv.load(fileName: ".env");
     print('DEBUG: .env file loaded successfully');
     print('DEBUG: OPENAI_API_KEY exists: ${dotenv.env['OPENAI_API_KEY']?.isNotEmpty == true}');
+    print('DEBUG: OPENWEATHER_API_KEY exists: ${dotenv.env['OPENWEATHER_API_KEY']?.isNotEmpty == true}');
+    
+    // Validate required environment variables
+    if (dotenv.env['OPENAI_API_KEY']?.isEmpty ?? true) {
+      print('WARNING: OPENAI_API_KEY is missing or empty in .env file');
+    }
+    if (dotenv.env['OPENWEATHER_API_KEY']?.isEmpty ?? true) {
+      print('WARNING: OPENWEATHER_API_KEY is missing or empty in .env file');
+    }
   } catch (e) {
     print('ERROR: Failed to load .env file: $e');
   }

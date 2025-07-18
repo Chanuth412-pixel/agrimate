@@ -61,6 +61,109 @@ class CustomerProfileScreen extends StatefulWidget {
 
 class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   String get _openAIApiKey => dotenv.env['OPENAI_API_KEY'] ?? '';
+  Map<String, String> cropDescriptions = {
+    'Tomato': 'High demand',
+    'Bean': 'Best season',
+    'Okra': 'Good price',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCropInsights();
+  }
+
+  Future<void> _fetchCropInsights() async {
+    try {
+      final response = await http.post(
+        Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_openAIApiKey',
+          'HTTP-Referer': 'https://agrimate.app',
+          'X-Title': 'Agrimate Market Insights',
+        },
+        body: jsonEncode({
+          'model': 'mistralai/mixtral-8x7b-instruct',
+          'messages': [
+            {
+              'role': 'system',
+              'content': '''You are an agricultural market expert who provides positive and encouraging market insights.
+              You must respond with EXACTLY two words for each crop insight.
+              Focus on benefits and quality that motivate customers to buy.
+              Do not use any special characters, just two simple words.'''
+            },
+            {
+              'role': 'user',
+              'content': '''Give a positive TWO-WORD insight for each crop that would motivate customers to buy.
+              No special characters, no hyphens, no exclamation marks - just two simple words:
+
+              Tomato: (focus on freshness/quality)
+              Bean: (focus on value/availability)
+              Okra: (focus on season/price)
+              
+              Format: Crop: word word (exactly two words, no punctuation)'''
+            }
+          ],
+          'max_tokens': 100,
+          'temperature': 0.7,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final content = data['choices'][0]['message']['content'] as String;
+        
+        // Parse the response and update descriptions
+        final lines = content.split('\n');
+        for (var line in lines) {
+          line = line.trim();
+          if (line.isEmpty) continue;
+          
+          // Clean up the text - remove all special characters and extra spaces
+          String cleanText(String text) {
+            return text
+              .replaceAll(RegExp(r'[^\w\s]'), '') // Remove special characters
+              .replaceAll(RegExp(r'\s+'), ' ') // Replace multiple spaces with single space
+              .trim();
+          }
+          
+          if (line.toLowerCase().contains('tomato')) {
+            String insight = cleanText(line.replaceAll(RegExp(r'Tomato:?', caseSensitive: false), ''));
+            cropDescriptions['Tomato'] = insight.isNotEmpty ? insight : 'Premium Quality';
+          } else if (line.toLowerCase().contains('bean')) {
+            String insight = cleanText(line.replaceAll(RegExp(r'Bean:?', caseSensitive: false), ''));
+            cropDescriptions['Bean'] = insight.isNotEmpty ? insight : 'Fresh Stock';
+          } else if (line.toLowerCase().contains('okra')) {
+            String insight = cleanText(line.replaceAll(RegExp(r'Okra:?', caseSensitive: false), ''));
+            cropDescriptions['Okra'] = insight.isNotEmpty ? insight : 'Best Price';
+          }
+        }
+        
+        if (mounted) {
+          setState(() {});
+        }
+      } else {
+        // On error, use simple two-word fallback descriptions
+        setState(() {
+          cropDescriptions = {
+            'Tomato': 'Premium Quality',
+            'Bean': 'Fresh Stock',
+            'Okra': 'Best Price'
+          };
+        });
+      }
+    } catch (e) {
+      // On error, use simple two-word fallback descriptions
+      setState(() {
+        cropDescriptions = {
+          'Tomato': 'Premium Quality',
+          'Bean': 'Fresh Stock',
+          'Okra': 'Best Price'
+        };
+      });
+    }
+  }
 
   Future<String> _fetchCustomRecipe({
     required String crop,
@@ -68,21 +171,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     required String mealTime,
     String language = 'English',
   }) async {
-    // Check if API key is loaded
-    if (_openAIApiKey.isEmpty) {
-      print('ERROR: API key is empty. Make sure .env file exists and contains OPENAI_API_KEY');
-      return 'Error: API key not found. Please check your configuration.';
-    }
-
-    print('DEBUG: API Key loaded (first 10 chars): ${_openAIApiKey.substring(0, 10)}...');
-    
+    print('DEBUG: OPENAI_API_KEY = ${_openAIApiKey.substring(0, 10)}...'); // Debug print with partial key
     final prompt = language == 'Sinhala'
         ? 'ඔබට $amount ක් ඇති $crop සඳහා $mealTime සඳහා සෞඛ්‍ය සම්පන්න හා රසවත් වට්ටෝරුක් ලබා දෙන්න. වට්ටෝරු නම සහ විස්තරාත්මක ක්‍රමය ඇතුළත් කරන්න.'
         : 'Give me a healthy and tasty recipe using $amount of $crop for $mealTime. Include the recipe name and detailed method.';
     
     try {
-      print('DEBUG: Sending API request to OpenRouter...');
-      
       final response = await http.post(
         Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
         headers: {
@@ -94,10 +188,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         body: jsonEncode({
           'model': 'mistralai/mixtral-8x7b-instruct',
           'messages': [
-            {
-              'role': 'system',
-              'content': 'You are a helpful cooking assistant that provides detailed recipes. Focus on healthy, tasty recipes that are easy to follow.'
-            },
+            {'role': 'system', 'content': 'You are a helpful cooking assistant that provides detailed recipes.'},
             {'role': 'user', 'content': prompt}
           ],
           'max_tokens': 400,
@@ -105,29 +196,18 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         }),
       );
 
-      print('DEBUG: API Response Status: ${response.statusCode}');
-      print('DEBUG: API Response Headers: ${response.headers}');
-      print('DEBUG: API Response Body: ${response.body}');
+      print('DEBUG: API Response Status: ${response.statusCode}'); // Debug print
+      print('DEBUG: API Response Body: ${response.body}'); // Debug print
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final recipe = data['choices'][0]['message']['content'];
-        if (recipe != null && recipe.isNotEmpty) {
-          return recipe;
-        } else {
-          print('ERROR: Empty recipe response from API');
-          return 'Error: Unable to generate recipe. Please try again.';
-        }
-      } else if (response.statusCode == 401) {
-        print('ERROR: Authentication failed. Status: ${response.statusCode}, Body: ${response.body}');
-        return 'Error: Authentication failed. Please check your API key configuration.';
+        return data['choices'][0]['message']['content'] ?? 'No recipe found.';
       } else {
-        print('ERROR: API request failed. Status: ${response.statusCode}, Body: ${response.body}');
+        print('DEBUG: API Error: ${response.statusCode} - ${response.body}'); // Debug print
         return 'Error: Unable to generate recipe. Please try again later.';
       }
-    } catch (e, stackTrace) {
-      print('ERROR: Exception during API call: $e');
-      print('Stack trace: $stackTrace');
+    } catch (e) {
+      print('DEBUG: Exception: $e'); // Debug print
       return 'Error: Something went wrong. Please check your internet connection and try again.';
     }
   }
@@ -242,9 +322,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                       children: [
                         CropCard(
                           name: 'Tomato',
-                          icon: Icons.local_florist,
+                          imagePath: 'assets/images/tomato.png',
                           color: const Color(0xFFE53935),
-                          description: 'High demand',
+                          description: cropDescriptions['Tomato'] ?? 'High demand',
                           onTap: () async {
                             final result = await Navigator.push(
                               context,
@@ -260,16 +340,16 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                         ),
                         const SizedBox(width: 16),
                         CropCard(
-                          name: 'Carrot',
-                          icon: Icons.grass,
-                          color: const Color(0xFFFF9800),
-                          description: 'Best season',
+                          name: 'Bean',
+                          imagePath: 'assets/images/bean.png',
+                          color: const Color(0xFF4CAF50),
+                          description: cropDescriptions['Bean'] ?? 'Best season',
                           onTap: () async {
                             final result = await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) =>
-                                    const AddCropCustomerC1(cropName: 'Carrot'),
+                                    const AddCropCustomerC1(cropName: 'Bean'),
                               ),
                             );
                             if (result == 'updated') {
@@ -279,16 +359,16 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                         ),
                         const SizedBox(width: 16),
                         CropCard(
-                          name: 'Brinjal',
-                          icon: Icons.emoji_nature,
-                          color: const Color(0xFF7E57C2),
-                          description: 'Good price',
+                          name: 'Okra',
+                          imagePath: 'assets/images/okra.png',
+                          color: const Color(0xFF7CB342),
+                          description: cropDescriptions['Okra'] ?? 'Good price',
                           onTap: () async {
                             final result = await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) =>
-                                    const AddCropCustomerC1(cropName: 'Brinjal'),
+                                    const AddCropCustomerC1(cropName: 'Okra'),
                               ),
                             );
                             if (result == 'updated') {
@@ -312,12 +392,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                               child: const Text('Tomato'),
                             ),
                             SimpleDialogOption(
-                              onPressed: () => Navigator.pop(context, 'Brinjal'),
-                              child: const Text('Brinjal'),
+                              onPressed: () => Navigator.pop(context, 'Bean'),
+                              child: const Text('Bean'),
                             ),
                             SimpleDialogOption(
-                              onPressed: () => Navigator.pop(context, 'Carrot'),
-                              child: const Text('Carrot'),
+                              onPressed: () => Navigator.pop(context, 'Okra'),
+                              child: const Text('Okra'),
                             ),
                           ],
                         ),
@@ -677,7 +757,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
 class CropCard extends StatelessWidget {
   final String name;
-  final IconData icon;
+  final String imagePath;
   final Color color;
   final String description;
   final VoidCallback? onTap;
@@ -685,7 +765,7 @@ class CropCard extends StatelessWidget {
   const CropCard({
     super.key,
     required this.name,
-    required this.icon,
+    required this.imagePath,
     required this.color,
     required this.description,
     this.onTap,
@@ -697,7 +777,8 @@ class CropCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: 140,
-        padding: const EdgeInsets.all(16),
+        height: 160,
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -710,23 +791,31 @@ class CropCard extends StatelessWidget {
           ],
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              width: 60,
+              height: 60,
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: color, size: 32),
+              child: Image.asset(
+                imagePath,
+                fit: BoxFit.contain,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Text(
               name,
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
             Text(
@@ -735,6 +824,9 @@ class CropCard extends StatelessWidget {
                 fontSize: 12,
                 color: Colors.grey[600],
               ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
