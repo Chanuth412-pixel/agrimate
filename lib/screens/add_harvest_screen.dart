@@ -428,7 +428,6 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
           'rainfall': _rain,
         },
         'precautions': _actualPrecautions,
-        'createdAt': FieldValue.serverTimestamp(),
         'farmerId': user.uid,
       };
 
