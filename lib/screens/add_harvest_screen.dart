@@ -20,7 +20,7 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
   final _qty = TextEditingController();
   final _price = TextEditingController();
 
-  final _crops = ['Tomato', 'Carrot', 'Brinjal'];
+  final _crops = ['Tomato', 'Okra', 'Bean'];
   String? _selectedCrop;
   String _precautions = '';
   String _weatherSummary = '';
@@ -192,10 +192,10 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
     switch (crop.toLowerCase()) {
       case 'tomato':
         return temp >= 20 && temp <= 30 && rain < 10; // Tomatoes prefer warm, not too wet
-      case 'carrot':
-        return temp >= 15 && temp <= 25 && rain < 15; // Carrots prefer cooler temperatures
-      case 'brinjal':
-        return temp >= 22 && temp <= 32 && rain < 12; // Brinjal prefers warm weather
+      case 'okra':
+        return temp >= 25 && temp <= 35 && rain < 12; // Carrots prefer cooler temperatures
+      case 'bean':
+        return temp >= 18 && temp <= 25 && rain < 15; // Brinjal prefers warm weather
       default:
         return temp >= 18 && temp <= 30 && rain < 15; // General conditions
     }
