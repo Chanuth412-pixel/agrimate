@@ -6,6 +6,8 @@ import 'customer_detail_page.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:intl/intl.dart';
+import 'scheduled_orders_screen.dart';
 
 const Map<String, List<Map<String, String>>> cropRecipes = {
   'Tomato': [
@@ -212,6 +214,60 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     }
   }
 
+  Future<String> _generateThisWeeksOrder(String customerId, BuildContext context) async {
+    print('In _generateThisWeeksOrder for $customerId');
+    final today = DateTime.now();
+    final weekOfYear = int.parse(DateFormat('w').format(today));
+    final scheduled = await FirebaseFirestore.instance
+        .collection('ScheduledOrders')
+        .where('customerId', isEqualTo: customerId)
+        .where('active', isEqualTo: true)
+        .get();
+    if (scheduled.docs.isEmpty) {
+      return 'No scheduled orders found.';
+    }
+    bool anyCreated = false;
+    for (final doc in scheduled.docs) {
+      print('Checking scheduled order: ${doc.id}');
+      final data = doc.data();
+      final startDate = (data['startDate'] as Timestamp).toDate();
+      final startWeek = int.parse(DateFormat('w').format(startDate));
+      final weeks = data['weeks'] ?? 1;
+      final deliveredWeeks = List<int>.from(data['deliveredWeeks'] ?? []);
+      final farmerId = data['farmerId'];
+      final items = List<Map<String, dynamic>>.from(data['items'] ?? []);
+      if (weekOfYear >= startWeek && weekOfYear < startWeek + weeks && !deliveredWeeks.contains(weekOfYear)) {
+        // Create the order in Ongoing_Trans_Cus and Ongoing_Trans_Farm
+        await _createWeeklyOrder(customerId, farmerId, items);
+        // Mark this week as delivered
+        await doc.reference.update({
+          'deliveredWeeks': FieldValue.arrayUnion([weekOfYear])
+        });
+        anyCreated = true;
+      }
+    }
+    return anyCreated ? "This week's order generated!" : 'No new order needed for this week.';
+  }
+
+  Future<void> _createWeeklyOrder(String customerId, String farmerId, List<Map<String, dynamic>> items) async {
+    final now = DateTime.now();
+    final orderData = {
+      'CropList': items,
+      'Status': 'Pending',
+      'Farmer ID': farmerId,
+      'Customer ID': customerId,
+      'Date': now,
+    };
+    // Add to Ongoing_Trans_Cus
+    await FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(customerId).set({
+      'transactions': FieldValue.arrayUnion([orderData])
+    }, SetOptions(merge: true));
+    // Add to Ongoing_Trans_Farm
+    await FirebaseFirestore.instance.collection('Ongoing_Trans_Farm').doc(farmerId).set({
+      'transactions': FieldValue.arrayUnion([orderData])
+    }, SetOptions(merge: true));
+  }
+
   @override
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser?.uid;
@@ -304,6 +360,22 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                 children: [
                   Row(
                     children: [
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.schedule),
+                        label: const Text('View Scheduled Orders'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Color(0xFF02C697),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          textStyle: const TextStyle(fontSize: 15),
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const ScheduledOrdersScreen()),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 16),
                       const Icon(Icons.trending_up, color: Color(0xFF02C697)),
                       const SizedBox(width: 8),
                       Text(
@@ -558,7 +630,14 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           final farmerName = tx['Farmer Name'] ?? 'N/A';
                           final phoneNO = tx['Phone_NO'];
                           final deliveredOn = (tx['Date'] as Timestamp).toDate();
+                          final deliveryGuyName = tx['delivery_guy_name'];
+                          final deliveryGuyPhone = tx['delivery_guy_phone'];
+                          final farmerId = tx['Farmer ID'];
+                          final date = tx['Date'];
+                          final deliveryGuyId = tx['delivery_guy_id'];
+                          final reviewed = tx['reviewed'] == true;
 
+                          print('TX: status=${tx['Status']} reviewed=${tx['reviewed']} FarmerID=${tx['Farmer ID']} DriverID=${tx['delivery_guy_id']}');
                           return Card(
                             margin: const EdgeInsets.only(bottom: 16),
                             elevation: 0,
@@ -600,6 +679,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                     'Delivery',
                                     '${deliveredOn.day}/${deliveredOn.month}/${deliveredOn.year}',
                                   ),
+                                  if (deliveryGuyName != null && deliveryGuyName.toString().isNotEmpty) ...[
+                                    const Divider(height: 24),
+                                    _buildInfoRow(Icons.delivery_dining, 'Delivery Guy', deliveryGuyName),
+                                    if (deliveryGuyPhone != null && deliveryGuyPhone.toString().isNotEmpty)
+                                      _buildInfoRow(Icons.phone, 'Driver Phone', deliveryGuyPhone),
+                                  ],
                                   const Divider(height: 24),
                                   Row(
                                     mainAxisAlignment:
@@ -623,6 +708,52 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                       ),
                                     ],
                                   ),
+                                  if (status == 'in_transit')
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 12.0),
+                                      child: ElevatedButton.icon(
+                                        icon: const Icon(Icons.check_circle, color: Colors.white, size: 18),
+                                        label: const Text('Mark as Delivered'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.green,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          textStyle: const TextStyle(fontSize: 15),
+                                        ),
+                                        onPressed: () async {
+                                          await _markAsDelivered(
+                                            context: context,
+                                            customerId: FirebaseAuth.instance.currentUser?.uid,
+                                            farmerId: farmerId,
+                                            deliveryGuyId: deliveryGuyId,
+                                            date: date,
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  if (status == 'delivered' && !reviewed)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 12.0),
+                                      child: ElevatedButton.icon(
+                                        icon: const Icon(Icons.rate_review, color: Colors.white, size: 18),
+                                        label: const Text('Leave Review'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.orange,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          textStyle: const TextStyle(fontSize: 15),
+                                        ),
+                                        onPressed: () {
+                                          print('Leave Review button pressed for tx: ${tx['Farmer ID']}');
+                                          _showReviewDialog(context, tx, () {
+                                            if (mounted) setState(() {});
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  if (status == 'delivered' && reviewed)
+                                    const Padding(
+                                      padding: EdgeInsets.only(top: 12.0),
+                                      child: Text('Delivered', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                                    ),
                                 ],
                               ),
                             ),
@@ -752,6 +883,258 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _markAsDelivered({
+    required BuildContext context,
+    required String? customerId,
+    required String? farmerId,
+    required String? deliveryGuyId,
+    required dynamic date,
+  }) async {
+    if (customerId == null || farmerId == null || date == null) return;
+    // Update in Ongoing_Trans_Cus
+    final cusDocRef = FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(customerId);
+    final cusDoc = await cusDocRef.get();
+    if (cusDoc.exists) {
+      final data = cusDoc.data() as Map<String, dynamic>;
+      final txs = List<Map<String, dynamic>>.from(data['transactions'] ?? []);
+      final updatedTxs = txs.map((t) {
+        if (t['Date'] == date) {
+          final updated = Map<String, dynamic>.from(t);
+          updated['Status'] = 'delivered';
+          return updated;
+        }
+        return t;
+      }).toList();
+      await cusDocRef.update({'transactions': updatedTxs});
+    }
+    // Update in Ongoing_Trans_Farm
+    final farmDocRef = FirebaseFirestore.instance.collection('Ongoing_Trans_Farm').doc(farmerId);
+    final farmDoc = await farmDocRef.get();
+    if (farmDoc.exists) {
+      final data = farmDoc.data() as Map<String, dynamic>;
+      final txs = List<Map<String, dynamic>>.from(data['transactions'] ?? []);
+      final updatedTxs = txs.map((t) {
+        if (t['Date'] == date && t['Customer ID'] == customerId) {
+          final updated = Map<String, dynamic>.from(t);
+          updated['Status'] = 'delivered';
+          return updated;
+        }
+        return t;
+      }).toList();
+      await farmDocRef.update({'transactions': updatedTxs});
+    }
+    // Update in Ongoing_Trans_Deliver
+    if (deliveryGuyId != null) {
+      final deliverDocRef = FirebaseFirestore.instance.collection('Ongoing_Trans_Deliver').doc(deliveryGuyId);
+      final deliverDoc = await deliverDocRef.get();
+      if (deliverDoc.exists) {
+        final data = deliverDoc.data() as Map<String, dynamic>;
+        final txs = List<Map<String, dynamic>>.from(data['transactions'] ?? []);
+        final updatedTxs = txs.map((t) {
+          if (t['Date'] == date && t['Customer ID'] == customerId) {
+            final updated = Map<String, dynamic>.from(t);
+            updated['Status'] = 'delivered';
+            return updated;
+          }
+          return t;
+        }).toList();
+        await deliverDocRef.update({'transactions': updatedTxs});
+      }
+    }
+    if (context.mounted) setState(() {});
+  }
+
+  Future<void> _showReviewDialog(BuildContext context, Map<String, dynamic> tx, VoidCallback onReviewSubmitted) async {
+    print('Opening review dialog for tx: ${tx['Farmer ID']}');
+
+    double farmerRating = 5;
+    String farmerReview = '';
+    double driverRating = 5;
+    String driverReview = '';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: const Text('Leave a Review'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Farmer Review'),
+                  _buildRatingBar((rating) => setState(() => farmerRating = rating), currentRating: farmerRating),
+                  TextField(
+                    decoration: const InputDecoration(labelText: 'Farmer Review'),
+                    onChanged: (v) => farmerReview = v,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Driver Review'),
+                  _buildRatingBar((rating) => setState(() => driverRating = rating), currentRating: driverRating),
+                  TextField(
+                    decoration: const InputDecoration(labelText: 'Driver Review'),
+                    onChanged: (v) => driverReview = v,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  print('Submit button pressed in review dialog');
+                  await _submitReview(
+                    tx: tx,
+                    farmerRating: farmerRating,
+                    farmerReview: farmerReview,
+                    driverRating: driverRating,
+                    driverReview: driverReview,
+                  );
+                  print('Reviews submitted.');
+                  Navigator.of(context).pop(); // close dialog
+                  onReviewSubmitted(); // <-- reload parent
+                },
+                child: const Text('Submit'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRatingBar(void Function(double) onRatingUpdate, {required double currentRating}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(5, (index) {
+        return IconButton(
+          icon: Icon(
+            Icons.star,
+            color: index < currentRating ? Colors.amber : Colors.grey,
+          ),
+          iconSize: 28,
+          onPressed: () => onRatingUpdate(index + 1.0),
+        );
+      }),
+    );
+  }
+
+  Future<void> _submitReview({
+    required Map<String, dynamic> tx,
+    required double farmerRating,
+    required String farmerReview,
+    required double driverRating,
+    required String driverReview,
+  }) async {
+    print('In _submitReview');
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print('No user logged in.');
+      return;
+    }
+
+    final reviewerId = user.uid;
+    final reviewerName = user.displayName ?? user.email ?? 'Customer';
+
+    String? farmerId = tx['Farmer ID'];
+    String? driverId = tx['delivery_guy_id'];
+    final date = tx['Date'];
+    final customerId = reviewerId;
+    // If missing, fetch from Ongoing_Trans_Farm
+    if (farmerId == null || driverId == null) {
+      final ids = await _getFarmAndDriverIdsFromFarmCollection(
+        customerId: customerId,
+        date: date,
+      );
+      farmerId ??= ids?['farmerId'];
+      driverId ??= ids?['driverId'];
+    }
+    print('Farmer ID: $farmerId');
+    if (farmerId != null) {
+      try {
+        await FirebaseFirestore.instance.collection('FarmerReviews').doc(farmerId).set({
+          'ratings': FieldValue.arrayUnion([
+            {
+              'rating': farmerRating,
+              'review': farmerReview,
+              'reviewerId': reviewerId,
+              'reviewerName': reviewerName,
+              'date': DateTime.now(), // <-- Fix here
+            }
+          ])
+        }, SetOptions(merge: true));
+        print('Farmer review written.');
+      } catch (e) {
+        print('Error writing farmer review: $e');
+      }
+    }
+    print('Driver ID: $driverId');
+    if (driverId != null) {
+      try {
+        await FirebaseFirestore.instance.collection('DriverReviews').doc(driverId).set({
+          'ratings': FieldValue.arrayUnion([
+            {
+              'rating': driverRating,
+              'review': driverReview,
+              'reviewerId': reviewerId,
+              'reviewerName': reviewerName,
+              'date': DateTime.now(), // <-- Fix here
+            }
+          ])
+        }, SetOptions(merge: true));
+        print('Driver review written.');
+      } catch (e) {
+        print('Error writing driver review: $e');
+      }
+    }
+
+    // Mark this transaction as reviewed in Ongoing_Trans_Cus
+    final cusDocRef = FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(customerId);
+    final cusDoc = await cusDocRef.get();
+    if (cusDoc.exists) {
+      try {
+        final data = cusDoc.data() as Map<String, dynamic>;
+        final txs = List<Map<String, dynamic>>.from(data['transactions'] ?? []);
+        final updatedTxs = txs.map((t) {
+          if (t['Date'] == date) {
+            final updated = Map<String, dynamic>.from(t);
+            updated['reviewed'] = true;
+            return updated;
+          }
+          return t;
+        }).toList();
+        await cusDocRef.update({'transactions': updatedTxs});
+        print('Marked as reviewed in Ongoing_Trans_Cus.');
+      } catch (e) {
+        print('Error updating reviewed flag in Ongoing_Trans_Cus: $e');
+      }
+    }
+  }
+
+  Future<Map<String, String>?> _getFarmAndDriverIdsFromFarmCollection({
+    required String customerId,
+    required dynamic date,
+  }) async {
+    // Search all docs in Ongoing_Trans_Farm for a transaction with this customerId and date
+    final farmDocs = await FirebaseFirestore.instance.collection('Ongoing_Trans_Farm').get();
+    for (final doc in farmDocs.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final txs = List<Map<String, dynamic>>.from(data['transactions'] ?? []);
+      for (final t in txs) {
+        if (t['Date'] == date && t['Customer ID'] == customerId) {
+          return {
+            'farmerId': t['Farmer ID'],
+            'driverId': t['delivery_guy_id'],
+          };
+        }
+      }
+    }
+    return null;
   }
 }
 

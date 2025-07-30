@@ -113,7 +113,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Enter Quantity (max ${farmer['quantity']} kg)'),
+          title: Text('Enter Quantity (max  ${farmer['quantity']} kg)'),
           content: TextField(
             controller: _quantityController,
             keyboardType: TextInputType.number,
@@ -146,7 +146,29 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
                 }
 
                 Navigator.pop(context); // Close dialog
-                await _createTransaction(farmer, quantity);
+                // Ask if the user wants to schedule the order
+                final schedule = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Schedule Order'),
+                    content: const Text('Do you want to schedule this order?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('No'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Yes'),
+                      ),
+                    ],
+                  ),
+                );
+                if (schedule == true) {
+                  await _createScheduledOrder(farmer, quantity);
+                } else {
+                  await _createTransaction(farmer, quantity);
+                }
               },
               child: const Text('Confirm'),
             ),
@@ -255,7 +277,58 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
   }
 }
 
+  Future<void> _createScheduledOrder(Map<String, dynamic> farmer, int quantity) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final now = Timestamp.now();
+    final customerDoc = await FirebaseFirestore.instance
+        .collection('customers')
+        .doc(user.uid)
+        .get();
+    final customerName = customerDoc.data()?['Name'] ?? 'Unknown';
+    final scheduledOrder = {
+      'Crop': widget.cropName,
+      'Quantity Sold (1kg)': quantity,
+      'Sale Price Per kg': farmer['price'],
+      'Status': 'Pending',
+      'Farmer ID': farmer['farmerId'],
+      'Farmer Name': farmer['farmerName'],
+      'Phone_NO': farmer['phone'] ?? 'Unknown',
+      'Harvest Date': farmer['harvestDate'],
+      'Date': now,
+      'Customer ID': user.uid,
+      'Customer Name': customerName,
+      'Customer Email': user.email ?? 'unknown',
+    };
+    try {
+      await FirebaseFirestore.instance
+          .collection('ScheduledOrders')
+          .doc(user.uid)
+          .set({
+            'orders': FieldValue.arrayUnion([scheduledOrder]),
+          }, SetOptions(merge: true));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order scheduled successfully!')),
+      );
+      Navigator.pop(context, 'updated');
+    } catch (e) {
+      print('Firestore write error (scheduled): $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to schedule order.')),
+      );
+    }
+  }
 
+  Future<double?> _fetchFarmerRating(String farmerId) async {
+    final doc = await FirebaseFirestore.instance.collection('FarmerReviews').doc(farmerId).get();
+    if (!doc.exists || doc.data() == null || !(doc.data()!.containsKey('ratings'))) {
+      return null;
+    }
+    final List<dynamic> ratings = doc['ratings'] ?? [];
+    if (ratings.isEmpty) return null;
+    double avg = ratings.map((r) => (r['rating'] ?? 0).toDouble()).fold(0.0, (a, b) => a + b) / ratings.length;
+    return avg;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -274,7 +347,28 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
                     final farmer = _matchingFarmers[index];
                     return Card(
                       child: ListTile(
-                        title: Text('${farmer['farmerName']} - LKR${farmer['price']}/kg'),
+                        title: Row(
+                          children: [
+                            Expanded(child: Text('${farmer['farmerName']} - LKR${farmer['price']}/kg')),
+                            FutureBuilder<double?>(
+                              future: _fetchFarmerRating(farmer['farmerId']),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                  return const SizedBox(width: 40, height: 16, child: LinearProgressIndicator());
+                                }
+                                if (!snapshot.hasData || snapshot.data == null) {
+                                  return const Text('No rating', style: TextStyle(fontSize: 13, color: Colors.grey));
+                                }
+                                return Row(
+                                  children: [
+                                    const Icon(Icons.star, color: Colors.amber, size: 18),
+                                    Text(snapshot.data!.toStringAsFixed(1), style: const TextStyle(fontSize: 15)),
+                                  ],
+                                );
+                              },
+                            ),
+                          ],
+                        ),
                         subtitle: Text(
                           'Distance: ${farmer['distance'].toStringAsFixed(1)} km\n'
                           'Available Quantity: ${farmer['quantity']} kg',
