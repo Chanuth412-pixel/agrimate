@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -177,150 +178,194 @@ class _CreateCustomerProfileScreenState extends State<CreateCustomerProfileScree
 
   @override
   Widget build(BuildContext context) {
+    final bgAsset = 'assets/images/green_leaves_051.jpg';
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Container(
-          width: 375,
-          height: 812,
-          decoration: const BoxDecoration(color: Colors.white),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Form(
-              key: _formKey,
-              child: ListView(
-                children: [
-                  const SizedBox(height: 40),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.black),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Customer Profile',
-                        style: TextStyle(
-                          color: Color(0xFF171717),
-                          fontSize: 28,
-                          fontFamily: 'DM Sans',
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.80,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 8),
-                  const Opacity(
-                    opacity: 0.20,
-                    child: Divider(color: Color(0xFF8F92A1), thickness: 1),
-                  ),
-                  const SizedBox(height: 34),
-                  const Text(
-                    'Getting Started',
-                    style: TextStyle(
-                      color: Color(0xFF171717),
-                      fontSize: 24,
-                      fontFamily: 'DM Sans',
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.80,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Create an account to continue!',
-                    style: TextStyle(
-                      color: Color(0xFF171717),
-                      fontSize: 14,
-                      fontFamily: 'DM Sans',
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: -0.40,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-
-                  // Logo Animation
-                  AnimatedBuilder(
-                    animation: _logoController,
-                    builder: (context, child) {
-                      return Opacity(
-                        opacity: _logoController.value,
-                        child: Center(
-                          child: SizedBox(
-                            width: 175,
-                            height: 175,
-                            child: Image.asset('images/logo.png'), // Replace with your logo path
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Input Fields with Fade-in Animation
-                  AnimatedBuilder(
-                    animation: _inputController,
-                    builder: (context, child) {
-                      return Opacity(
-                        opacity: _inputController.value,
-                        child: Column(
-                          children: [
-                            _buildInputField('Name', nameController),
-                            _buildInputField('Location', locationController),
-                            _buildInputField('Phone Number', phoneController,
-                                type: TextInputType.phone),
-                            _buildInputField('Email', emailController,
-                                type: TextInputType.emailAddress),
-                            _buildInputField('Password', passwordController,
-                                obscure: true),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  // Sign-up Button with Fade-in Animation
-                  AnimatedBuilder(
-                    animation: _buttonController,
-                    builder: (context, child) {
-                      return Opacity(
-                        opacity: _buttonController.value,
-                        child: SizedBox(
-                          width: double.infinity,
-                          height: 44,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xCC02C697),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            ),
-                            onPressed: _createCustomerProfile,
-                            child: const Text(
-                              'SIGN UP',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontFamily: 'DM Sans',
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 30),
-                ],
+      body: Stack(
+        children: [
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFA8E6CF), Color(0xFFBDF7E5)],
+                ),
               ),
             ),
           ),
-        ),
+
+          Positioned(
+            left: -40,
+            top: -20,
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
+              child: Container(
+                width: 180,
+                height: 180,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF8EF0D0), Color(0xFF53C49E)],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: -50,
+            bottom: 40,
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
+              child: Container(
+                width: 220,
+                height: 220,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF7BE3C3), Color(0xFF49B893)],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Center image panel larger than the glass card
+          Positioned.fill(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final screenW = constraints.maxWidth;
+                final screenH = constraints.maxHeight;
+                const cardApproxW = 540.0;
+                const cardApproxH = 640.0;
+                final boxW = (screenW * 0.92).clamp(cardApproxW + 40.0, 820.0).toDouble();
+                final boxH = (screenH * 0.76).clamp(cardApproxH + 40.0, 720.0).toDouble();
+                return Center(
+                  child: IgnorePointer(
+                    ignoring: true,
+                    child: Container(
+                      width: boxW,
+                      height: boxH,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(40),
+                        image: DecorationImage(image: AssetImage(bgAsset), fit: BoxFit.cover),
+                        border: Border.all(color: Colors.white.withOpacity(0.5)),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 30, offset: const Offset(0, 18)),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // Glass card with form
+          Positioned.fill(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 540),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.35),
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(color: Colors.white.withOpacity(0.6), width: 1),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10)),
+                          ],
+                        ),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              AnimatedBuilder(
+                                animation: _textController,
+                                builder: (context, child) {
+                                  return Opacity(
+                                    opacity: _textController.value,
+                                    child: const Text(
+                                      'SIGN UP',
+                                      style: TextStyle(
+                                        fontFamily: 'SFProDisplay',
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF5F5F5F),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Create an account to continue!',
+                                style: TextStyle(color: Color(0xFF666666), fontSize: 14),
+                              ),
+                              const SizedBox(height: 24),
+
+                              AnimatedBuilder(
+                                animation: _inputController,
+                                builder: (context, child) {
+                                  return Opacity(
+                                    opacity: _inputController.value,
+                                    child: Column(
+                                      children: [
+                                        _buildInputField('Name', nameController),
+                                        _buildInputField('Location', locationController),
+                                        _buildInputField('Phone Number', phoneController, type: TextInputType.phone),
+                                        _buildInputField('Email', emailController, type: TextInputType.emailAddress),
+                                        _buildInputField('Password', passwordController, obscure: true),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+
+                              const SizedBox(height: 20),
+                              AnimatedBuilder(
+                                animation: _buttonController,
+                                builder: (context, child) {
+                                  return Opacity(
+                                    opacity: _buttonController.value,
+                                    child: SizedBox(
+                                      width: double.infinity,
+                                      height: 56,
+                                      child: ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF2F2F2F),
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                          elevation: 0,
+                                        ),
+                                        onPressed: _createCustomerProfile,
+                                        child: const Text(
+                                          'SIGN UP',
+                                          style: TextStyle(fontFamily: 'SFProDisplay', fontWeight: FontWeight.w700, fontSize: 16, letterSpacing: 1),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

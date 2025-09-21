@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
 import 'package:weather_icons/weather_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'farmer_detail_screen.dart';
@@ -224,9 +225,21 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.18, // low opacity background image
+              child: Image.asset(
+                'assets/images/Background.jpg',
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Top curved container
             Container(
@@ -877,279 +890,267 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
               ),
             ),
 
-            // My Harvest Listings Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.eco, color: Color(0xFF02C697)),
-                      const SizedBox(width: 8),
-                      Text(
-                        'My Harvest Listings',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF2D3748),
+            // My Harvest Listings Section (glassy green weather-style)
+            Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF0E5F3A), // dark green
+                    Color(0xFF7FE9B5), // mint green
+                  ],
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.eco, color: Colors.white),
+                        const SizedBox(width: 8),
+                        Text(
+                          'My Harvest Listings',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  FutureBuilder<DocumentSnapshot>(
-                    future: FirebaseFirestore.instance
-                        .collection('Harvests')
-                        .doc(userId)
-                        .get(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32.0),
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF02C697),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    FutureBuilder<DocumentSnapshot>(
+                      future: FirebaseFirestore.instance
+                          .collection('Harvests')
+                          .doc(userId)
+                          .get(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(32.0),
+                              child: CircularProgressIndicator(color: Colors.white),
                             ),
-                          ),
-                        );
-                      }
+                          );
+                        }
 
-                      final data = snapshot.data!.data() as Map<String, dynamic>?;
-                      if (data == null || !data.containsKey('harvests')) {
-                        return _buildEmptyState('No harvests found.');
-                      }
+                        final data = snapshot.data!.data() as Map<String, dynamic>?;
+                        if (data == null || !data.containsKey('harvests')) {
+                          return _buildEmptyState('No harvests found.');
+                        }
 
-                      final harvests = List<Map<String, dynamic>>.from(data['harvests']);
-                      if (harvests.isEmpty) {
-                        return _buildEmptyState('No harvest entries.');
-                      }
+                        final harvests = List<Map<String, dynamic>>.from(data['harvests']);
+                        if (harvests.isEmpty) {
+                          return _buildEmptyState('No harvest entries.');
+                        }
 
-                      return ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: harvests.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final item = harvests[index];
-                          return Card(
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            child: InkWell( // Add InkWell for tap effect
-                              onTap: () => _showHarvestDetails(context, item),
-                              borderRadius: BorderRadius.circular(15),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Header with crop info and status
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.all(12),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFF02C697).withOpacity(0.1),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: const Icon(
-                                                Icons.eco,
-                                                color: Color(0xFF02C697),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  item['crop'] ?? 'Unknown Crop',
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 16,
-                                                    color: Color(0xFF2D3748),
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  'Quantity: ${item['quantity']} kg',
-                                                  style: const TextStyle(
-                                                    color: Color(0xFF4A5568),
-                                                    fontSize: 14,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  'Price: LKR ${item['price']}/kg',
-                                                  style: const TextStyle(
-                                                    color: Color(0xFF4A5568),
-                                                    fontSize: 14,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF02C697).withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(20),
-                                          ),
-                                          child: const Text(
-                                            'Active',
-                                            style: TextStyle(
-                                              color: Color(0xFF02C697),
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 12,
-                                            ),
-                                          ),
+                        return ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: harvests.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final item = harvests[index];
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(18),
+                              child: BackdropFilter(
+                                filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                                child: InkWell(
+                                  onTap: () => _showHarvestDetails(context, item),
+                                  borderRadius: BorderRadius.circular(18),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.08),
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(color: Colors.white.withOpacity(0.18), width: 1),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.15),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 6),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 16),
-                                    // Weather forecast section
-                                    Column(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text(
-                                          '7-Day Weather Forecast',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFF2D3748),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: Row(
-                                            children: List.generate(7, (index) {
-                                              final date = DateTime.now().add(Duration(days: index));
-                                              final weatherList = _weatherData[item['crop']] ?? [];
-                                              final dayData = index < weatherList.length ? weatherList[index] : null;
-                                              
-                                              return Container(
-                                                margin: const EdgeInsets.only(right: 8),
-                                                child: Column(
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  padding: const EdgeInsets.all(12),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white.withOpacity(0.14),
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(color: Colors.white.withOpacity(0.22)),
+                                                  ),
+                                                  child: const Icon(Icons.eco, color: Colors.white),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
-                                                    Container(
-                                                      width: 40,
-                                                      height: 40,
-                                                      decoration: BoxDecoration(
-                                                        gradient: LinearGradient(
-                                                          begin: Alignment.topLeft,
-                                                          end: Alignment.bottomRight,
-                                                          colors: dayData != null ? [
-                                                            _getWeatherGradientStart(dayData),
-                                                            _getWeatherGradientEnd(dayData),
-                                                          ] : [
-                                                            Colors.grey[300]!,
-                                                            Colors.grey[400]!,
-                                                          ],
-                                                        ),
-                                                        borderRadius: BorderRadius.circular(10),
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                            color: Colors.black.withOpacity(0.1),
-                                                            blurRadius: 4,
-                                                            offset: const Offset(0, 2),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      child: Icon(
-                                                        dayData != null 
-                                                          ? _getWeatherIcon(dayData)
-                                                          : WeatherIcons.na,
-                                                        size: 20,
+                                                    Text(
+                                                      item['crop'] ?? 'Unknown Crop',
+                                                      style: const TextStyle(
+                                                        fontWeight: FontWeight.w700,
+                                                        fontSize: 16,
                                                         color: Colors.white,
                                                       ),
                                                     ),
                                                     const SizedBox(height: 4),
                                                     Text(
-                                                      _getShortDayName(date.weekday),
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
+                                                      'Quantity: ${item['quantity']} kg',
+                                                      style: TextStyle(
+                                                        color: Colors.white.withOpacity(0.85),
+                                                        fontSize: 13,
                                                         fontWeight: FontWeight.w500,
-                                                        color: Color(0xFF4A5568),
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      'Price: LKR ${item['price']}/kg',
+                                                      style: TextStyle(
+                                                        color: Colors.white.withOpacity(0.85),
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.w500,
                                                       ),
                                                     ),
                                                   ],
                                                 ),
-                                              );
-                                            }),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        // Weather status message
-                                        Builder(
-                                          builder: (context) {
-                                            final weatherList = _weatherData[item['crop']] ?? [];
-                                            bool hasNonIdealDay = false;
-                                            
-                                            for (var dayData in weatherList) {
-                                              if (!(dayData['isIdealTemp'] && dayData['isIdealRain'])) {
-                                                hasNonIdealDay = true;
-                                                break;
-                                              }
-                                            }
-                                            
-                                            return Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 12,
-                                                vertical: 8,
-                                              ),
+                                              ],
+                                            ),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                               decoration: BoxDecoration(
-                                                color: hasNonIdealDay 
-                                                  ? const Color(0xFFFFF3E0)  // Light orange background
-                                                  : const Color(0xFFE8F5E9), // Light green background
-                                                borderRadius: BorderRadius.circular(8),
+                                                color: Colors.white.withOpacity(0.12),
+                                                borderRadius: BorderRadius.circular(20),
+                                                border: Border.all(color: Colors.white.withOpacity(0.22)),
                                               ),
+                                              child: const Text(
+                                                'Active',
+                                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              '7-Day Weather Forecast',
+                                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            SingleChildScrollView(
+                                              scrollDirection: Axis.horizontal,
                                               child: Row(
-                                                children: [
-                                                  Icon(
-                                                    hasNonIdealDay ? Icons.warning_amber : Icons.check_circle,
-                                                    size: 16,
-                                                    color: hasNonIdealDay ? Colors.orange[700] : Colors.green[700],
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    hasNonIdealDay 
-                                                      ? "Check updated precautions"
-                                                      : "Perfect farming conditions",
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.w500,
-                                                      color: hasNonIdealDay ? Colors.orange[700] : Colors.green[700],
+                                                children: List.generate(7, (index) {
+                                                  final date = DateTime.now().add(Duration(days: index));
+                                                  final weatherList = _weatherData[item['crop']] ?? [];
+                                                  final dayData = index < weatherList.length ? weatherList[index] : null;
+
+                                                  return Container(
+                                                    margin: const EdgeInsets.only(right: 8),
+                                                    child: Column(
+                                                      children: [
+                                                        ClipRRect(
+                                                          borderRadius: BorderRadius.circular(12),
+                                                          child: BackdropFilter(
+                                                            filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                                                            child: Container(
+                                                              width: 44,
+                                                              height: 44,
+                                                              decoration: BoxDecoration(
+                                                                color: (dayData != null ? Colors.greenAccent : Colors.white).withOpacity(0.16),
+                                                                borderRadius: BorderRadius.circular(12),
+                                                                border: Border.all(color: Colors.white.withOpacity(0.22)),
+                                                              ),
+                                                              child: Icon(
+                                                                dayData != null ? _getWeatherIcon(dayData) : WeatherIcons.na,
+                                                                size: 20,
+                                                                color: Colors.white,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(height: 6),
+                                                        Text(
+                                                          _getShortDayName(date.weekday),
+                                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(0.9)),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                }),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Builder(
+                                              builder: (context) {
+                                                final weatherList = _weatherData[item['crop']] ?? [];
+                                                bool hasNonIdealDay = false;
+                                                for (var dayData in weatherList) {
+                                                  if (!(dayData['isIdealTemp'] && dayData['isIdealRain'])) {
+                                                    hasNonIdealDay = true;
+                                                    break;
+                                                  }
+                                                }
+                                                final bannerColor = (hasNonIdealDay ? Colors.orangeAccent : Colors.lightGreenAccent).withOpacity(0.16);
+                                                return ClipRRect(
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  child: BackdropFilter(
+                                                    filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                                      decoration: BoxDecoration(
+                                                        color: bannerColor,
+                                                        borderRadius: BorderRadius.circular(10),
+                                                        border: Border.all(color: Colors.white.withOpacity(0.22)),
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(hasNonIdealDay ? Icons.warning_amber : Icons.check_circle, size: 16, color: Colors.white),
+                                                          const SizedBox(width: 8),
+                                                          Text(
+                                                            hasNonIdealDay ? "Check updated precautions" : "Perfect farming conditions",
+                                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(0.95)),
+                                                          ),
+                                                        ],
+                                                      ),
                                                     ),
                                                   ),
-                                                ],
-                                              ),
-                                            );
-                                          },
+                                                );
+                                              },
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ],
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 24),
           ],
         ),
+      ), // end SingleChildScrollView
+          ), // end Positioned.fill (content)
+        ],
       ),
     );
   }
