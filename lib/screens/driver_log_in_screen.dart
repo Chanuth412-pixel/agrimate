@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/glassy_back_button.dart';
 
 class DriverLogInScreen extends StatefulWidget {
   const DriverLogInScreen({super.key});
@@ -405,6 +406,18 @@ class _DriverLogInScreenState extends State<DriverLogInScreen>
                     ),
                   ),
                 ),
+              ),
+            ),
+          ),
+
+          // Glassy back button
+          Positioned(
+            top: 0,
+            left: 0,
+            child: SafeArea(
+              child: GlassyBackButton(
+                margin: const EdgeInsets.only(top: 20, left: 20),
+                onPressed: () => Navigator.pushReplacementNamed(context, '/roleSelection'),
               ),
             ),
           ),

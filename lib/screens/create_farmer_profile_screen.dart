@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import '../firestore_service.dart'; // Ensure this path matches your structure
+import '../widgets/glassy_back_button.dart';
 
 class CreateFarmerProfileScreen extends StatefulWidget {
   const CreateFarmerProfileScreen({super.key});
@@ -357,6 +358,18 @@ class _CreateFarmerProfileScreenState extends State<CreateFarmerProfileScreen>
                     ),
                   ),
                 ),
+              ),
+            ),
+          ),
+
+          // Glassy back button
+          Positioned(
+            top: 0,
+            left: 0,
+            child: SafeArea(
+              child: GlassyBackButton(
+                margin: const EdgeInsets.only(top: 20, left: 20),
+                onPressed: () => Navigator.pushReplacementNamed(context, '/farmerLogIn'),
               ),
             ),
           ),

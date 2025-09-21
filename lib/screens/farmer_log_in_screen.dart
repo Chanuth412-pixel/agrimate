@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/glassy_back_button.dart';
 
 class FarmerLogInScreen extends StatefulWidget {
   const FarmerLogInScreen({super.key});
@@ -395,6 +396,29 @@ class _FarmerLogInScreenState extends State<FarmerLogInScreen> with TickerProvid
                     ),
                   ),
                 ),
+              ),
+            ),
+          ),
+
+          // Glassy back button
+          /*Positioned(
+            top: 0,
+            left: 0,
+            child: SafeArea(
+              child: GlassyBackButton(
+                onPressed: () => Navigator.pushReplacementNamed(context, '/roleSelection'),
+              ),
+            ),
+          ), */
+
+          // Glassy back button
+          Positioned(
+            top: 0,
+            left: 0,
+            child: SafeArea(
+              child: GlassyBackButton(
+                margin: const EdgeInsets.only(top: 20, left: 20),
+                onPressed: () => Navigator.pushReplacementNamed(context, '/roleSelection'),
               ),
             ),
           ),

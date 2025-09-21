@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 import '../main.dart' show AppLocaleProvider;
+import '../widgets/glassy_back_button.dart';
 
 class CreateDriverProfileScreen extends StatefulWidget {
   const CreateDriverProfileScreen({super.key});
@@ -311,6 +312,18 @@ class _CreateDriverProfileScreenState extends State<CreateDriverProfileScreen> w
                     ),
                   ),
                 ),
+              ),
+            ),
+          ),
+
+          // Glassy back button
+          Positioned(
+            top: 0,
+            left: 0,
+            child: SafeArea(
+              child: GlassyBackButton(
+                margin: const EdgeInsets.only(top: 20, left: 20),
+                onPressed: () => Navigator.pushReplacementNamed(context, '/driverLogIn'),
               ),
             ),
           ),

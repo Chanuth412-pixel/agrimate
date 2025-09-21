@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../widgets/glassy_back_button.dart';
 
 class CreateCustomerProfileScreen extends StatefulWidget {
   const CreateCustomerProfileScreen({super.key});
@@ -362,6 +363,18 @@ class _CreateCustomerProfileScreenState extends State<CreateCustomerProfileScree
                     ),
                   ),
                 ),
+              ),
+            ),
+          ),
+
+          // Glassy back button
+          Positioned(
+            top: 0,
+            left: 0,
+            child: SafeArea(
+              child: GlassyBackButton(
+                margin: const EdgeInsets.only(top: 20, left: 20),
+                onPressed: () => Navigator.pushReplacementNamed(context, '/customerLogIn'),
               ),
             ),
           ),
