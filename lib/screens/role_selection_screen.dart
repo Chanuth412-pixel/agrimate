@@ -10,18 +10,8 @@ class RoleSelectionScreen extends StatefulWidget {
 }
 
 class _RoleSelectionScreenState extends State<RoleSelectionScreen> with TickerProviderStateMixin {
-  // Animation Controllers for all three buttons
-  late AnimationController _farmerButtonController;
-  late AnimationController _customerButtonController;
-  late AnimationController _driverButtonController;  // Animation controller for Driver button
+  // Keep a simple fade-in for page elements
   late AnimationController _fadeController;
-
-  // Animation for all three buttons (Scale up and down)
-  late Animation<double> _farmerButtonScaleAnimation;
-  late Animation<double> _customerButtonScaleAnimation;
-  late Animation<double> _driverButtonScaleAnimation;  // Animation for Driver button
-  
-  // Fade animation for buttons
   late Animation<double> _fadeAnimation;
   Locale? _selectedLocale;
 
@@ -29,45 +19,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> with TickerPr
   void initState() {
     super.initState();
 
-    // Initialize AnimationControllers
-    _farmerButtonController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-    
-    _customerButtonController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-
-    _driverButtonController = AnimationController(  // Initialize the driver button controller
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-
-    // Define the scaling animations for buttons
-    _farmerButtonScaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
-      CurvedAnimation(
-        parent: _farmerButtonController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    _customerButtonScaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
-      CurvedAnimation(
-        parent: _customerButtonController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    _driverButtonScaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
-      CurvedAnimation(
-        parent: _driverButtonController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    // Fade-in animation for buttons
+    // Fade-in animation for the page
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
@@ -91,32 +43,20 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> with TickerPr
 
   @override
   void dispose() {
-    _farmerButtonController.dispose();
-    _customerButtonController.dispose();
-    _driverButtonController.dispose();  // Dispose the driver controller
     _fadeController.dispose();
     super.dispose();
   }
 
   void _onFarmerButtonPressed() {
-    _farmerButtonController.forward(); // Start animation
-    Future.delayed(const Duration(milliseconds: 500), () {
-      Navigator.pushNamed(context, '/farmerLogIn'); // Navigate to next screen after animation
-    });
+    Navigator.pushNamed(context, '/farmerLogIn');
   }
 
   void _onCustomerButtonPressed() {
-    _customerButtonController.forward(); // Start animation
-    Future.delayed(const Duration(milliseconds: 500), () {
-      Navigator.pushNamed(context, '/customerLogIn'); // Navigate to next screen after animation
-    });
+    Navigator.pushNamed(context, '/customerLogIn');
   }
 
   void _onDriverButtonPressed() {  // Handle driver button press
-    _driverButtonController.forward(); // Start animation
-    Future.delayed(const Duration(milliseconds: 500), () {
-      Navigator.pushNamed(context, '/driverLogIn');
-    });
+    Navigator.pushNamed(context, '/driverLogIn');
   }
 
   void _changeLanguage(Locale locale) {
@@ -126,169 +66,160 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> with TickerPr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          // Language selection dropdown at the top right
-          Positioned(
-            right: 20,
-            top: 20,
-            child: DropdownButton<Locale>(
-              value: _selectedLocale ?? Localizations.localeOf(context),
-              icon: const Icon(Icons.language),
-              underline: Container(),
-              items: const [
-                DropdownMenuItem(
-                  value: Locale('en'),
-                  child: Text('English'),
-                ),
-                DropdownMenuItem(
-                  value: Locale('si'),
-                  child: Text('සිංහල'),
-                ),
-              ],
-              onChanged: (locale) {
-                if (locale != null) {
-                  _changeLanguage(locale);
-                }
-              },
+      backgroundColor: const Color(0xFFF7F7FB),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // Language selection dropdown at the top right
+            Positioned(
+              right: 16,
+              top: 8,
+              child: DropdownButton<Locale>(
+                value: _selectedLocale ?? Localizations.localeOf(context),
+                icon: const Icon(Icons.language),
+                underline: Container(),
+                items: const [
+                  DropdownMenuItem(value: Locale('en'), child: Text('English')),
+                  DropdownMenuItem(value: Locale('si'), child: Text('සිංහල')),
+                ],
+                onChanged: (locale) {
+                  if (locale != null) _changeLanguage(locale);
+                },
+              ),
             ),
+
+            FadeTransition(
+              opacity: _fadeAnimation,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                    children: [
+                  const SizedBox(height: 8),
+                  Text(
+                    'Choose your role',
+                    style: TextStyle(
+                      color: Colors.deepPurple.shade700,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Select a role to continue. You can change this later in settings.',
+                    style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+                  ),
+                  const SizedBox(height: 20),
+
+                  _RoleCard(
+                    title: AppLocalizations.of(context)!.farmer,
+                    description: 'Manage harvests, weather insights and orders.',
+                    imageAsset: 'assets/images/Farmer.jpg',
+                    gradientColors: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // purple
+                    onSelect: _onFarmerButtonPressed,
+                  ),
+                  const SizedBox(height: 16),
+
+                  _RoleCard(
+                    title: AppLocalizations.of(context)!.customer,
+                    description: 'Browse fresh produce and place orders.',
+                    imageAsset: 'assets/images/Customer.jpg',
+                    gradientColors: const [Color(0xFF11998E), Color(0xFF38EF7D)], // green
+                    onSelect: _onCustomerButtonPressed,
+                  ),
+                  const SizedBox(height: 16),
+
+                  _RoleCard(
+                    title: AppLocalizations.of(context)!.driver,
+                    description: 'Deliver orders and view schedules.',
+                    imageAsset: 'assets/images/Driver.jpg',
+                    gradientColors: const [Color(0xFF06BEB6), Color(0xFF48B1BF)], // teal
+                    onSelect: _onDriverButtonPressed,
+                  ),
+                  const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RoleCard extends StatelessWidget {
+  final String title;
+  final String description;
+  final String imageAsset;
+  final List<Color> gradientColors;
+  final VoidCallback onSelect;
+
+  const _RoleCard({
+    required this.title,
+    required this.description,
+    required this.imageAsset,
+    required this.gradientColors,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 118,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: gradientColors),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: gradientColors.last.withOpacity(0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
-          Center(
+        ],
+      ),
+      child: Row(
+        children: [
+          // Left: text + button
+          Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    AppLocalizations.of(context)!.selectRole,
+                    title,
                     style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 50),
-
-                  // FARMER BUTTON with staggered animation and fade-in effect
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: GestureDetector(
-                      onTap: _onFarmerButtonPressed,
-                      child: AnimatedBuilder(
-                        animation: _farmerButtonController,
-                        builder: (context, child) {
-                          return Transform.scale(
-                            scale: _farmerButtonScaleAnimation.value,
-                            child: Container(
-                              width: 280,
-                              height: 50,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF02C697),
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
-                                    spreadRadius: 3,
-                                    blurRadius: 6,
-                                  ),
-                                ],
-                              ),
-                              child: Text(
-                                AppLocalizations.of(context)!.farmer,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                  const SizedBox(height: 6),
+                  Text(
+                    description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  const Spacer(),
+                  SizedBox(
+                    height: 36,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-
-                  // CUSTOMER BUTTON with staggered animation and fade-in effect
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: GestureDetector(
-                      onTap: _onCustomerButtonPressed,
-                      child: AnimatedBuilder(
-                        animation: _customerButtonController,
-                        builder: (context, child) {
-                          return Transform.scale(
-                            scale: _customerButtonScaleAnimation.value,
-                            child: Container(
-                              width: 280,
-                              height: 50,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF02C697),
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
-                                    spreadRadius: 3,
-                                    blurRadius: 6,
-                                  ),
-                                ],
-                              ),
-                              child: Text(
-                                AppLocalizations.of(context)!.customer,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  // DRIVER BUTTON with staggered animation and fade-in effect
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: GestureDetector(
-                      onTap: _onDriverButtonPressed,
-                      child: AnimatedBuilder(
-                        animation: _driverButtonController,
-                        builder: (context, child) {
-                          return Transform.scale(
-                            scale: _driverButtonScaleAnimation.value,
-                            child: Container(
-                              width: 280,
-                              height: 50,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF02C697),
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
-                                    spreadRadius: 3,
-                                    blurRadius: 6,
-                                  ),
-                                ],
-                              ),
-                              child: Text(
-                                AppLocalizations.of(context)!.driver,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                      onPressed: onSelect,
+                      child: const Text(
+                        'Select Role',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                       ),
                     ),
                   ),
@@ -296,8 +227,18 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> with TickerPr
               ),
             ),
           ),
+          // Right: circular image
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: CircleAvatar(
+              radius: 48,
+              backgroundColor: Colors.white.withOpacity(0.2),
+              backgroundImage: AssetImage(imageAsset),
+            ),
+          ),
         ],
       ),
     );
   }
 }
+

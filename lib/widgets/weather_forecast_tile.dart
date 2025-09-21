@@ -54,22 +54,37 @@ class WeatherForecastTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+    final theme = Theme.of(context);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 12.0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        // Glassy card effect
+        color: Colors.white.withOpacity(0.18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          )
+        ],
+        border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
       ),
       child: Column(
         children: [
           // Crop Info Section
           Container(
-            padding: const EdgeInsets.all(16.0),
-            decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
+            padding: const EdgeInsets.all(20.0),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF66E6BE), Color(0xFF19A37C)],
+              ),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(24),
+                topRight: Radius.circular(24),
               ),
             ),
             child: Row(
@@ -80,20 +95,24 @@ class WeatherForecastTile extends StatelessWidget {
                   children: [
                     Text(
                       cropName,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
                           ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Harvest Date: $harvestDate',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white.withOpacity(0.95)),
                     ),
                   ],
                 ),
                 Text(
                   'Quantity: $quantity kg',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
                 ),
               ],
             ),
@@ -101,14 +120,15 @@ class WeatherForecastTile extends StatelessWidget {
           
           // Weather Forecast Section
           Container(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '7-Day Weather Forecast',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
                       ),
                 ),
                 const SizedBox(height: 16),
@@ -121,40 +141,15 @@ class WeatherForecastTile extends StatelessWidget {
                       final condition = index < weatherConditions.length ? weatherConditions[index] : 'Unknown';
                       final temp = index < temperatures.length ? temperatures[index] : 'N/A';
 
+                      final color = getWeatherColor(condition);
                       return Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Column(
-                          children: [
-                            Icon(
-                              getWeatherIconData(iconName),
-                              color: getWeatherColor(condition),
-                              size: 32,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Day ${index + 1}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              condition,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${temp}°C',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
+                        margin: const EdgeInsets.symmetric(horizontal: 6),
+                        child: _ForecastPill(
+                          dayLabel: 'Day ${index + 1}',
+                          icon: getWeatherIconData(iconName),
+                          accent: color,
+                          condition: condition,
+                          temp: temp,
                         ),
                       );
                     }),
@@ -168,3 +163,64 @@ class WeatherForecastTile extends StatelessWidget {
     );
   }
 } 
+
+class _ForecastPill extends StatelessWidget {
+  final String dayLabel;
+  final String condition;
+  final String temp;
+  final IconData icon;
+  final Color accent;
+
+  const _ForecastPill({
+    required this.dayLabel,
+    required this.condition,
+    required this.temp,
+    required this.icon,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.22),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.35)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: accent, size: 22),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            dayLabel,
+            style: theme.textTheme.labelMedium?.copyWith(color: Colors.white),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            condition,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(color: Colors.white70),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$temp°C',
+            style: theme.textTheme.labelLarge?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
