@@ -15,6 +15,7 @@ import 'screens/add_crop_customer_c1.dart';
 import 'screens/splash_screen.dart'; // Splash screen
 import 'screens/driver_profile_screen.dart'; // Import the Driver Profile Screen
 import 'screens/driver_log_in_screen.dart'; // Add this import if missing
+import 'screens/scheduled_orders_screen.dart'; // Import the new scheduled orders screen
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
 import 'screens/create_driver_profile_screen.dart';
@@ -72,7 +73,8 @@ class _MyAppState extends State<MyApp> {
       child: MaterialApp(
         title: 'Agrimate',
         theme: ThemeData(
-          primarySwatch: Colors.green,
+          useMaterial3: true, // Enable Material 3
+          colorSchemeSeed: const Color(0xFF02C697),
           fontFamily: 'SFProDisplay',
           textTheme: const TextTheme(
             displayLarge: TextStyle(fontFamily: 'SFProDisplay', fontWeight: FontWeight.bold, fontSize: 32),
@@ -119,6 +121,7 @@ class _MyAppState extends State<MyApp> {
           '/farmerSelection': (context) => const RoleSelectionScreen(),
           '/customerSelection': (context) => const RoleSelectionScreen(),
           '/roleSelection': (context) => const RoleSelectionScreen(),
+          '/scheduledOrders': (context) => const ScheduledOrdersScreen(),
         },
         // Remove onGenerateRoute logic for /driverProfile
         onGenerateRoute: (settings) {

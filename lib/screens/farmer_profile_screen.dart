@@ -594,7 +594,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                   ),
                   const SizedBox(height: 16),
                   Container(
-                    height: 240,
+                    height: 335, // or 300
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(15),
@@ -634,7 +634,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                 children: [
                                   const SizedBox(width: 24),
                                   SizedBox(
-                                    height: 220,
+                                    height: 315,
                                     child: FutureBuilder<DocumentSnapshot>(
                                       future: FirebaseFirestore.instance
                                           .collection('Ongoing_Trans_Farm')
@@ -664,10 +664,15 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                               final customerName = tx['Farmer Name'] ?? 'N/A';
                                               final phoneNO = tx['Phone_NO'] ?? 'N/A';
                                               final deliveredOn = (tx['Date'] as Timestamp?)?.toDate() ?? DateTime.now();
+                                              final deliveryMethod = tx['deliveryMethod'];
+                                              final deliveryStatus = tx['Status'] ?? 'pending';
+                                              final deliverStatus = tx['deliver_status'] ?? '';
+                                              final deliveryGuyName = tx['delivery_guy_name'];
+                                              final deliveryGuyPhone = tx['delivery_guy_phone'];
                                               return Padding(
                                                 padding: const EdgeInsets.only(right: 16),
                                                 child: Container(
-                                                  width: 220,
+                                                  width: 250,
                                                   decoration: BoxDecoration(
                                                     color: Colors.white,
                                                     borderRadius: BorderRadius.circular(16),
@@ -698,7 +703,88 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                                       const SizedBox(height: 8),
                                                       Text('Customer: $customerName', style: Theme.of(context).textTheme.bodySmall),
                                                       Text('Contact: $phoneNO', style: Theme.of(context).textTheme.bodySmall),
-                                                      Text('Deliver On: ${deliveredOn.day}/${deliveredOn.month}/${deliveredOn.year}', style: Theme.of(context).textTheme.bodySmall),
+                                                      Text('Deliver On:  ${deliveredOn.day}/${deliveredOn.month}/${deliveredOn.year}', style: Theme.of(context).textTheme.bodySmall),
+                                                      if (deliveryMethod != null) ...[
+                                                        const SizedBox(height: 8),
+                                                        Row(
+                                                          children: [
+                                                            const Icon(Icons.local_shipping, size: 16, color: Color(0xFF02C697)),
+                                                            const SizedBox(width: 4),
+                                                            Text(
+                                                              deliveryMethod == 'self' ? 'Self Delivery' : 'Delivery Guy',
+                                                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF02C697)),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        if (deliveryMethod == 'delivery_guy' && deliverStatus == 'assigned' && deliveryGuyName != null) ...[
+                                                          const SizedBox(height: 6),
+                                                          Row(
+                                                            children: [
+                                                              const Icon(Icons.person, size: 16, color: Colors.blueAccent),
+                                                              const SizedBox(width: 4),
+                                                              Text('Delivery Guy: $deliveryGuyName', style: const TextStyle(fontSize: 13, color: Colors.blueAccent)),
+                                                              if (tx['delivery_guy_id'] != null)
+                                                                FutureBuilder<double?>(
+                                                                  future: _fetchDriverRating(tx['delivery_guy_id']),
+                                                                  builder: (context, snapshot) {
+                                                                    if (snapshot.connectionState == ConnectionState.waiting) {
+                                                                      return const Padding(
+                                                                        padding: EdgeInsets.only(left: 8.0),
+                                                                        child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                                                                      );
+                                                                    }
+                                                                    if (!snapshot.hasData || snapshot.data == null) {
+                                                                      return const Padding(
+                                                                        padding: EdgeInsets.only(left: 8.0),
+                                                                        child: Text('No rating', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                                                      );
+                                                                    }
+                                                                    return Padding(
+                                                                      padding: const EdgeInsets.only(left: 8.0),
+                                                                      child: Row(
+                                                                        children: [
+                                                                          const Icon(Icons.star, color: Colors.amber, size: 15),
+                                                                          Text(snapshot.data!.toStringAsFixed(1), style: const TextStyle(fontSize: 13)),
+                                                                        ],
+                                                                      ),
+                                                                    );
+                                                                  },
+                                                                ),
+                                                            ],
+                                                          ),
+                                                          if (deliveryGuyPhone != null)
+                                                            Padding(
+                                                              padding: const EdgeInsets.only(left: 20, top: 2),
+                                                              child: Text('Phone: $deliveryGuyPhone', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                                            ),
+                                                         if (status.toLowerCase() == 'pending')
+                                                           Padding(
+                                                             padding: const EdgeInsets.only(top: 8.0),
+                                                             child: ElevatedButton.icon(
+                                                               icon: const Icon(Icons.assignment_turned_in, size: 16),
+                                                               label: const Text('Assign to Driver', style: TextStyle(fontSize: 13)),
+                                                               style: ElevatedButton.styleFrom(
+                                                                 backgroundColor: Colors.blueAccent,
+                                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                                 textStyle: const TextStyle(fontSize: 13),
+                                                               ),
+                                                               onPressed: () => _markAsAssignedToDriver(userId, tx, transactions),
+                                                             ),
+                                                           ),
+                                                        ],
+                                                      ] else ...[
+                                                        const SizedBox(height: 8),
+                                                        ElevatedButton.icon(
+                                                          icon: const Icon(Icons.local_shipping, size: 16),
+                                                          label: const Text('Choose Delivery Method', style: TextStyle(fontSize: 13)),
+                                                          style: ElevatedButton.styleFrom(
+                                                            backgroundColor: const Color(0xFF02C697),
+                                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                            textStyle: const TextStyle(fontSize: 13),
+                                                          ),
+                                                          onPressed: () => _showDeliveryMethodDialog(context, tx, userId, transactions),
+                                                        ),
+                                                      ],
                                                       const Divider(height: 20),
                                                       Row(
                                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1609,5 +1695,92 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
 
     // Non-ideal conditions - darker yellow
     return Colors.yellow[500] ?? Colors.yellow;
+  }
+
+  void _showDeliveryMethodDialog(BuildContext context, Map<String, dynamic> tx, String? userId, List<Map<String, dynamic>> transactions) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Choose Delivery Method'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElevatedButton.icon(
+                icon: const Icon(Icons.person, size: 18),
+                label: const Text('Deliver Myself'),
+                onPressed: () async {
+                  await _updateDeliveryMethod(userId, tx, transactions, 'self');
+                  if (mounted) Navigator.pop(context);
+                },
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.delivery_dining, size: 18),
+                label: const Text('Assign to Delivery Guy'),
+                onPressed: () async {
+                  await _updateDeliveryMethod(userId, tx, transactions, 'delivery_guy');
+                  if (mounted) Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _updateDeliveryMethod(String? userId, Map<String, dynamic> tx, List<Map<String, dynamic>> transactions, String method) async {
+    if (userId == null) return;
+    // Update the deliveryMethod in the selected transaction
+    final updatedTx = Map<String, dynamic>.from(tx);
+    updatedTx['deliveryMethod'] = method;
+    // Replace the transaction in the array
+    final updatedTransactions = transactions.map((t) => t == tx ? updatedTx : t).toList();
+    await FirebaseFirestore.instance
+        .collection('Ongoing_Trans_Farm')
+        .doc(userId)
+        .update({'transactions': updatedTransactions});
+    setState(() {}); // Refresh UI
+  }
+
+  Future<void> _markAsAssigned(String? userId, Map<String, dynamic> tx, List<Map<String, dynamic>> transactions) async {
+    if (userId == null) return;
+    final updatedTx = Map<String, dynamic>.from(tx);
+    updatedTx['Status'] = 'assigned';
+    final updatedTransactions = transactions.map((t) => t == tx ? updatedTx : t).toList();
+    await FirebaseFirestore.instance
+        .collection('Ongoing_Trans_Farm')
+        .doc(userId)
+        .update({'transactions': updatedTransactions});
+    setState(() {});
+  }
+
+  Future<void> _markAsAssignedToDriver(String? userId, Map<String, dynamic> tx, List<Map<String, dynamic>> transactions) async {
+    if (userId == null) return;
+    final updatedTxs = transactions.map((t) {
+      if (t['Date'] == tx['Date'] && t['Customer ID'] == tx['Customer ID']) {
+        final updated = Map<String, dynamic>.from(t);
+        updated['Status'] = 'assigned';
+        return updated;
+      }
+      return t;
+    }).toList();
+    await FirebaseFirestore.instance
+        .collection('Ongoing_Trans_Farm')
+        .doc(userId)
+        .update({'transactions': updatedTxs});
+    setState(() {});
+  }
+
+  Future<double?> _fetchDriverRating(String driverId) async {
+    final doc = await FirebaseFirestore.instance.collection('DriverReviews').doc(driverId).get();
+    if (!doc.exists || doc.data() == null || !(doc.data()!.containsKey('ratings'))) {
+      return null;
+    }
+    final List<dynamic> ratings = doc['ratings'] ?? [];
+    if (ratings.isEmpty) return null;
+    double avg = ratings.map((r) => (r['rating'] ?? 0).toDouble()).fold(0.0, (a, b) => a + b) / ratings.length;
+    return avg;
   }
 }
