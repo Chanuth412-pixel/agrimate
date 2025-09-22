@@ -466,8 +466,6 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
     }
   }
 
-
-
   Widget _dateField(String label, TextEditingController ctr, {bool isReadOnly = false}) => Padding(
         padding: const EdgeInsets.only(bottom: 18),
         child: TextFormField(
@@ -500,456 +498,481 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add New Harvest',
-          style: TextStyle(fontWeight: FontWeight.w600),
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+            fontSize: 20,
+          ),
         ),
-        backgroundColor: const Color(0xFF02C697),
+        backgroundColor: const Color(0xFF2E7D32), // Darker green for app bar
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top curved container with form
-            Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFF02C697),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
-              ),
-              child: Container(
-                margin: const EdgeInsets.only(top: 10),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(30),
-                    topRight: Radius.circular(30),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFE8F5E9), // Very light green
+              Color(0xFFC8E6C9), // Light green
+            ],
+          ),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with image
+              Container(
+                height: 180,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E7D32),
+                  borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(30),
                     bottomRight: Radius.circular(30),
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        // Crop Selection with icon
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(15),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
-                                spreadRadius: 1,
-                                blurRadius: 5,
-                                offset: const Offset(0, 2),
+                child: Stack(
+                  children: [
+                    // Background pattern
+                    Opacity(
+                      opacity: 0.1,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          image: DecorationImage(
+                            image: AssetImage('assets/agriculture_pattern.png'), // You would need to add this asset
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.eco,
+                            size: 50,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Plan Your Harvest',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          const Text(
+                            'Get insights for better yield and profit',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Form Container
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Card(
+                  elevation: 5,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          // Crop Selection
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: DropdownButtonFormField<String>(
+                              decoration: InputDecoration(
+                                labelText: 'Select Crop',
+                                labelStyle: const TextStyle(
+                                  color: Color(0xFF2E7D32),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                border: InputBorder.none,
+                                prefixIcon: const Icon(Icons.eco, color: Color(0xFF2E7D32)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                              ),
+                              value: _selectedCrop,
+                              items: _crops.map((crop) {
+                                return DropdownMenuItem(
+                                  value: crop,
+                                  child: Text(
+                                    crop,
+                                    style: const TextStyle(fontSize: 18),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() => _selectedCrop = value);
+                                _onInputChanged();
+                              },
+                              validator: (v) => v == null ? 'Select crop' : null,
+                              isExpanded: true,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Date fields in a row
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Padding(
+                                      padding: EdgeInsets.only(left: 5, bottom: 5),
+                                      child: Text(
+                                        'Planting Date',
+                                        style: TextStyle(
+                                          color: Color(0xFF2E7D32),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[50],
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.grey[300]!),
+                                      ),
+                                      child: TextFormField(
+                                        controller: _planting,
+                                        readOnly: true,
+                                        decoration: InputDecoration(
+                                          hintText: 'Select date',
+                                          border: InputBorder.none,
+                                          prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFF2E7D32)),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                                        ),
+                                        onTap: () async {
+                                          final picked = await showDatePicker(
+                                            context: context,
+                                            initialDate: DateTime.now(),
+                                            firstDate: DateTime(2023),
+                                            lastDate: DateTime(2100),
+                                          );
+                                          if (picked != null) {
+                                            setState(() {
+                                              _planting.text = DateFormat('yyyy-MM-dd').format(picked);
+                                              _onInputChanged();
+                                            });
+                                          }
+                                        },
+                                        validator: (v) => v == null || v.isEmpty ? 'Enter Planting Date' : null,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 15),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Padding(
+                                      padding: EdgeInsets.only(left: 5, bottom: 5),
+                                      child: Text(
+                                        'Harvest Date',
+                                        style: TextStyle(
+                                          color: Color(0xFF2E7D32),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[50],
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.grey[300]!),
+                                      ),
+                                      child: TextFormField(
+                                        controller: _harvest,
+                                        readOnly: true,
+                                        decoration: InputDecoration(
+                                          hintText: 'Select date',
+                                          border: InputBorder.none,
+                                          prefixIcon: const Icon(Icons.event, color: Color(0xFF2E7D32)),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                                        ),
+                                        validator: (v) => v == null || v.isEmpty ? 'Enter Harvest Date' : null,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                          child: DropdownButtonFormField<String>(
-                            decoration: InputDecoration(
-                              labelText: 'Select Crop',
-                              labelStyle: const TextStyle(color: Color(0xFF02C697)),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(15),
-                                borderSide: BorderSide.none,
+                          const SizedBox(height: 20),
+
+                          // Quantity and Price fields in a row
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Padding(
+                                      padding: EdgeInsets.only(left: 5, bottom: 5),
+                                      child: Text(
+                                        'Quantity (kg)',
+                                        style: TextStyle(
+                                          color: Color(0xFF2E7D32),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[50],
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.grey[300]!),
+                                      ),
+                                      child: TextFormField(
+                                        controller: _qty,
+                                        keyboardType: TextInputType.number,
+                                        decoration: InputDecoration(
+                                          hintText: 'Enter quantity',
+                                          border: InputBorder.none,
+                                          prefixIcon: const Icon(Icons.scale, color: Color(0xFF2E7D32)),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                                        ),
+                                        validator: (v) => v == null || v.isEmpty ? 'Enter Quantity' : null,
+                                        onChanged: (value) => _onInputChanged(),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              prefixIcon: const Icon(Icons.eco, color: Color(0xFF02C697)),
-                              filled: true,
-                              fillColor: Colors.white,
-                            ),
-                            value: _selectedCrop,
-                            items: _crops.map((crop) {
-                              return DropdownMenuItem(
-                                value: crop,
-                                child: Text(crop),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() => _selectedCrop = value);
-                            },
-                            validator: (v) => v == null ? 'Select crop' : null,
+                              const SizedBox(width: 15),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Padding(
+                                      padding: EdgeInsets.only(left: 5, bottom: 5),
+                                      child: Text(
+                                        'Price (LKR/kg)',
+                                        style: TextStyle(
+                                          color: Color(0xFF2E7D32),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[50],
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.grey[300]!),
+                                      ),
+                                      child: TextFormField(
+                                        controller: _price,
+                                        keyboardType: TextInputType.number,
+                                        decoration: InputDecoration(
+                                          hintText: 'Enter price',
+                                          border: InputBorder.none,
+                                          prefixIcon: const Icon(Icons.attach_money, color: Color(0xFF2E7D32)),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                                        ),
+                                        validator: (v) => v == null || v.isEmpty ? 'Enter Price' : null,
+                                        onChanged: (value) => _onInputChanged(),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 20),
+                          const SizedBox(height: 25),
 
-                        // Date fields in a row
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(15),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.grey.withOpacity(0.1),
-                                      spreadRadius: 1,
-                                      blurRadius: 5,
-                                      offset: const Offset(0, 2),
+                          // Preview and Submit Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: _preview,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFFF9800),
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
-                                  ],
-                                ),
-                                child: TextFormField(
-                                  controller: _planting,
-                                  readOnly: true,
-                                  decoration: InputDecoration(
-                                    labelText: 'Planting Date',
-                                    labelStyle: const TextStyle(color: Color(0xFF02C697)),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(15),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFF02C697)),
-                                    filled: true,
-                                    fillColor: Colors.white,
+                                    elevation: 3,
                                   ),
-                                  onTap: () async {
-                                    final picked = await showDatePicker(
-                                      context: context,
-                                      initialDate: DateTime.now(),
-                                      firstDate: DateTime(2023),
-                                      lastDate: DateTime(2100),
-                                    );
-                                    if (picked != null) {
-                                      setState(() {
-                                        _planting.text = DateFormat('yyyy-MM-dd').format(picked);
-                                      });
-                                    }
-                                  },
-                                  validator: (v) => v == null || v.isEmpty ? 'Enter Planting Date' : null,
+                                  child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.preview, size: 20, color: Colors.white),
+                                      SizedBox(width: 8),
+                                      Text('Preview', style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 15),
-                            Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(15),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.grey.withOpacity(0.1),
-                                      spreadRadius: 1,
-                                      blurRadius: 5,
-                                      offset: const Offset(0, 2),
+                              const SizedBox(width: 15),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: _hasPreviewed ? _submit : null,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _hasPreviewed ? const Color(0xFF2E7D32) : Colors.grey,
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
-                                  ],
-                                ),
-                                child: TextFormField(
-                                  controller: _harvest,
-                                  readOnly: true,
-                                  decoration: InputDecoration(
-                                    labelText: 'Harvest Date',
-                                    labelStyle: const TextStyle(color: Color(0xFF02C697)),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(15),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    prefixIcon: const Icon(Icons.event, color: Color(0xFF02C697)),
-                                    filled: true,
-                                    fillColor: Colors.white,
+                                    elevation: 3,
                                   ),
-                                  validator: (v) => v == null || v.isEmpty ? 'Enter Harvest Date' : null,
+                                  child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.check_circle, size: 20, color: Colors.white),
+                                      SizedBox(width: 8),
+                                      Text('Submit', style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Quantity and Price fields in a row
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(15),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.grey.withOpacity(0.1),
-                                      spreadRadius: 1,
-                                      blurRadius: 5,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: TextFormField(
-                                  controller: _qty,
-                                  keyboardType: TextInputType.number,
-                                  decoration: InputDecoration(
-                                    labelText: 'Quantity (kg)',
-                                    labelStyle: const TextStyle(color: Color(0xFF02C697)),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(15),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    prefixIcon: const Icon(Icons.scale, color: Color(0xFF02C697)),
-                                    filled: true,
-                                    fillColor: Colors.white,
-                                  ),
-                                  validator: (v) => v == null || v.isEmpty ? 'Enter Quantity' : null,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 15),
-                            Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(15),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.grey.withOpacity(0.1),
-                                      spreadRadius: 1,
-                                      blurRadius: 5,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: TextFormField(
-                                  controller: _price,
-                                  keyboardType: TextInputType.number,
-                                  decoration: InputDecoration(
-                                    labelText: 'Price (LKR/kg)',
-                                    labelStyle: const TextStyle(color: Color(0xFF02C697)),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(15),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    prefixIcon: const Icon(Icons.attach_money, color: Color(0xFF02C697)),
-                                    filled: true,
-                                    fillColor: Colors.white,
-                                  ),
-                                  validator: (v) => v == null || v.isEmpty ? 'Enter Price' : null,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 25),
-
-                        // Preview and Submit Buttons
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: _preview,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFFFA726),
-                                  padding: const EdgeInsets.symmetric(vertical: 15),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  elevation: 2,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: const [
-                                    Icon(Icons.preview, size: 20),
-                                    SizedBox(width: 8),
-                                    Text('Preview', style: TextStyle(fontSize: 16)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 15),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: _hasPreviewed ? _submit : null,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _hasPreviewed ? const Color(0xFF02C697) : Colors.grey,
-                                  padding: const EdgeInsets.symmetric(vertical: 15),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  elevation: 2,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: const [
-                                    Icon(Icons.check_circle, size: 20),
-                                    SizedBox(width: 8),
-                                    Text('Submit', style: TextStyle(fontSize: 16)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
+
+              // Information sections with cards
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Harvest Insights',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2E7D32),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    
+                    // Weather Section
+                    _buildInfoCard(
+                      icon: Icons.wb_sunny,
+                      title: 'Weather Forecast',
+                      content: _weatherSummary.isEmpty 
+                          ? 'Preview to see weather insights' 
+                          : _weatherSummary,
+                      iconColor: const Color(0xFFFFA726),
+                    ),
+                    const SizedBox(height: 15),
+
+                    // Market Analysis Section
+                    _buildInfoCard(
+                      icon: Icons.trending_up,
+                      title: 'Market Analysis',
+                      content: _demandSupplyStatus.isEmpty 
+                          ? 'Preview to see market analysis' 
+                          : _demandSupplyStatus,
+                      iconColor: const Color(0xFF2196F3),
+                    ),
+                    const SizedBox(height: 15),
+
+                    // Price Analysis Section
+                    _buildInfoCard(
+                      icon: Icons.monetization_on,
+                      title: 'Price Analysis',
+                      content: _priceStatus.isEmpty 
+                          ? 'Preview to see price analysis' 
+                          : _priceStatus,
+                      iconColor: const Color(0xFF4CAF50),
+                    ),
+                    const SizedBox(height: 15),
+
+                    // Precautions Section
+                    _buildInfoCard(
+                      icon: Icons.health_and_safety,
+                      title: 'Precautions for Crop Care',
+                      content: _precautions.isEmpty 
+                          ? 'Preview to see crop care recommendations' 
+                          : _precautions,
+                      iconColor: const Color(0xFFD32F2F),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoCard({required IconData icon, required String title, required String content, required Color iconColor}) {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: iconColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: iconColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2E7D32),
+                  ),
+                ),
+              ],
             ),
-
-            // Information sections with cards
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Weather Section
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(15),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: const [
-                              Icon(Icons.wb_sunny, color: Color(0xFFFFA726)),
-                              SizedBox(width: 8),
-                              Text(
-                                'Upcoming Weather',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2D3748),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            _weatherSummary,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF4A5568),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-
-                  // Market Analysis Section
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(15),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: const [
-                              Icon(Icons.trending_up, color: Color(0xFF02C697)),
-                              SizedBox(width: 8),
-                              Text(
-                                'Market Analysis',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2D3748),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            _demandSupplyStatus,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF4A5568),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-
-                  // Price Analysis Section
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(15),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: const [
-                              Icon(Icons.monetization_on, color: Color(0xFF38A169)),
-                              SizedBox(width: 8),
-                              Text(
-                                'Price Analysis',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2D3748),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            _priceStatus,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF4A5568),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-
-                  // Precautions Section
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(15),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: const [
-                              Icon(Icons.warning_amber, color: Color(0xFFD69E2E)),
-                              SizedBox(width: 8),
-                              Text(
-                                'Precautions for Crop Care',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2D3748),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            _precautions,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF4A5568),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 12),
+            Text(
+              content,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[700],
+                height: 1.4,
               ),
             ),
           ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -205,45 +206,104 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
     }
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        // Remove the title
-        // title: const Text('Segmented Shortest Routes: Farmer → Nearest → Next → Last'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              const Text('Total Delivery Price: Rs. 226.00',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.blue)),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: 400,
-                height: 400,
-                child: FlutterMap(
-                  options: MapOptions(
-                    center: farmer,
-                    zoom: 12.0,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.green.shade100.withOpacity(0.9),
+                Colors.lightGreen.shade100.withOpacity(0.9),
+              ],
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade800,
+                    borderRadius: BorderRadius.circular(15),
                   ),
-                  children: [
-                    TileLayer(
-                      urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      subdomains: const ['a', 'b', 'c'],
-                      userAgentPackageName: 'com.example.agrimate',
-                    ),
-                    PolylineLayer(polylines: polylines),
-                    MarkerLayer(markers: markers),
-                  ],
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.map, color: Colors.white, size: 24),
+                      SizedBox(width: 8),
+                      Text('Optimized Delivery Route',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.white,
+                          )),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.green.shade300),
+                  ),
+                  child: Text('Total Delivery Price: Rs. 226.00',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.green.shade800,
+                      )),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: 400,
+                  height: 400,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.green.shade400, width: 2),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(15),
+                    child: FlutterMap(
+                      options: MapOptions(
+                        center: farmer,
+                        zoom: 12.0,
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          subdomains: const ['a', 'b', 'c'],
+                          userAgentPackageName: 'com.example.agrimate',
+                        ),
+                        PolylineLayer(polylines: polylines),
+                        MarkerLayer(markers: markers),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade700,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                  ),
+                  child: const Text('Close Map', style: TextStyle(fontSize: 16)),
+                ),
+              ],
+            ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
       ),
     );
   }
@@ -256,74 +316,474 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
     final List<Map<String, dynamic>> ongoingDeliveries = transactions.where((tx) =>
       tx['deliver_status'] == 'assigned' && tx['delivery_guy_id'] == driverId
     ).toList();
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Driver Transactions')),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : _ordersByFarmer.isEmpty && ongoingDeliveries.isEmpty
-              ? const Center(child: Text('No transactions found.'))
-              : Column(
-                  children: [
-                    if (ongoingDeliveries.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Ongoing Deliveries', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                            const SizedBox(height: 8),
-                            ...ongoingDeliveries.map((tx) {
-                              final crop = tx['Crop'] ?? '';
-                              final status = tx['Status'] ?? '';
-                              final quantity = tx['Quantity Sold (1kg)'] ?? '';
-                              final farmerName = tx['Farmer Name'] ?? 'Unknown';
-                              final customerId = tx['Customer ID'] ?? '';
-                              final customerName = customerId != '' && customerDetails[customerId] != null
-                                  ? (customerDetails[customerId]!['name'] ?? customerDetails[customerId]!['email'] ?? 'Unknown')
-                                  : 'Unknown';
-                              return Card(
-                                child: ListTile(
-                                  title: Text('Order: $crop'),
-                                  subtitle: Text('Status: $status\nQuantity: $quantity kg\nFarmer: $farmerName\nCustomer: $customerName'),
-                                  trailing: status != 'in_transit'
-                                      ? ElevatedButton(
-                                          onPressed: () async {
-                                            await _markAsInTransit(tx);
-                                          },
-                                          child: const Text('Picked Up'),
-                                        )
-                                      : const Text('In Transit', style: TextStyle(color: Colors.green)),
-                                ),
-                              );
-                            }).toList(),
-                          ],
-                        ),
+      body: Container(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/Background.jpg'),
+            fit: BoxFit.cover,
+          ),
+        ),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+          child: Container(
+            color: Colors.white.withOpacity(0.1),
+            child: loading
+                ? _buildLoadingScreen()
+                : _ordersByFarmer.isEmpty && ongoingDeliveries.isEmpty
+                    ? _buildEmptyState()
+                    : _buildContent(context, ongoingDeliveries, driverId),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingScreen() {
+    return Center(
+      child: Container(
+        width: 200,
+        height: 200,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: Colors.white.withOpacity(0.2),
+          border: Border.all(color: Colors.white.withOpacity(0.3)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade700),
+              strokeWidth: 4,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Loading Deliveries...',
+              style: TextStyle(
+                color: Colors.green.shade800,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Please wait while we fetch your orders',
+              style: TextStyle(
+                color: Colors.green.shade600,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Container(
+        width: 300,
+        padding: const EdgeInsets.all(30),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: Colors.white.withOpacity(0.15),
+          border: Border.all(color: Colors.white.withOpacity(0.3)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.inventory_2,
+              size: 80,
+              color: Colors.green.shade300,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'No Deliveries Available',
+              style: TextStyle(
+                color: Colors.green.shade800,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'There are currently no pending deliveries assigned to you.',
+              style: TextStyle(
+                color: Colors.green.shade600,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, List<Map<String, dynamic>> ongoingDeliveries, String? driverId) {
+    return Column(
+      children: [
+        // App Bar with Glass Effect
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            border: Border.all(color: Colors.white.withOpacity(0.2)),
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(20),
+              bottomRight: Radius.circular(20),
+            ),
+          ),
+          child: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: Row(
+              children: [
+                Icon(Icons.local_shipping, color: Colors.green.shade700),
+                const SizedBox(width: 10),
+                const Text(
+                  'Driver Dashboard',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                  ),
+                ),
+              ],
+            ),
+            centerTitle: true,
+          ),
+        ),
+
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Ongoing Deliveries Section
+                if (ongoingDeliveries.isNotEmpty) ...[
+                  _buildSectionHeader('🚚 Ongoing Deliveries', Icons.delivery_dining),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(15),
+                        color: Colors.white.withOpacity(0.1),
+                        border: Border.all(color: Colors.white.withOpacity(0.2)),
                       ),
-                    Expanded(
                       child: ListView.builder(
-                        itemCount: _ordersByFarmer.keys.length,
+                        itemCount: ongoingDeliveries.length,
                         itemBuilder: (context, index) {
-                          final farmerId = _ordersByFarmer.keys.elementAt(index);
-                          final farmer = _farmerInfo[farmerId] ?? {};
-                          return Card(
-                            child: ListTile(
-                              title: Text(farmer['name'] ?? 'Unknown Farmer'),
-                              subtitle: Text(farmer['phone'] ?? ''),
-                              onTap: () => _showOrdersForFarmer(context, farmerId),
-                            ),
-                          );
+                          final tx = ongoingDeliveries[index];
+                          return _buildDeliveryCard(tx, true);
                         },
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: ElevatedButton(
-                        onPressed: () => _showCustomersOnMap(context),
-                        child: const Text('Show Optimized Route Map'),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
+                // Available Farmers Section
+                _buildSectionHeader('👨‍🌾 Available Farmers', Icons.agriculture),
+                const SizedBox(height: 10),
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(15),
+                      color: Colors.white.withOpacity(0.1),
+                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                    ),
+                    child: _ordersByFarmer.keys.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No farmers with pending deliveries',
+                              style: TextStyle(
+                                color: Colors.green.shade600,
+                                fontSize: 16,
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: _ordersByFarmer.keys.length,
+                            itemBuilder: (context, index) {
+                              final farmerId = _ordersByFarmer.keys.elementAt(index);
+                              final farmer = _farmerInfo[farmerId] ?? {};
+                              return _buildFarmerCard(farmerId, farmer);
+                            },
+                          ),
+                  ),
+                ),
+
+                // Map Button
+                const SizedBox(height: 20),
+                Center(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(15),
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.green.shade600,
+                          Colors.lightGreen.shade600,
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.shade800.withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () => _showCustomersOnMap(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.map, color: Colors.white, size: 24),
+                          const SizedBox(width: 10),
+                          Text(
+                            'View Optimized Route',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.green.shade800.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.green.shade300),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeliveryCard(Map<String, dynamic> tx, bool isOngoing) {
+    final crop = tx['Crop'] ?? '';
+    final status = tx['Status'] ?? '';
+    final quantity = tx['Quantity Sold (1kg)'] ?? '';
+    final farmerName = tx['Farmer Name'] ?? 'Unknown';
+    final customerId = tx['Customer ID'] ?? '';
+    final customerName = customerId != '' && customerDetails[customerId] != null
+        ? (customerDetails[customerId]!['name'] ?? customerDetails[customerId]!['email'] ?? 'Unknown')
+        : 'Unknown';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        gradient: LinearGradient(
+          colors: [
+            Colors.green.shade50.withOpacity(0.8),
+            Colors.lightGreen.shade50.withOpacity(0.8),
+          ],
+        ),
+        border: Border.all(color: Colors.green.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.shade100.withOpacity(0.5),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListTile(
+        leading: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: Colors.green.shade100,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            Icons.local_shipping,
+            color: Colors.green.shade700,
+            size: 30,
+          ),
+        ),
+        title: Text(
+          crop,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.green.shade800,
+            fontSize: 16,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Status: $status', style: TextStyle(color: Colors.green.shade600)),
+            Text('Quantity: $quantity kg', style: TextStyle(color: Colors.green.shade600)),
+            Text('Farmer: $farmerName', style: TextStyle(color: Colors.green.shade600)),
+            Text('Customer: $customerName', style: TextStyle(color: Colors.green.shade600)),
+          ],
+        ),
+        trailing: isOngoing && status != 'in_transit'
+            ? Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.orange.shade400, Colors.orange.shade600],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ElevatedButton(
+                  onPressed: () async {
+                    await _markAsInTransit(tx);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                  child: const Text(
+                    'Picked Up',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              )
+            : Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.shade300),
+                ),
+                child: Text(
+                  'In Transit',
+                  style: TextStyle(
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildFarmerCard(String farmerId, Map<String, dynamic> farmer) {
+    final orders = _ordersByFarmer[farmerId] ?? [];
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15),
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withOpacity(0.8),
+            Colors.green.shade50.withOpacity(0.7),
+          ],
+        ),
+        border: Border.all(color: Colors.white.withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListTile(
+        leading: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: Colors.green.shade100,
+            borderRadius: BorderRadius.circular(25),
+            border: Border.all(color: Colors.green.shade300),
+          ),
+          child: Icon(
+            Icons.agriculture,
+            color: Colors.green.shade700,
+            size: 28,
+          ),
+        ),
+        title: Text(
+          farmer['name'] ?? 'Unknown Farmer',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.green.shade900,
+            fontSize: 16,
+            shadows: [
+              Shadow(
+                offset: const Offset(0, 1),
+                blurRadius: 2.0,
+                color: Colors.black.withOpacity(0.2),
+              ),
+            ],
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (farmer['phone'] != null)
+              Text('📞 ${farmer['phone']}', style: TextStyle(color: Colors.green.shade600)),
+            Text('📦 ${orders.length} order(s) pending', style: TextStyle(color: Colors.orange.shade600)),
+          ],
+        ),
+        trailing: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.green.shade500, Colors.lightGreen.shade500],
+            ),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: ElevatedButton(
+            onPressed: () => _showOrdersForFarmer(context, farmerId),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            child: const Text(
+              'View Orders',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -332,45 +792,129 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
     final farmer = _farmerInfo[farmerId] ?? {};
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Orders from ${farmer['name'] ?? 'Farmer'}'),
-        content: SizedBox(
-          width: 350,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: orders.length,
-            itemBuilder: (context, idx) {
-              final tx = orders[idx];
-              final crop = tx['Crop'] ?? '';
-              final status = tx['Status'] ?? '';
-              final quantity = tx['Quantity Sold (1kg)'] ?? '';
-              final customerId = tx['Customer ID'] ?? '';
-              final customerName = customerId != '' && customerDetails[customerId] != null
-                  ? (customerDetails[customerId]!['name'] ?? customerDetails[customerId]!['email'] ?? 'Unknown')
-                  : 'Unknown';
-              return Card(
-                child: ListTile(
-                  title: Text('Order: $crop'),
-                  subtitle: Text('Status: $status\nQuantity: $quantity kg\nCustomer: $customerName'),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.green.shade100.withOpacity(0.95),
+                Colors.lightGreen.shade100.withOpacity(0.95),
+              ],
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade800,
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.agriculture, color: Colors.white, size: 24),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Orders from ${farmer['name'] ?? 'Farmer'}',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              );
-            },
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: 400,
+                  height: 300,
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: orders.length,
+                    itemBuilder: (context, idx) {
+                      final tx = orders[idx];
+                      return _buildOrderItem(tx, idx + 1);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () async {
+                        await _assignAllDeliveriesForFarmer(farmerId, orders);
+                        Navigator.pop(context);
+                        _fetchTransactionsAndCustomers();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Take All Deliveries'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.green.shade700,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-        actions: [
-          ElevatedButton(
-            onPressed: () async {
-              await _assignAllDeliveriesForFarmer(farmerId, orders);
-              Navigator.pop(context);
-              _fetchTransactionsAndCustomers();
-            },
-            child: const Text('Take All Deliveries'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
+      ),
+    );
+  }
+
+  Widget _buildOrderItem(Map<String, dynamic> tx, int orderNumber) {
+    final crop = tx['Crop'] ?? '';
+    final status = tx['Status'] ?? '';
+    final quantity = tx['Quantity Sold (1kg)'] ?? '';
+    final customerId = tx['Customer ID'] ?? '';
+    final customerName = customerId != '' && customerDetails[customerId] != null
+        ? (customerDetails[customerId]!['name'] ?? customerDetails[customerId]!['email'] ?? 'Unknown')
+        : 'Unknown';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.green.shade200),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Colors.green.shade100,
+          child: Text('$orderNumber', style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold)),
+        ),
+        title: Text(crop, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Status: $status', style: TextStyle(color: Colors.green.shade600)),
+            Text('Quantity: $quantity kg', style: TextStyle(color: Colors.green.shade600)),
+            Text('Customer: $customerName', style: TextStyle(color: Colors.green.shade600)),
+          ],
+        ),
       ),
     );
   }
