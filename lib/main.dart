@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart'; // Firebase initialization options
 
 // Import all the screens for routing
@@ -58,9 +59,27 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  Locale? _locale;
+  Locale _locale = const Locale('en'); // Default to English
 
-  void setLocale(Locale locale) {
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedLanguage();
+  }
+
+  _loadSavedLanguage() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? languageCode = prefs.getString('language_code');
+    if (languageCode != null) {
+      setState(() {
+        _locale = Locale(languageCode);
+      });
+    }
+  }
+
+  void setLocale(Locale locale) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('language_code', locale.languageCode);
     setState(() {
       _locale = locale;
     });

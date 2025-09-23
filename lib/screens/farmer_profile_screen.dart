@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import 'dart:ui' as ui;
 import 'package:weather_icons/weather_icons.dart';
 import 'package:fl_chart/fl_chart.dart';

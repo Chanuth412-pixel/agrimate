@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'dart:ui';
+import '../l10n/app_localizations.dart';
 import 'add_crop_customer_c1.dart';
 import 'customer_detail_page.dart';
 import 'dart:convert';
@@ -272,6 +274,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     final theme = Theme.of(context);
+    const greenDark = Color(0xFF2E7D32);
 
     return Scaffold(
       appBar: AppBar(
@@ -316,9 +319,20 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      backgroundColor: const Color(0xFFF5F5F7),
-      body: SingleChildScrollView(
-        child: Column(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFDFFFD6),
+              Color(0xFFC0F7B0),
+            ],
+          ),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
@@ -361,12 +375,15 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   Row(
                     children: [
                       ElevatedButton.icon(
-                        icon: const Icon(Icons.schedule),
+                        icon: const Icon(Icons.schedule, color: Colors.white),
                         label: const Text('View Scheduled Orders'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(0xFF02C697),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          textStyle: const TextStyle(fontSize: 15),
+                          backgroundColor: greenDark,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
                         ),
                         onPressed: () {
                           Navigator.push(
@@ -376,7 +393,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                         },
                       ),
                       const SizedBox(width: 16),
-                      const Icon(Icons.trending_up, color: Color(0xFF02C697)),
+                      const Icon(Icons.trending_up, color: greenDark),
                       const SizedBox(width: 8),
                       Text(
                         'Recommended Crops',
@@ -456,20 +473,39 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                     onPressed: () async {
                       final crop = await showDialog<String>(
                         context: context,
-                        builder: (context) => SimpleDialog(
+                        builder: (context) => AlertDialog(
                           title: const Text('Select a Crop'),
-                          children: [
-                            SimpleDialogOption(
-                              onPressed: () => Navigator.pop(context, 'Tomato'),
-                              child: const Text('Tomato'),
+                          content: SingleChildScrollView(
+                            child: SizedBox(
+                              width: 380,
+                              child: Wrap(
+                                spacing: 12,
+                                runSpacing: 12,
+                                alignment: WrapAlignment.center,
+                                children: [
+                                  _CropSelectCard(
+                                    name: 'Tomato',
+                                    imagePath: 'assets/images/tomato.png',
+                                    onTap: () => Navigator.pop(context, 'Tomato'),
+                                  ),
+                                  _CropSelectCard(
+                                    name: 'Bean',
+                                    imagePath: 'assets/images/bean.png',
+                                    onTap: () => Navigator.pop(context, 'Bean'),
+                                  ),
+                                  _CropSelectCard(
+                                    name: 'Okra',
+                                    imagePath: 'assets/images/okra.png',
+                                    onTap: () => Navigator.pop(context, 'Okra'),
+                                  ),
+                                ],
+                              ),
                             ),
-                            SimpleDialogOption(
-                              onPressed: () => Navigator.pop(context, 'Bean'),
-                              child: const Text('Bean'),
-                            ),
-                            SimpleDialogOption(
-                              onPressed: () => Navigator.pop(context, 'Okra'),
-                              child: const Text('Okra'),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancel'),
                             ),
                           ],
                         ),
@@ -577,7 +613,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   const SizedBox(height: 32),
                   Row(
                     children: [
-                      const Icon(Icons.receipt_long, color: Color(0xFF02C697)),
+                      const Icon(Icons.receipt_long, color: greenDark),
                       const SizedBox(width: 8),
                       Text(
                         'Recent Transactions',
@@ -638,21 +674,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           final reviewed = tx['reviewed'] == true;
 
                           print('TX: status=${tx['Status']} reviewed=${tx['reviewed']} FarmerID=${tx['Farmer ID']} DriverID=${tx['delivery_guy_id']}');
-                          return Card(
+                          return _GlassCard(
                             margin: const EdgeInsets.only(bottom: 16),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              side: BorderSide(
-                                color: Colors.grey.shade200,
-                                width: 1,
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                   Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
@@ -693,18 +720,18 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                       _buildDetailBox(
                                         'Quantity',
                                         '${quantity}kg',
-                                        const Color(0xFFF3F4F6),
+                                        Colors.white.withOpacity(0.22),
                                       ),
                                       _buildDetailBox(
                                         'Unit Price',
                                         'LKR $price',
-                                        const Color(0xFFF3F4F6),
+                                        Colors.white.withOpacity(0.22),
                                       ),
                                       _buildDetailBox(
                                         'Total',
                                         'LKR ${price * quantity}',
-                                        const Color(0xFFE8F5F1),
-                                        valueColor: const Color(0xFF02C697),
+                                        Colors.white.withOpacity(0.28),
+                                        valueColor: greenDark,
                                       ),
                                     ],
                                   ),
@@ -715,9 +742,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                         icon: const Icon(Icons.check_circle, color: Colors.white, size: 18),
                                         label: const Text('Mark as Delivered'),
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.green,
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          textStyle: const TextStyle(fontSize: 15),
+                                          backgroundColor: greenDark,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          elevation: 0,
                                         ),
                                         onPressed: () async {
                                           await _markAsDelivered(
@@ -738,8 +768,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                         label: const Text('Leave Review'),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.orange,
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          textStyle: const TextStyle(fontSize: 15),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          elevation: 0,
                                         ),
                                         onPressed: () {
                                           print('Leave Review button pressed for tx: ${tx['Farmer ID']}');
@@ -756,7 +789,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                     ),
                                 ],
                               ),
-                            ),
                           );
                         },
                       );
@@ -766,6 +798,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               ),
             ),
           ],
+          ),
         ),
       ),
     );
@@ -811,13 +844,13 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isCompleted ? const Color(0xFFE8F5F1) : const Color(0xFFFFF4E6),
+        color: isCompleted ? Colors.white.withOpacity(0.28) : Colors.white.withOpacity(0.22),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         '${status[0].toUpperCase()}${status.substring(1)}',
         style: TextStyle(
-          color: isCompleted ? const Color(0xFF02C697) : const Color(0xFFFF9800),
+          color: isCompleted ? const Color(0xFF2E7D32) : const Color(0xFFFF9800),
           fontWeight: FontWeight.w500,
           fontSize: 12,
         ),
@@ -1158,21 +1191,10 @@ class CropCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: _GlassCard(
         width: 140,
         height: 160,
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.1),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1182,12 +1204,18 @@ class CropCard extends StatelessWidget {
               height: 60,
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: Colors.white.withOpacity(0.18),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Image.asset(
-                imagePath,
-                fit: BoxFit.contain,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(
+                    imagePath,
+                    fit: BoxFit.contain,
+                  ),
+                  Container(color: const Color(0xFF2E7D32).withOpacity(0.18)),
+                ],
               ),
             ),
             const SizedBox(height: 12),
@@ -1196,6 +1224,7 @@ class CropCard extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
+                color: Colors.black87,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1203,12 +1232,149 @@ class CropCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               description,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
-                color: Colors.grey[600],
+                color: Colors.black54,
               ),
               textAlign: TextAlign.center,
               maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Glassmorphic card used across this screen to match role selection design
+class _GlassCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final double borderRadius;
+  final double? width;
+  final double? height;
+
+  const _GlassCard({
+    required this.child,
+    this.padding,
+    this.margin,
+    this.borderRadius = 16,
+    this.width,
+    this.height,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: margin,
+      width: width,
+      height: height,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        clipBehavior: Clip.antiAlias,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.28),
+                  Colors.white.withOpacity(0.12),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(borderRadius),
+              border: Border.all(color: Colors.white.withOpacity(0.45), width: 1.2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white.withOpacity(0.35),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.6],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // content
+                child,
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CropSelectCard extends StatelessWidget {
+  final String name;
+  final String imagePath;
+  final VoidCallback onTap;
+
+  const _CropSelectCard({
+    required this.name,
+    required this.imagePath,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: _GlassCard(
+        width: 108,
+        height: 130,
+        padding: const EdgeInsets.all(10),
+        borderRadius: 14,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(imagePath, fit: BoxFit.contain),
+                  Container(color: const Color(0xFF2E7D32).withOpacity(0.16)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              name,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ],

@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import '../firestore_service.dart'; // Ensure this path matches your structure
+import '../l10n/app_localizations.dart';
 import '../widgets/glassy_back_button.dart';
 
 class CreateFarmerProfileScreen extends StatefulWidget {
@@ -24,6 +25,9 @@ class _CreateFarmerProfileScreenState extends State<CreateFarmerProfileScreen>
   final phoneController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   // Animation controllers
   late AnimationController _logoController;
@@ -79,10 +83,19 @@ class _CreateFarmerProfileScreenState extends State<CreateFarmerProfileScreen>
     if (!_formKey.currentState!.validate()) return;
 
     final name = nameController.text.trim();
-    final location = locationController.text.trim();
-    final phone = phoneController.text.trim();
+    final location = locationController.text.trim().isEmpty ? 'Not specified' : locationController.text.trim();
+    final phone = phoneController.text.trim().isEmpty ? 'Not specified' : phoneController.text.trim();
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
+    final confirmPassword = confirmPasswordController.text.trim();
+
+    // Check if passwords match
+    if (password != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.passwordsDoNotMatch)),
+      );
+      return;
+    }
 
     try {
       // Get current location
@@ -107,18 +120,18 @@ class _CreateFarmerProfileScreenState extends State<CreateFarmerProfileScreen>
 
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Farmer profile created successfully')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.profileCreatedSuccessfully)),
       );
 
       // Clear form inputs after successful profile creation
       _clearForm();
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Auth error: ${e.message}')),
+        SnackBar(content: Text('${AppLocalizations.of(context)!.authError}: ${e.message}')),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('${AppLocalizations.of(context)!.errorOccurred}: $e')),
       );
     }
   }
@@ -150,210 +163,261 @@ class _CreateFarmerProfileScreenState extends State<CreateFarmerProfileScreen>
     phoneController.clear();
     emailController.clear();
     passwordController.clear();
+    confirmPasswordController.clear();
   }
 
   // Method to build form input fields
   Widget _buildInputField(String label, TextEditingController controller,
-      {bool obscure = false, TextInputType type = TextInputType.text}) {
+      {bool obscure = false, TextInputType type = TextInputType.text, 
+      IconData? icon, Widget? suffixIcon}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(color: Color(0xFF8F92A1), fontSize: 12, fontFamily: 'DM Sans')),
-          const SizedBox(height: 8),
-          Container(
-            height: 44,
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Color(0xFF02C697), width: 1),
-              ),
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            child: TextFormField(
-              controller: controller,
-              obscureText: obscure,
-              keyboardType: type,
-              validator: (val) => val == null || val.isEmpty ? 'Enter $label' : null,
-              style: const TextStyle(fontFamily: 'DM Sans', fontSize: 14),
-              decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.only(bottom: 4)),
-            ),
+          ],
+        ),
+        child: TextFormField(
+          controller: controller,
+          obscureText: obscure,
+          keyboardType: type,
+          validator: (val) =>
+              val == null || val.isEmpty ? 'Enter $label' : null,
+          style: const TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.black,
           ),
-        ],
+          decoration: InputDecoration(
+            prefixIcon: icon != null 
+              ? Icon(icon, color: Colors.grey[600], size: 20)
+              : null,
+            suffixIcon: suffixIcon,
+            hintText: label,
+            hintStyle: TextStyle(
+              color: Colors.grey[500],
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            filled: true,
+            fillColor: Colors.white,
+          ),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final bgAsset = 'assets/images/green_leaves_051.jpg';
     return Scaffold(
       body: Stack(
         children: [
-          const Positioned.fill(
+          // Light green gradient background
+          Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFA8E6CF), Color(0xFFBDF7E5)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFdfffd6), Color(0xFFc0f7b0)],
                 ),
               ),
             ),
           ),
-          Positioned(
-            left: -40,
-            top: -20,
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
-              child: Container(
-                width: 180,
-                height: 180,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(colors: [Color(0xFF8EF0D0), Color(0xFF53C49E)]),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: -50,
-            bottom: 40,
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-              child: Container(
-                width: 220,
-                height: 220,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(colors: [Color(0xFF7BE3C3), Color(0xFF49B893)]),
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final w = constraints.maxWidth;
-                final h = constraints.maxHeight;
-                const cardW = 540.0;
-                const cardH = 640.0;
-                final boxW = (w * 0.92).clamp(cardW + 40.0, 820.0).toDouble();
-                final boxH = (h * 0.76).clamp(cardH + 40.0, 720.0).toDouble();
-                return Center(
-                  child: IgnorePointer(
-                    ignoring: true,
-                    child: Container(
-                      width: boxW,
-                      height: boxH,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(40),
-                        image: DecorationImage(image: AssetImage(bgAsset), fit: BoxFit.cover),
-                        border: Border.all(color: Colors.white.withOpacity(0.5)),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 30, offset: const Offset(0, 18))],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
+
+          // Centered white rounded container/card with soft shadow
           Positioned.fill(
             child: Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 540),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(28),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                      child: Container(
-                        padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.35),
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: Colors.white.withOpacity(0.6), width: 1),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))],
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
                         ),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              AnimatedBuilder(
-                                animation: _textController,
-                                builder: (context, child) {
-                                  return Opacity(
-                                    opacity: _textController.value,
-                                    child: const Text(
-                                      'SIGN UP',
+                      ],
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Title: "Welcome Farmer!" (bold green)
+                          AnimatedBuilder(
+                            animation: _textController,
+                            builder: (context, child) {
+                              return Opacity(
+                                opacity: _textController.value,
+                                child: Text(
+                                  AppLocalizations.of(context)!.welcomeFarmer,
+                                  style: const TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF2E7D32),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          // Subtitle: "Let's grow together" (gray)
+                          Text(
+                            AppLocalizations.of(context)!.letsGrowTogether,
+                            style: const TextStyle(
+                              color: Color(0xFF666666), 
+                              fontSize: 16
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+
+                          AnimatedBuilder(
+                            animation: _inputController,
+                            builder: (context, child) {
+                              return Opacity(
+                                opacity: _inputController.value,
+                                child: Column(
+                                  children: [
+                                    // Full Name (person icon)
+                                    _buildInputField(
+                                      AppLocalizations.of(context)!.fullName, 
+                                      nameController,
+                                      icon: Icons.person_outline,
+                                    ),
+                                    // Email/Phone (mail icon) - using email field for simplicity
+                                    _buildInputField(
+                                      AppLocalizations.of(context)!.emailPhone, 
+                                      emailController, 
+                                      type: TextInputType.emailAddress,
+                                      icon: Icons.mail_outline,
+                                    ),
+                                    // Password (lock icon + show/hide toggle)
+                                    _buildInputField(
+                                      AppLocalizations.of(context)!.password, 
+                                      passwordController, 
+                                      obscure: _obscurePassword,
+                                      icon: Icons.lock_outline,
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                          color: Colors.grey[600],
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _obscurePassword = !_obscurePassword;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    // Confirm Password (lock icon + show/hide toggle)
+                                    _buildInputField(
+                                      AppLocalizations.of(context)!.confirmPassword, 
+                                      confirmPasswordController, 
+                                      obscure: _obscureConfirmPassword,
+                                      icon: Icons.lock_outline,
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                                          color: Colors.grey[600],
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _obscureConfirmPassword = !_obscureConfirmPassword;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    // Hidden fields for existing functionality
+                                    Visibility(
+                                      visible: false,
+                                      child: Column(
+                                        children: [
+                                          _buildInputField(AppLocalizations.of(context)!.location, locationController),
+                                          _buildInputField(AppLocalizations.of(context)!.phoneNumber, phoneController, type: TextInputType.phone),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 24),
+                          // Button: "Create Profile" (dark green, white text)
+                          AnimatedBuilder(
+                            animation: _buttonController,
+                            builder: (context, child) {
+                              return Opacity(
+                                opacity: _buttonController.value,
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  height: 56,
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF2E7D32),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12)
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    onPressed: _createFarmerProfile,
+                                    child: Text(
+                                      AppLocalizations.of(context)!.createProfile,
                                       style: TextStyle(
-                                        fontFamily: 'SFProDisplay',
-                                        fontSize: 32,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF5F5F5F),
+                                        fontWeight: FontWeight.w600, 
+                                        fontSize: 16
                                       ),
                                     ),
-                                  );
-                                },
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          
+                          const SizedBox(height: 16),
+                          // Footer: "Already have an account? Log in"
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                AppLocalizations.of(context)!.alreadyHaveAnAccount,
+                                style: const TextStyle(color: Color(0xFF666666)),
                               ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Create an account to continue!',
-                                style: TextStyle(color: Color(0xFF666666), fontSize: 14),
-                              ),
-                              const SizedBox(height: 24),
-                              AnimatedBuilder(
-                                animation: _inputController,
-                                builder: (context, child) {
-                                  return Opacity(
-                                    opacity: _inputController.value,
-                                    child: Column(
-                                      children: [
-                                        _buildInputField('Name', nameController),
-                                        _buildInputField('Location', locationController),
-                                        _buildInputField('Phone Number', phoneController, type: TextInputType.phone),
-                                        _buildInputField('Email', emailController, type: TextInputType.emailAddress),
-                                        _buildInputField('Password', passwordController, obscure: true),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 20),
-                              AnimatedBuilder(
-                                animation: _buttonController,
-                                builder: (context, child) {
-                                  return Opacity(
-                                    opacity: _buttonController.value,
-                                    child: SizedBox(
-                                      width: double.infinity,
-                                      height: 56,
-                                      child: ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF2F2F2F),
-                                          foregroundColor: Colors.white,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                          elevation: 0,
-                                        ),
-                                        onPressed: _createFarmerProfile,
-                                        child: const Text(
-                                          'SIGN UP',
-                                          style: TextStyle(
-                                            fontFamily: 'SFProDisplay',
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 16,
-                                            letterSpacing: 1,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
+                              GestureDetector(
+                                onTap: () => Navigator.pushReplacementNamed(context, '/farmerLogIn'),
+                                child: Text(
+                                  AppLocalizations.of(context)!.logIn,
+                                  style: const TextStyle(
+                                    color: Color(0xFF2E7D32),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
@@ -362,14 +426,27 @@ class _CreateFarmerProfileScreenState extends State<CreateFarmerProfileScreen>
             ),
           ),
 
-          // Glassy back button
+          // Back button
           Positioned(
-            top: 0,
-            left: 0,
+            top: 40,
+            left: 20,
             child: SafeArea(
-              child: GlassyBackButton(
-                margin: const EdgeInsets.only(top: 20, left: 20),
-                onPressed: () => Navigator.pushReplacementNamed(context, '/farmerLogIn'),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  onPressed: () => Navigator.pushReplacementNamed(context, '/farmerLogIn'),
+                  icon: const Icon(Icons.arrow_back, color: Color(0xFF2E7D32)),
+                ),
               ),
             ),
           ),

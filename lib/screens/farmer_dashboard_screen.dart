@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../l10n/app_localizations.dart';
 import '../services/weather_service.dart';
 import '../widgets/weather_forecast_tile.dart';
 
@@ -71,9 +72,9 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
         titleSpacing: 16,
-        title: const Text(
-          'Farmer Dashboard',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        title: Text(
+          AppLocalizations.of(context)!.farmerDashboard,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
         ),
         leadingWidth: 72,
         leading: Padding(
@@ -146,8 +147,8 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
                         Icon(Icons.trending_up, color: Color(0xFF02C697), size: 24),
                         const SizedBox(width: 8),
                         Text(
-                          'Crop Demand Trends',
-                          style: TextStyle(
+                          AppLocalizations.of(context)!.cropDemandTrends,
+                          style: const TextStyle(
                             color: Color(0xFF02C697),
                             fontWeight: FontWeight.w700,
                             fontSize: 20,
@@ -202,8 +203,8 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
                         Icon(Icons.receipt_long, color: Color(0xFF02C697), size: 24),
                         const SizedBox(width: 8),
                         Text(
-                          'Ongoing Transactions',
-                          style: TextStyle(
+                          AppLocalizations.of(context)!.ongoingTransactions,
+                          style: const TextStyle(
                             color: Color(0xFF02C697),
                             fontWeight: FontWeight.w700,
                             fontSize: 20,
@@ -220,7 +221,7 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
                           .snapshots(),
                       builder: (context, snapshot) {
                         if (snapshot.hasError) {
-                          return const Center(child: Text('Something went wrong', style: TextStyle(color: Colors.white)));
+                          return Center(child: Text(AppLocalizations.of(context)!.somethingWentWrong, style: const TextStyle(color: Colors.white)));
                         }
                         if (snapshot.connectionState == ConnectionState.waiting) {
                           return const Center(child: CircularProgressIndicator(color: Colors.white));
@@ -747,10 +748,10 @@ class _GlassFab extends StatelessWidget {
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.add, color: Colors.white),
-                  SizedBox(width: 8),
-                  Text('+ Add Harvest', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                children: [
+                  const Icon(Icons.add, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Text(AppLocalizations.of(context)!.addHarvestButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
                 ],
               ),
             ),
@@ -770,9 +771,9 @@ class _EmptyState extends StatelessWidget {
         children: [
           Icon(Icons.eco, size: 64, color: Colors.white.withOpacity(0.7)),
           const SizedBox(height: 16),
-          const Text('No harvests yet', style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.w600)),
+          Text(AppLocalizations.of(context)!.noHarvestsYet, style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          Text('Add your first harvest to get started', style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.85))),
+          Text(AppLocalizations.of(context)!.addFirstHarvest, style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.85))),
         ],
       ),
     );

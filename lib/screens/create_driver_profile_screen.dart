@@ -18,8 +18,11 @@ class _CreateDriverProfileScreenState extends State<CreateDriverProfileScreen> w
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   bool _isLoading = false;
   late AnimationController _textController;
@@ -46,6 +49,15 @@ class _CreateDriverProfileScreenState extends State<CreateDriverProfileScreen> w
 
   Future<void> _signUpDriver() async {
     if (!_formKey.currentState!.validate()) return;
+    
+    // Check if passwords match
+    if (_passwordController.text.trim() != _confirmPasswordController.text.trim()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.passwordsDoNotMatch)),
+      );
+      return;
+    }
+    
     setState(() => _isLoading = true);
     try {
       // 1. Create user in Firebase Auth
@@ -60,7 +72,7 @@ class _CreateDriverProfileScreenState extends State<CreateDriverProfileScreen> w
       await FirebaseFirestore.instance.collection('drivers').doc(uid).set({
         'name': _nameController.text.trim(),
         'email': _emailController.text.trim(),
-        'phone': _phoneController.text.trim(),
+        'phone': _phoneController.text.trim().isEmpty ? 'Not specified' : _phoneController.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -72,242 +84,268 @@ class _CreateDriverProfileScreenState extends State<CreateDriverProfileScreen> w
       Navigator.pushReplacementNamed(context, '/driverProfile');
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sign up failed: ${e.message}')),
+        SnackBar(content: Text('${AppLocalizations.of(context)!.signUpFailed}: ${e.message}')),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('${AppLocalizations.of(context)!.errorOccurred}: $e')),
       );
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  Widget buildInputField(String label, TextEditingController controller, {bool obscure = false, TextInputType? keyboardType}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Roboto',
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF8F92A1),
-          ),
+  Widget buildInputField(String label, TextEditingController controller, 
+      {bool obscure = false, TextInputType? keyboardType, IconData? icon, Widget? suffixIcon}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        TextFormField(
+        child: TextFormField(
           controller: controller,
           obscureText: obscure,
           keyboardType: keyboardType,
-          decoration: const InputDecoration(
-            isDense: true,
-            contentPadding: EdgeInsets.symmetric(vertical: 10),
-            border: InputBorder.none,
-          ),
           style: const TextStyle(
             fontFamily: 'Roboto',
             fontSize: 16,
+            fontWeight: FontWeight.w500,
             color: Colors.black,
+          ),
+          decoration: InputDecoration(
+            prefixIcon: icon != null 
+              ? Icon(icon, color: Colors.grey[600], size: 20)
+              : null,
+            suffixIcon: suffixIcon,
+            hintText: label,
+            hintStyle: TextStyle(
+              color: Colors.grey[500],
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            filled: true,
+            fillColor: Colors.white,
           ),
           validator: (value) {
             if (value == null || value.isEmpty) {
-              return AppLocalizations.of(context)!.pleaseEnterField(label);
+              return 'Please enter $label';
             }
             return null;
           },
         ),
-        const Divider(
-          color: Color(0xFF8F92A1),
-          thickness: 1,
-        ),
-      ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final bgAsset = 'assets/images/green_leaves_051.jpg';
     return Scaffold(
       body: Stack(
         children: [
-          const Positioned.fill(
+          // Light green gradient background
+          Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFA8E6CF), Color(0xFFBDF7E5)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFdfffd6), Color(0xFFc0f7b0)],
                 ),
               ),
             ),
           ),
-          Positioned(
-            left: -40,
-            top: -20,
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
-              child: Container(
-                width: 180,
-                height: 180,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(colors: [Color(0xFF8EF0D0), Color(0xFF53C49E)]),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: -50,
-            bottom: 40,
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-              child: Container(
-                width: 220,
-                height: 220,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(colors: [Color(0xFF7BE3C3), Color(0xFF49B893)]),
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final w = constraints.maxWidth;
-                final h = constraints.maxHeight;
-                const cardW = 540.0;
-                const cardH = 640.0;
-                final boxW = (w * 0.92).clamp(cardW + 40.0, 820.0).toDouble();
-                final boxH = (h * 0.76).clamp(cardH + 40.0, 720.0).toDouble();
-                return Center(
-                  child: IgnorePointer(
-                    ignoring: true,
-                    child: Container(
-                      width: boxW,
-                      height: boxH,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(40),
-                        image: DecorationImage(image: AssetImage(bgAsset), fit: BoxFit.cover),
-                        border: Border.all(color: Colors.white.withOpacity(0.5)),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 30, offset: const Offset(0, 18))],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
+
+          // Centered white rounded container/card with soft shadow
           Positioned.fill(
             child: Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 540),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(28),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                      child: Container(
-                        padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.35),
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: Colors.white.withOpacity(0.6), width: 1),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))],
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
                         ),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              AnimatedBuilder(
-                                animation: _textController,
-                                builder: (context, child) {
-                                  return Opacity(
-                                    opacity: _textController.value,
-                                    child: const Text(
-                                      'CREATE DRIVER PROFILE',
-                                      style: TextStyle(
-                                        fontFamily: 'SFProDisplay',
-                                        fontSize: 26,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF5F5F5F),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 8),
-                              const Text('Enter your details to get started', style: TextStyle(color: Color(0xFF666666), fontSize: 14)),
-                              const SizedBox(height: 24),
-                              AnimatedBuilder(
-                                animation: _inputController,
-                                builder: (context, child) {
-                                  return Opacity(
-                                    opacity: _inputController.value,
-                                    child: Column(
-                                      children: [
-                                        buildInputField("Name", _nameController),
-                                        buildInputField("Email", _emailController, keyboardType: TextInputType.emailAddress),
-                                        buildInputField("Phone", _phoneController, keyboardType: TextInputType.phone),
-                                        buildInputField("Password", _passwordController, obscure: true),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 20),
-                              AnimatedBuilder(
-                                animation: _buttonController,
-                                builder: (context, child) {
-                                  return Opacity(
-                                    opacity: _buttonController.value,
-                                    child: SizedBox(
-                                      width: double.infinity,
-                                      height: 56,
-                                      child: ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF2F2F2F),
-                                          foregroundColor: Colors.white,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                          elevation: 0,
-                                        ),
-                                        onPressed: _isLoading ? null : _signUpDriver,
-                                        child: _isLoading
-                                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                            : const Text(
-                                                'SIGN UP',
-                                                style: TextStyle(
-                                                  fontFamily: 'SFProDisplay',
-                                                  fontWeight: FontWeight.w700,
-                                                  fontSize: 16,
-                                                  letterSpacing: 1,
-                                                ),
-                                              ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                  Text(AppLocalizations.of(context)!.alreadyHaveAccount,
-                                      style: const TextStyle(color: Colors.grey)),
-                                  TextButton(
-                                    onPressed: () => Navigator.pushNamed(context, '/driverLogIn'),
-                  child: Text(AppLocalizations.of(context)!.login,
-                                        style: const TextStyle(color: Color(0xFF2F2F2F), fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Title: "Welcome Driver!" (bold green)
+                          AnimatedBuilder(
+                            animation: _textController,
+                            builder: (context, child) {
+                              return Opacity(
+                                opacity: _textController.value,
+                                child: Text(
+                                  AppLocalizations.of(context)!.welcomeDriver,
+                                  style: const TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF2E7D32),
                                   ),
-                                ],
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          // Subtitle: "Let's grow together" (gray)
+                          Text(
+                            AppLocalizations.of(context)!.letsGrowTogether,
+                            style: const TextStyle(
+                              color: Color(0xFF666666), 
+                              fontSize: 16
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+
+                          AnimatedBuilder(
+                            animation: _inputController,
+                            builder: (context, child) {
+                              return Opacity(
+                                opacity: _inputController.value,
+                                child: Column(
+                                  children: [
+                                    // Full Name (person icon)
+                                    buildInputField(
+                                      AppLocalizations.of(context)!.fullName, 
+                                      _nameController,
+                                      icon: Icons.person_outline,
+                                    ),
+                                    // Email/Phone (mail icon) - using email field for simplicity
+                                    buildInputField(
+                                      AppLocalizations.of(context)!.emailPhone,
+                                      _emailController,
+                                      keyboardType: TextInputType.emailAddress,
+                                      icon: Icons.mail_outline,
+                                    ),
+                                    // Password (lock icon + show/hide toggle)
+                                    buildInputField(
+                                      AppLocalizations.of(context)!.password, 
+                                      _passwordController, 
+                                      obscure: _obscurePassword,
+                                      icon: Icons.lock_outline,
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                          color: Colors.grey[600],
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _obscurePassword = !_obscurePassword;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    // Confirm Password (lock icon + show/hide toggle)
+                                    buildInputField(
+                                      AppLocalizations.of(context)!.confirmPassword, 
+                                      _confirmPasswordController, 
+                                      obscure: _obscureConfirmPassword,
+                                      icon: Icons.lock_outline,
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                                          color: Colors.grey[600],
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _obscureConfirmPassword = !_obscureConfirmPassword;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    // Hidden phone field for existing functionality
+                                    Visibility(
+                                      visible: false,
+                                      child: buildInputField(AppLocalizations.of(context)!.phoneNumber, _phoneController, keyboardType: TextInputType.phone),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 24),
+                          // Button: "Create Profile" (dark green, white text)
+                          AnimatedBuilder(
+                            animation: _buttonController,
+                            builder: (context, child) {
+                              return Opacity(
+                                opacity: _buttonController.value,
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  height: 56,
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF2E7D32),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12)
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    onPressed: _isLoading ? null : _signUpDriver,
+                                    child: _isLoading
+                                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                        : Text(
+                                            AppLocalizations.of(context)!.createProfile,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w600, 
+                                              fontSize: 16
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          
+                          const SizedBox(height: 16),
+                          // Footer: "Already have an account? Log in"
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                AppLocalizations.of(context)!.alreadyHaveAnAccount,
+                                style: const TextStyle(color: Color(0xFF666666)),
+                              ),
+                              GestureDetector(
+                                onTap: () => Navigator.pushNamed(context, '/driverLogIn'),
+                                child: Text(
+                                  AppLocalizations.of(context)!.logIn,
+                                  style: const TextStyle(
+                                    color: Color(0xFF2E7D32),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
@@ -316,14 +354,27 @@ class _CreateDriverProfileScreenState extends State<CreateDriverProfileScreen> w
             ),
           ),
 
-          // Glassy back button
+          // Back button
           Positioned(
-            top: 0,
-            left: 0,
+            top: 40,
+            left: 20,
             child: SafeArea(
-              child: GlassyBackButton(
-                margin: const EdgeInsets.only(top: 20, left: 20),
-                onPressed: () => Navigator.pushReplacementNamed(context, '/driverLogIn'),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  onPressed: () => Navigator.pushReplacementNamed(context, '/driverLogIn'),
+                  icon: const Icon(Icons.arrow_back, color: Color(0xFF2E7D32)),
+                ),
               ),
             ),
           ),
@@ -331,4 +382,4 @@ class _CreateDriverProfileScreenState extends State<CreateDriverProfileScreen> w
       ),
     );
   }
-} 
+}
