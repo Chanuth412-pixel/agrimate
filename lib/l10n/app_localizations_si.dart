@@ -27,13 +27,117 @@ class AppLocalizationsSi extends AppLocalizations {
   String get forgotPassword => 'මුරපදය අමතකද?';
 
   @override
-  String get dontHaveAccount => 'ගිණුමක් නැද්ද?';
+  String get dontHaveAccount => 'ගිණුමක් නැද්ද? ';
 
   @override
   String get alreadyHaveAccount => 'දැනටමත් ගිණුමක් තිබේද?';
 
   @override
   String get selectRole => 'භූමිකාව තෝරන්න';
+
+  @override
+  String get selectLanguage => 'භාෂාව තෝරන්න';
+
+  @override
+  String get chooseYourRole => 'ඔබේ භූමිකාව තෝරන්න';
+
+  @override
+  String get selectRoleDescription => 'ඉදිරියට යාමට භූමිකාවක් තෝරන්න. ඔබට මෙය පසුව සැකසීම්වලින් වෙනස් කළ හැක.';
+
+  @override
+  String get farmerDescription => 'අස්වැන්න, කාලගුණ තොරතුරු සහ ඇණවුම් කළමනාකරණය කරන්න.';
+
+  @override
+  String get customerDescription => 'නැවුම් නිෂ්පාදන බ්‍රවුස් කරන්න සහ ඇණවුම් කරන්න.';
+
+  @override
+  String get driverDescription => 'ඇණවුම් බෙදා හරින්න සහ කාලසටහන් බලන්න.';
+
+  @override
+  String get welcomeBackCustomer => 'ආයුබෝවන්, පාරිභෝගිකයා!';
+
+  @override
+  String get welcomeBackFarmer => 'ආයුබෝවන්, ගොවියා!';
+
+  @override
+  String get welcomeBackDriver => 'ආයුබෝවන්, රියදුරු!';
+
+  @override
+  String get welcomeCustomer => 'ආයුබෝවන් පාරිභෝගිකයා!';
+
+  @override
+  String get welcomeFarmer => 'ආයුබෝවන් ගොවියා!';
+
+  @override
+  String get welcomeDriver => 'ආයුබෝවන් රියදුරු!';
+
+  @override
+  String get letsGrowTogether => 'අපි එකට වර්ධනය වෙමු';
+
+  @override
+  String get logIn => 'ඇතුළු වන්න';
+
+  @override
+  String get createProfile => 'පැතිකඩ සාදන්න';
+
+  @override
+  String get emailPhone => 'ඊමේල්/දුරකථනය';
+
+  @override
+  String get name => 'නම';
+
+  @override
+  String get location => 'ස්ථානය';
+
+  @override
+  String get phone => 'දුරකථනය';
+
+  @override
+  String get confirmPassword => 'මුරපදය තහවුරු කරන්න';
+
+  @override
+  String get passwordsDoNotMatch => 'මුරපද නොගැලපේ';
+
+  @override
+  String get profileCreatedSuccessfully => 'පැතිකඩ සාර්ථකව නිර්මාණය කරන ලදි';
+
+  @override
+  String get loginFailed => 'ඇතුළු වීම අසාර්ථකයි';
+
+  @override
+  String get profileNotFound => 'පැතිකඩ හමු නොවීය';
+
+  @override
+  String get enterEmail => 'ඊමේල් ඇතුළත් කරන්න';
+
+  @override
+  String get enterPassword => 'මුරපදය ඇතුළත් කරන්න';
+
+  @override
+  String get enterName => 'නම ඇතුළත් කරන්න';
+
+  @override
+  String get enterLocation => 'ස්ථානය ඇතුළත් කරන්න';
+
+  @override
+  String get enterPhone => 'දුරකථනය ඇතුළත් කරන්න';
+
+  @override
+  String get fullName => 'සම්පූර්ණ නම';
+
+  @override
+  String get phoneNumber => 'දුරකථන අංකය';
+
+  @override
+  String get alreadyHaveAnAccount => 'දැනටමත් ගිණුමක් තිබේද?';
+
+  @override
+  String pleaseEnterField(Object field) {
+    return 'කරුණාකර $field ඇතුළත් කරන්න';
+  }
+
+  @override
+  String get notSpecified => 'සඳහන් කර නැත';
 
   @override
   String get pleaseSignIn => 'කරුණාකර ඇතුල් වීමට උත්සාහ කරන්න.';
@@ -51,11 +155,6 @@ class AppLocalizationsSi extends AppLocalizations {
   String get driver => 'රියදුරු';
 
   @override
-  String pleaseEnterField(Object field) {
-    return 'කරුණාකර ඔබගේ $field ඇතුළත් කරන්න';
-  }
-
-  @override
   String get customerLogin => 'පාරිභෝගික ඇතුල් වීම';
 
   @override
@@ -66,4 +165,178 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get createDriverProfile => 'රියදුරු පැතිකඩ සාදන්න';
+
+  @override
+  String get dashboard => 'ඩෑෂ්බෝඩ්';
+
+  @override
+  String get profile => 'පැතිකඩ';
+
+  @override
+  String get settings => 'සැකසීම්';
+
+  @override
+  String get logout => 'ඉවත් වන්න';
+
+  @override
+  String get cropDemandTrends => 'බෝග ඉල්ලුම් ප්‍රවණතා';
+
+  @override
+  String get ongoingTransactions => 'විදුරුමස් ගනුදෙනු';
+
+  @override
+  String get weekDemandForecast => 'සති 4ක ඉල්ලුම් පුරෝකථනය';
+
+  @override
+  String get deliveryGuy => 'බෙදාහරින්නා';
+
+  @override
+  String get selfDelivery => 'ස්වයං බෙදාහැරීම';
+
+  @override
+  String get chooseDelivery => 'බෙදාහැරීම තෝරන්න';
+
+  @override
+  String get addHarvest => 'අස්වැන්න එකතු කරන්න';
+
+  @override
+  String get quantity => 'ප්‍රමාණය';
+
+  @override
+  String get unitPrice => 'ඒකක මිල';
+
+  @override
+  String get pending => 'අවදානයෙන්';
+
+  @override
+  String get assigned => 'පවරන ලද';
+
+  @override
+  String get inTransit => 'ප්‍රවාහනයේ';
+
+  @override
+  String get delivered => 'බෙදා හරින ලද';
+
+  @override
+  String get save => 'සුරකින්න';
+
+  @override
+  String get cancel => 'අවලංගු කරන්න';
+
+  @override
+  String get edit => 'සංස්කරණය';
+
+  @override
+  String get delete => 'මකන්න';
+
+  @override
+  String get back => 'ආපසු';
+
+  @override
+  String get next => 'ඊළඟ';
+
+  @override
+  String get previous => 'කලින්';
+
+  @override
+  String get close => 'වසන්න';
+
+  @override
+  String get ok => 'හරි';
+
+  @override
+  String get yes => 'ඔව්';
+
+  @override
+  String get no => 'නැත';
+
+  @override
+  String get farmerDashboard => 'ගොවි පුවරුව';
+
+  @override
+  String get somethingWentWrong => 'යමක් වැරදී ගියේය';
+
+  @override
+  String get noHarvestsYet => 'තවම අස්වැන්න නැත';
+
+  @override
+  String get addFirstHarvest => 'ආරම්භ කිරීමට ඔබේ පළමු අස්වැන්න එක් කරන්න';
+
+  @override
+  String get addHarvestButton => '+ අස්වැන්න එක් කරන්න';
+
+  @override
+  String get cropName => 'බෝගයේ නම';
+
+  @override
+  String get expectedQuantity => 'අපේක්ෂිත ප්‍රමාණය';
+
+  @override
+  String get pricePerKg => 'කිලෝග්‍රාමයකට මිල';
+
+  @override
+  String get harvestDate => 'අස්වැන්න ලබන දිනය';
+
+  @override
+  String get description => 'විස්තරය';
+
+  @override
+  String get saveHarvest => 'අස්වැන්න සුරකින්න';
+
+  @override
+  String get myProfile => 'මගේ පැතිකඩ';
+
+  @override
+  String get personalInfo => 'පුද්ගලික තොරතුරු';
+
+  @override
+  String get contactInfo => 'සම්බන්ධතා තොරතුරු';
+
+  @override
+  String get updateProfile => 'පැතිකඩ යාවත්කාලීන කරන්න';
+
+  @override
+  String get viewDetails => 'විස්තර බලන්න';
+
+  @override
+  String get addNewHarvest => 'නව අස්වැන්නක් එක් කරන්න';
+
+  @override
+  String get preview => 'පූර්ව දසුන';
+
+  @override
+  String get submit => 'ඉදිරිපත් කරන්න';
+
+  @override
+  String get previewCompleted => 'පූර්ව දසුන සම්පූර්ණයි! ඔබට දැන් ඔබේ අස්වැන්න දත්ත ඉදිරිපත් කළ හැක.';
+
+  @override
+  String get pleasePreviewFirst => 'කරුණාකර ඉදිරිපත් කිරීමට පෙර ඔබේ දත්ත පූර්ව දසුන කරන්න!';
+
+  @override
+  String get dataChangedPreviewAgain => 'අවසන් පූර්ව දසුනේ සිට දත්ත වෙනස් වී ඇත. කරුණාකර නැවත පූර්ව දසුන කරන්න.';
+
+  @override
+  String get pleaseLoginToSubmit => 'අස්වැන්න දත්ත ඉදිරිපත් කිරීමට කරුණාකර ඇතුළු වන්න.';
+
+  @override
+  String get harvestSubmittedSuccessfully => 'අස්වැන්න දත්ත සාර්ථකව ඉදිරිපත් කරන ලදී!';
+
+  @override
+  String get errorSubmittingHarvest => 'අස්වැන්න දත්ත ඉදිරිපත් කිරීමේ දෝෂය';
+
+  @override
+  String get plantingDate => 'වගා කරන දිනය';
+
+  @override
+  String get selectCrop => 'බෝගය තෝරන්න';
+
+  @override
+  String get signUpFailed => 'ලියාපදිංචි වීම අසාර්ථක විය';
+
+  @override
+  String get errorOccurred => 'දෝෂය';
+
+  @override
+  String get authError => 'සත්‍යාපන දෝෂය';
 }

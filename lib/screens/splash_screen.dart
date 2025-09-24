@@ -5,49 +5,34 @@ class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  _SplashScreenState createState() => _SplashScreenState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _sizeAnimation;
-  late Animation<Color?> _colorAnimation;
-  late Animation<double> _fadeAnimation;
+  // Adjust this to change how long the splash screen stays visible
+  static const Duration _splashDuration = Duration(seconds: 5);
+
+  late final AnimationController _titleController;
+  late final Animation<double> _titleScale;
+  late final Animation<double> _titleOpacity;
 
   @override
   void initState() {
     super.initState();
-
-    // Debugging the splash screen lifecycle
-    print("SplashScreen initialized");
-
-    // Initialize AnimationController
-    _controller = AnimationController(
+    // Title animation: gentle breathing scale + fade in/out
+    _titleController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
-    )..forward();
-
-    // Size animation: Starts small and grows bigger
-    _sizeAnimation = Tween<double>(begin: 50, end: 300).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _titleScale = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(parent: _titleController, curve: Curves.easeInOut),
     );
-
-    // Color animation: From white to green
-    _colorAnimation = ColorTween(begin: Colors.white, end: Colors.green).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    _titleOpacity = Tween<double>(begin: 0.85, end: 1.0).animate(
+      CurvedAnimation(parent: _titleController, curve: Curves.easeInOut),
     );
-
-    // Fade animation for the text and progress indicator
-    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
-
-    // Wait for the first frame to be built, then navigate after 3 seconds
+    // Keep navigation/auth logic intact: navigate after ~3 seconds
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      print("Post frame callback executed");
-
-      Future.delayed(const Duration(seconds: 3), () {
-        print("Navigating to RoleSelectionScreen...");
+      Future.delayed(_splashDuration, () {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -60,73 +45,99 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   @override
   void dispose() {
-    _controller.dispose(); // Dispose the animation controller
+    _titleController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    const greenDark = Color(0xFF2E7D32);
+    const greyText = Color(0xFF666666);
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          return Container(
-            color: _colorAnimation.value, // Background color animation
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Growing green dot animation
-                  Container(
-                    width: _sizeAnimation.value,
-                    height: _sizeAnimation.value,
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle, // Circular dot
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // Fade transition for the following content
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 20),
-                        const Icon(
-                          Icons.agriculture, // This icon represents the theme of your app
-                          size: 120,
-                          color: Colors.white,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFDFFFD6), // #dfffd6
+              Color(0xFFC0F7B0), // #c0f7b0
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Center content: logo, title, tagline
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // App logo / animation
+                      const SizedBox(
+                        height: 140,
+                        width: 140,
+                        child: Image(
+                          image: AssetImage('assets/images/tracktor.gif'),
+                          fit: BoxFit.contain,
                         ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'AGRI-MATE',
-                          style: TextStyle(
-                            fontSize: 30,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                      ),
+                      const SizedBox(height: 16),
+                      // Animated App name
+                      ScaleTransition(
+                        scale: _titleScale,
+                        child: FadeTransition(
+                          opacity: _titleOpacity,
+                          child: Text(
+                            'AGRIMATE',
+                            style: const TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.w900,
+                              color: greenDark,
+                              letterSpacing: 1.2,
+                              shadows: [
+                                Shadow(
+                                  color: Color(0x332E7D32),
+                                  blurRadius: 4,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'Welcome to Agrimate!',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.white70,
-                          ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Tagline
+                      const Text(
+                        "Let's grow together",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: greyText,
+                          fontWeight: FontWeight.w500,
                         ),
-                        const SizedBox(height: 30),
-                        const CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white), // Loader color
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          );
-        },
+
+              // Bottom loading indicator
+              const Padding(
+                padding: EdgeInsets.only(bottom: 24),
+                child: SizedBox(
+                  height: 32,
+                  width: 32,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(greenDark),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

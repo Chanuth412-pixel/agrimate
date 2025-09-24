@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../l10n/app_localizations.dart';
 
 class AddHarvestScreen extends StatefulWidget {
   const AddHarvestScreen({super.key});
@@ -656,8 +657,8 @@ Current Month Analysis: $advice
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add New Harvest',
-          style: TextStyle(
+        title: Text(AppLocalizations.of(context)!.addNewHarvest,
+          style: const TextStyle(
             fontWeight: FontWeight.w600,
             color: Colors.white,
             fontSize: 20,
