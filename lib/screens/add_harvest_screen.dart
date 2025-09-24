@@ -277,67 +277,226 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
     }
   }
 
-  // Updated method to call OpenRouter Mixtral API
-  Future<String> _askOpenRouterAPI(String crop) async {
-    const String apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
-    final String apiKey = dotenv.env['OPENAI_API_KEY'] ?? '';
+  // Enhanced method to generate comprehensive farming precautions
+  Future<String> _getComprehensivePrecautions(String crop) async {
+    final isWeatherGood = _checkIdealWeather(crop, _temp, _rain, []);
+    final currentMonth = DateTime.now().month;
+    final season = _getCurrentSeason(currentMonth);
+    
+    // Base weather analysis
+    String weatherAnalysis = _analyzeWeatherConditions(crop, _temp, _rain, isWeatherGood);
+    
+    // Crop-specific detailed advice
+    String cropAdvice = _getCropSpecificAdvice(crop, season, _temp, _rain);
+    
+    // Market timing insights
+    String marketInsights = _getMarketTimingAdvice(crop, currentMonth);
+    
+    // Storage and handling tips
+    String storageAdvice = _getStorageAdvice(crop, _temp, _rain);
+    
+    return '''$weatherAnalysis
 
-    final body = jsonEncode({
-      "model": "mistralai/mixtral-8x7b-instruct",
-      "messages": [
-        {
-          "role": "system",
-          "content": '''You are a farming expert who gives very brief, practical advice.
-          Keep responses extremely short and simple.
-          Use basic, everyday language.
-          Focus only on the most important points.
-          Each precaution should be maximum 8-10 words.'''
-        },
-        {
-          "role": "user",
-          "content": '''Given these conditions for $crop:
-          - Temperature: $_temp°C
-          - Rainfall: $_rain mm
+$cropAdvice
 
-          1. First, tell me if these conditions are GOOD or BAD in one word.
-          2. Then give exactly 3 short, simple precautions.
-          
-          Format your response exactly like this:
-          GOOD/BAD
-          • First short precaution
-          • Second short precaution
-          • Third short precaution'''
-        }
-      ],
-      "max_tokens": 100,
-      "temperature": 0.7,
-    });
+$marketInsights
 
-    try {
-      final res = await http.post(
-        Uri.parse(apiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey',
-          'HTTP-Referer': 'https://agrimate.app',
-          'X-Title': 'Agrimate Crop Advice',
-        },
-        body: body,
-      );
+$storageAdvice''';
+  }
 
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        if (data['choices'] != null && data['choices'].isNotEmpty) {
-          return data['choices'][0]['message']['content'] ??
-              'No precautions found.';
-        } else {
-          return 'Error: No valid response found.';
-        }
-      } else {
-        return 'Error: ${res.statusCode}\n${res.body}';
+  String _getCurrentSeason(int month) {
+    if (month >= 12 || month <= 2) return 'Winter';
+    if (month >= 3 && month <= 5) return 'Spring';
+    if (month >= 6 && month <= 8) return 'Summer';
+    return 'Autumn';
+  }
+
+  String _analyzeWeatherConditions(String crop, double temp, double rain, bool isIdeal) {
+    String status = isIdeal ? "✅ FAVORABLE" : "⚠️ CHALLENGING";
+    String icon = isIdeal ? "🌤️" : "⛈️";
+    
+    String tempAnalysis = "";
+    if (temp < 15) {
+      tempAnalysis = "Temperature is quite low - consider protection measures";
+    } else if (temp > 35) {
+      tempAnalysis = "High temperature detected - ensure adequate irrigation";
+    } else {
+      tempAnalysis = "Temperature is within acceptable range";
+    }
+    
+    String rainAnalysis = "";
+    if (rain > 15) {
+      rainAnalysis = "Heavy rainfall expected - drainage and disease prevention critical";
+    } else if (rain < 5) {
+      rainAnalysis = "Low rainfall - irrigation planning essential";
+    } else {
+      rainAnalysis = "Moderate rainfall - good for most crops";
+    }
+    
+    return '''$icon WEATHER ANALYSIS: $status
+Current Conditions: ${temp.toStringAsFixed(1)}°C, ${rain.toStringAsFixed(1)}mm
+• $tempAnalysis
+• $rainAnalysis
+• Monitor weather changes closely over next 7 days''';
+  }
+
+  String _getCropSpecificAdvice(String crop, String season, double temp, double rain) {
+    switch (crop.toLowerCase()) {
+      case 'tomato':
+        return '''🍅 TOMATO CULTIVATION INSIGHTS:
+• Plant 60cm apart for optimal air circulation
+• Install support stakes early to prevent lodging
+• Apply calcium-rich fertilizer to prevent blossom end rot
+• Water consistently - irregular watering causes cracking
+• Mulch around plants to retain moisture and prevent weeds
+• Watch for early blight in humid conditions
+• Harvest when fruit shows first color change for best storage''';
+        
+      case 'okra':
+        return '''🌶️ OKRA CULTIVATION INSIGHTS:
+• Thrives in warm weather (${temp > 25 ? 'current conditions ideal' : 'ensure warmth'})
+• Space plants 30-45cm apart for good yield
+• Harvest pods when 7-10cm long (daily picking increases yield)
+• Cut stems at 45° angle to prevent water accumulation
+• Apply balanced fertilizer every 3-4 weeks
+• ${rain > 10 ? 'Ensure good drainage - okra hates waterlogged soil' : 'Water regularly but avoid overwatering'}
+• Prune lower leaves touching ground to prevent disease''';
+        
+      case 'bean':
+        return '''🫘 BEAN CULTIVATION INSIGHTS:
+• Fix nitrogen naturally - minimal fertilizer needed initially
+• Plant in well-draining soil (beans hate wet feet)
+• Support climbing varieties with 2m poles or trellises
+• ${temp < 20 ? 'Consider protection from cold - beans are frost-sensitive' : 'Temperature suitable for bean growth'}
+• Harvest snap beans when pods snap cleanly
+• Pick regularly to encourage continued production
+• Avoid handling plants when wet to prevent disease spread
+• Companion plant with corn and squash for natural support''';
+        
+      default:
+        return '''🌱 GENERAL CULTIVATION INSIGHTS:
+• Test soil pH - most vegetables prefer 6.0-7.0 pH
+• Implement crop rotation to prevent soil depletion
+• Use organic matter to improve soil structure
+• Monitor for common pests weekly
+• Apply mulch to conserve moisture and suppress weeds
+• Water early morning to reduce disease risk
+• Keep garden records for future planning''';
+    }
+  }
+
+  String _getMarketTimingAdvice(String crop, int month) {
+    Map<String, Map<int, String>> marketCalendar = {
+      'tomato': {
+        1: 'Peak demand season - excellent prices expected',
+        2: 'High demand continues - good market window',
+        3: 'Demand starts declining - plan for preservation',
+        4: 'Low season begins - consider processed products',
+        5: 'Off-season - focus on storage varieties',
+        6: 'Market recovering - good time for greenhouse production',
+        7: 'Demand increasing - plan next harvest cycle',
+        8: 'Pre-peak season - prepare for high demand',
+        9: 'Demand rising - excellent timing for harvest',
+        10: 'Peak season approaching - maximize production',
+        11: 'High demand period - optimal pricing',
+        12: 'Premium prices due to scarcity'
+      },
+      'okra': {
+        1: 'Off-season - premium prices for protected cultivation',
+        2: 'Limited supply - good prices for quality produce',
+        3: 'Season starting - plan for steady supply',
+        4: 'Peak growing season - ensure consistent harvesting',
+        5: 'High supply period - focus on quality differentiation',
+        6: 'Market saturation possible - consider alternative varieties',
+        7: 'Mid-season - maintain consistent quality',
+        8: 'Late season - premium for extended harvest',
+        9: 'Transition period - good for stored varieties',
+        10: 'Early season prep - plan next cycle',
+        11: 'Off-season - limited competition, good prices',
+        12: 'Winter season - protected cultivation profitable'
+      },
+      'bean': {
+        1: 'Import season - compete with quality and freshness',
+        2: 'Late summer harvest - good storage varieties demand',
+        3: 'Autumn planting season - plan for winter harvest',
+        4: 'Good market window - steady demand',
+        5: 'Peak harvest season - focus on rapid turnover',
+        6: 'High supply - differentiate with organic/specialty varieties',
+        7: 'Mid-season market - maintain quality standards',
+        8: 'Late season - premium for extended harvest',
+        9: 'Transition to stored varieties - good prices',
+        10: 'Early season demand - plant for Christmas market',
+        11: 'Premium season - limited fresh supply',
+        12: 'Holiday demand - excellent pricing opportunity'
       }
-    } catch (e) {
-      return 'Network error: $e';
+    };
+
+    String advice = marketCalendar[crop.toLowerCase()]?[month] ?? 
+                   'Monitor local market conditions and adjust timing accordingly';
+    
+    return '''📈 MARKET TIMING INSIGHTS:
+Current Month Analysis: $advice
+• Research local wholesale prices before harvest
+• Consider direct-to-consumer sales for better margins
+• Plan harvest timing around local festivals and holidays
+• Build relationships with consistent buyers early
+• Keep harvest records to optimize future planting dates''';
+  }
+
+  String _getStorageAdvice(String crop, double temp, double rain) {
+    String climateAdvice = temp > 30 ? 
+        "High temperature requires immediate cooling after harvest" :
+        temp < 15 ? 
+        "Cool conditions good for storage - extend shelf life" :
+        "Moderate temperature - standard storage protocols apply";
+    
+    String humidityAdvice = rain > 10 ?
+        "High humidity increases spoilage risk - enhance ventilation" :
+        "Low humidity conditions - prevent dehydration during storage";
+    
+    switch (crop.toLowerCase()) {
+      case 'tomato':
+        return '''📦 TOMATO STORAGE & HANDLING:
+• $climateAdvice
+• $humidityAdvice
+• Harvest at breaker stage for longer storage (7-14 days)
+• Store ripe tomatoes at 12-15°C, unripe at 18-21°C
+• Never refrigerate unless fully ripe
+• Handle gently - bruised tomatoes spoil quickly
+• Use ethylene gas for controlled ripening
+• Pack in single layers to prevent crushing''';
+        
+      case 'okra':
+        return '''📦 OKRA STORAGE & HANDLING:
+• $climateAdvice
+• $humidityAdvice
+• Harvest early morning when pods are cool and crisp
+• Store at 7-10°C with 90-95% humidity for best quality
+• Use perforated plastic bags to maintain humidity
+• Shelf life: 7-10 days under optimal conditions
+• Avoid washing until just before use
+• Handle carefully - okra bruises easily affecting market value''';
+        
+      case 'bean':
+        return '''📦 BEAN STORAGE & HANDLING:
+• $climateAdvice
+• $humidityAdvice
+• For fresh beans: store at 4-7°C with high humidity
+• For dried beans: ensure moisture content below 15%
+• Use breathable containers for fresh beans
+• Blanch and freeze for extended storage (up to 8 months)
+• Check regularly for signs of moisture or pest damage
+• Sort by size and quality before storage for better pricing''';
+        
+      default:
+        return '''📦 GENERAL STORAGE GUIDELINES:
+• $climateAdvice
+• $humidityAdvice
+• Cool immediately after harvest to extend shelf life
+• Maintain consistent temperature and humidity
+• Provide adequate ventilation to prevent moisture buildup
+• Regular quality checks prevent spread of spoilage
+• Use first-in-first-out principle for inventory management''';
     }
   }
 
@@ -357,7 +516,7 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
     // Example city for weather fetching
     String city = "Kandy";
     await _fetchWeatherData(city);
-    final txt = await _askOpenRouterAPI(crop);
+    final txt = await _getComprehensivePrecautions(crop);
     final demandSupplyStatus = await _checkDemandSupply(crop, int.parse(_qty.text));
     final priceStatus = await _checkPrice(crop, int.parse(_price.text));
 
@@ -504,20 +663,13 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
             fontSize: 20,
           ),
         ),
-        backgroundColor: const Color(0xFF2E7D32), // Darker green for app bar
+        backgroundColor: const Color(0xFF02C697), // Matching farmer profile primary color
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFE8F5E9), // Very light green
-              Color(0xFFC8E6C9), // Light green
-            ],
-          ),
+          color: Color(0xFFF5F7FA), // Matching farmer profile background
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -527,14 +679,14 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
               Container(
                 height: 180,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2E7D32),
+                  color: const Color(0xFF02C697), // Matching farmer profile primary color
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(30),
                     bottomRight: Radius.circular(30),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.green.withOpacity(0.3),
+                      color: const Color(0xFF02C697).withOpacity(0.3), // Matching primary color shadow
                       blurRadius: 10,
                       offset: const Offset(0, 5),
                     ),
@@ -612,11 +764,11 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
                               decoration: InputDecoration(
                                 labelText: 'Select Crop',
                                 labelStyle: const TextStyle(
-                                  color: Color(0xFF2E7D32),
+                                  color: Color(0xFF02C697), // Matching primary color
                                   fontWeight: FontWeight.w500,
                                 ),
                                 border: InputBorder.none,
-                                prefixIcon: const Icon(Icons.eco, color: Color(0xFF2E7D32)),
+                                prefixIcon: const Icon(Icons.eco, color: Color(0xFF02C697)), // Matching primary color
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                               ),
                               value: _selectedCrop,
@@ -651,7 +803,7 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
                                       child: Text(
                                         'Planting Date',
                                         style: TextStyle(
-                                          color: Color(0xFF2E7D32),
+                                          color: Color(0xFF02C697), // Matching primary color
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -668,7 +820,7 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
                                         decoration: InputDecoration(
                                           hintText: 'Select date',
                                           border: InputBorder.none,
-                                          prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFF2E7D32)),
+                                          prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFF02C697)), // Matching primary color
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                                         ),
                                         onTap: () async {
@@ -701,7 +853,7 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
                                       child: Text(
                                         'Harvest Date',
                                         style: TextStyle(
-                                          color: Color(0xFF2E7D32),
+                                          color: Color(0xFF02C697), // Matching primary color
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -718,7 +870,7 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
                                         decoration: InputDecoration(
                                           hintText: 'Select date',
                                           border: InputBorder.none,
-                                          prefixIcon: const Icon(Icons.event, color: Color(0xFF2E7D32)),
+                                          prefixIcon: const Icon(Icons.event, color: Color(0xFF02C697)), // Matching primary color
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                                         ),
                                         validator: (v) => v == null || v.isEmpty ? 'Enter Harvest Date' : null,
@@ -743,7 +895,7 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
                                       child: Text(
                                         'Quantity (kg)',
                                         style: TextStyle(
-                                          color: Color(0xFF2E7D32),
+                                          color: Color(0xFF02C697), // Matching primary color
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -760,7 +912,7 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
                                         decoration: InputDecoration(
                                           hintText: 'Enter quantity',
                                           border: InputBorder.none,
-                                          prefixIcon: const Icon(Icons.scale, color: Color(0xFF2E7D32)),
+                                          prefixIcon: const Icon(Icons.scale, color: Color(0xFF02C697)), // Matching primary color
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                                         ),
                                         validator: (v) => v == null || v.isEmpty ? 'Enter Quantity' : null,
@@ -780,7 +932,7 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
                                       child: Text(
                                         'Price (LKR/kg)',
                                         style: TextStyle(
-                                          color: Color(0xFF2E7D32),
+                                          color: Color(0xFF02C697), // Matching primary color
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -797,7 +949,7 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
                                         decoration: InputDecoration(
                                           hintText: 'Enter price',
                                           border: InputBorder.none,
-                                          prefixIcon: const Icon(Icons.attach_money, color: Color(0xFF2E7D32)),
+                                          prefixIcon: const Icon(Icons.attach_money, color: Color(0xFF02C697)), // Matching primary color
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                                         ),
                                         validator: (v) => v == null || v.isEmpty ? 'Enter Price' : null,
@@ -840,7 +992,7 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
                                 child: ElevatedButton(
                                   onPressed: _hasPreviewed ? _submit : null,
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: _hasPreviewed ? const Color(0xFF2E7D32) : Colors.grey,
+                                    backgroundColor: _hasPreviewed ? const Color(0xFF02C697) : Colors.grey, // Matching primary color
                                     padding: const EdgeInsets.symmetric(vertical: 16),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
@@ -877,7 +1029,7 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF2E7D32),
+                        color: Color(0xFF02C697), // Matching primary color
                       ),
                     ),
                     const SizedBox(height: 15),
@@ -956,25 +1108,67 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
                   child: Icon(icon, color: iconColor, size: 20),
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2E7D32),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF02C697), // Matching primary color
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            Text(
-              content,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[700],
-                height: 1.4,
+            // Enhanced content display with scrollable container for long content
+            Container(
+              constraints: BoxConstraints(
+                maxHeight: content.length > 200 ? 300 : double.infinity,
               ),
+              child: content.length > 200 
+                ? SingleChildScrollView(
+                    child: Text(
+                      content,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[700],
+                        height: 1.5,
+                      ),
+                    ),
+                  )
+                : Text(
+                    content,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[700],
+                      height: 1.4,
+                    ),
+                  ),
             ),
+            // Add a scroll indicator for long content
+            if (content.length > 200)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 16,
+                      color: Colors.grey[500],
+                    ),
+                    Text(
+                      'Scroll for more details',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[500],
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),

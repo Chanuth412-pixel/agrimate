@@ -16,6 +16,7 @@ import 'screens/splash_screen.dart'; // Splash screen
 import 'screens/driver_profile_screen.dart'; // Import the Driver Profile Screen
 import 'screens/driver_log_in_screen.dart'; // Add this import if missing
 import 'screens/scheduled_orders_screen.dart'; // Import the new scheduled orders screen
+import 'screens/ongoing_transactions_screen.dart'; // Import the ongoing transactions screen
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
 import 'screens/create_driver_profile_screen.dart';
@@ -122,6 +123,7 @@ class _MyAppState extends State<MyApp> {
           '/customerSelection': (context) => const RoleSelectionScreen(),
           '/roleSelection': (context) => const RoleSelectionScreen(),
           '/scheduledOrders': (context) => const ScheduledOrdersScreen(),
+          '/ongoingTransactions': (context) => const OngoingTransactionsScreen(),
         },
         // Remove onGenerateRoute logic for /driverProfile
         onGenerateRoute: (settings) {
