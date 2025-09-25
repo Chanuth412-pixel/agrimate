@@ -7,6 +7,26 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../l10n/app_localizations.dart';
 
+double? _calculatedQtyPreview;
+  // Helper to calculate quantity from area and crop
+
+  Future<double> _calculateQuantityFromArea(String crop, double areaSqM) async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('Crop qty per area').doc(crop.toLowerCase()).get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        final tonsPerHectare = data['tons_per_hectr'] ?? 0;
+        // 1 hectare = 10,000 sq meters, 1 ton = 1000 kg
+        double qtyKg = (tonsPerHectare * (areaSqM / 10000)) * 1000;
+        return qtyKg;
+      }
+    } catch (e) {
+      print('Error calculating quantity from area: $e');
+    }
+    return 0;
+  }
+
+
 class AddHarvestScreen extends StatefulWidget {
   const AddHarvestScreen({super.key});
 
@@ -18,8 +38,9 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
   final _formKey = GlobalKey<FormState>();
   final _planting = TextEditingController();
   final _harvest = TextEditingController();
-  final _qty = TextEditingController();
+  final _area = TextEditingController();
   final _price = TextEditingController();
+  final _deliveryRadius = TextEditingController();
 
   final _crops = ['Tomato', 'Okra', 'Bean'];
   String? _selectedCrop;
@@ -36,14 +57,30 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
   String? _lastPreviewedCrop;
   String? _lastPreviewedPlanting;
   String? _lastPreviewedHarvest;
-  String? _lastPreviewedQty;
+  String? _lastPreviewedArea;
   String? _lastPreviewedPrice;
+  String? _lastPreviewedDeliveryRadius;
 
   @override
   void initState() {
     super.initState();
     _planting.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
     _harvest.text = DateFormat('yyyy-MM-dd').format(DateTime.now().add(const Duration(days: 60)));
+    _fetchProximity();
+  }
+
+  Future<void> _fetchProximity() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _deliveryRadius.text = '2';
+      return;
+    }
+    final doc = await FirebaseFirestore.instance.collection('farmers').doc(user.uid).get();
+    if (doc.exists && doc.data() != null && doc.data()!.containsKey('proximity')) {
+      _deliveryRadius.text = doc['proximity'].toString();
+    } else {
+      _deliveryRadius.text = '2';
+    }
   }
 
   void _clearPreviewedValues() {
@@ -51,8 +88,9 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
       _lastPreviewedCrop = '';
       _lastPreviewedPlanting = '';
       _lastPreviewedHarvest = '';
-      _lastPreviewedQty = '';
+      _lastPreviewedArea = '';
       _lastPreviewedPrice = '';
+      _lastPreviewedDeliveryRadius = '';
       _hasPreviewed = false;
     });
   }
@@ -68,9 +106,9 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
       bool hasChanged = _lastPreviewedCrop != _selectedCrop ||
           _lastPreviewedPlanting != _planting.text ||
           _lastPreviewedHarvest != _harvest.text ||
-          _lastPreviewedQty != _qty.text ||
-          _lastPreviewedPrice != _price.text;
-      
+          _lastPreviewedArea != _area.text ||
+          _lastPreviewedPrice != _price.text ||
+          _lastPreviewedDeliveryRadius != _deliveryRadius.text;
       if (hasChanged) {
         setState(() {
           _hasPreviewed = false;
@@ -84,28 +122,9 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
     }
   }
 
-  void _calculateHarvestDate() {
-    // Calculate 60 days from today
-    DateTime sixtyDaysFromNow = DateTime.now().add(const Duration(days: 60));
-    
-    // Find the first Sunday after 60 days
-    DateTime harvestDate = sixtyDaysFromNow;
-    while (harvestDate.weekday != DateTime.sunday) {
-      harvestDate = harvestDate.add(const Duration(days: 1));
-    }
-    
-    _harvest.text = DateFormat('yyyy-MM-dd').format(harvestDate);
-  }
+  // Removed unused _calculateHarvestDate method
 
-  Future<void> _pickDate(TextEditingController ctr) async {
-    final d = await showDatePicker(
-      context: context,
-      initialDate: DateTime.tryParse(ctr.text) ?? DateTime.now(),
-      firstDate: DateTime(2023),
-      lastDate: DateTime(2100),
-    );
-    if (d != null) ctr.text = DateFormat('yyyy-MM-dd').format(d);
-  }
+  // Removed unused _pickDate method
 
   // Function to fetch weather data for the next 5 days
   Future<void> _fetchWeatherData(String city) async {
@@ -510,15 +529,23 @@ Current Month Analysis: $advice
       _lastPreviewedCrop = crop;
       _lastPreviewedPlanting = _planting.text;
       _lastPreviewedHarvest = _harvest.text;
-      _lastPreviewedQty = _qty.text;
+      _lastPreviewedArea = _area.text;
       _lastPreviewedPrice = _price.text;
+      _lastPreviewedDeliveryRadius = _deliveryRadius.text;
+    });
+
+    // Calculate quantity from area
+    double areaSqM = double.tryParse(_area.text) ?? 0;
+    double calculatedQty = await _calculateQuantityFromArea(crop, areaSqM);
+    setState(() {
+      _calculatedQtyPreview = calculatedQty;
     });
 
     // Example city for weather fetching
     String city = "Kandy";
     await _fetchWeatherData(city);
     final txt = await _getComprehensivePrecautions(crop);
-    final demandSupplyStatus = await _checkDemandSupply(crop, int.parse(_qty.text));
+    final demandSupplyStatus = await _checkDemandSupply(crop, calculatedQty.round());
     final priceStatus = await _checkPrice(crop, int.parse(_price.text));
 
     setState(() {
@@ -538,10 +565,11 @@ Current Month Analysis: $advice
 
   bool _hasDataChanged() {
     return _selectedCrop != _lastPreviewedCrop ||
-           _planting.text != (_lastPreviewedPlanting ?? '') ||
-           _harvest.text != (_lastPreviewedHarvest ?? '') ||
-           _qty.text != (_lastPreviewedQty ?? '') ||
-           _price.text != (_lastPreviewedPrice ?? '');
+      _planting.text != (_lastPreviewedPlanting ?? '') ||
+      _harvest.text != (_lastPreviewedHarvest ?? '') ||
+      _area.text != (_lastPreviewedArea ?? '') ||
+      _price.text != (_lastPreviewedPrice ?? '') ||
+      _deliveryRadius.text != (_lastPreviewedDeliveryRadius ?? '');
   }
 
   Future<void> _submit() async {
@@ -570,18 +598,25 @@ Current Month Analysis: $advice
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Please log in to submit harvest data.'),
+            content: Text('User not logged in.'),
             backgroundColor: Colors.red,
           ),
         );
         return;
       }
 
+      // Calculate quantity from area
+      final crop = _selectedCrop ?? 'Unknown';
+      double areaSqM = double.tryParse(_area.text) ?? 0;
+      double calculatedQty = await _calculateQuantityFromArea(crop, areaSqM);
+      int deliveryRadiusValue = int.tryParse(_deliveryRadius.text) ?? 2;
+
       final harvestData = {
         'crop': _selectedCrop,
         'plantingDate': _planting.text,
         'harvestDate': _harvest.text,
-        'quantity': int.parse(_qty.text),
+        'quantity': calculatedQty.round(),
+        'area': areaSqM,
         'price': int.parse(_price.text),
         'weather': {
           'temperature': _temp,
@@ -589,6 +624,7 @@ Current Month Analysis: $advice
         },
         'precautions': _actualPrecautions,
         'farmerId': user.uid,
+        // No deliveryRadius field here
       };
 
       // Add to Firestore
@@ -598,6 +634,12 @@ Current Month Analysis: $advice
           .set({
             'harvests': FieldValue.arrayUnion([harvestData])
           }, SetOptions(merge: true));
+
+      // Update proximity in farmer profile if changed
+      await FirebaseFirestore.instance
+          .collection('farmers')
+          .doc(user.uid)
+          .update({'proximity': deliveryRadiusValue});
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -611,11 +653,11 @@ Current Month Analysis: $advice
         _selectedCrop = null;
         _planting.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
         _harvest.text = DateFormat('yyyy-MM-dd').format(DateTime.now().add(const Duration(days: 60)));
-        _qty.clear();
+        _area.clear();
         _price.clear();
         _clearPreviewedValues();
       });
-
+      await _fetchProximity();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -626,39 +668,16 @@ Current Month Analysis: $advice
     }
   }
 
-  Widget _dateField(String label, TextEditingController ctr, {bool isReadOnly = false}) => Padding(
-        padding: const EdgeInsets.only(bottom: 18),
-        child: TextFormField(
-          controller: ctr,
-          readOnly: true,
-          onTap: isReadOnly ? null : () => _pickDate(ctr),
-          validator: (v) => v == null || v.isEmpty ? 'Enter $label' : null,
-          decoration: InputDecoration(
-            labelText: label,
-            border: const OutlineInputBorder(),
-            suffixIcon: isReadOnly ? null : const Icon(Icons.calendar_today),
-          ),
-        ),
-      );
+  // Removed unused _dateField widget
 
-  Widget _textField(String label, TextEditingController ctr,
-      {TextInputType type = TextInputType.text}) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 18),
-        child: TextFormField(
-          controller: ctr,
-          keyboardType: type,
-          validator: (v) => v == null || v.isEmpty ? 'Enter $label' : null,
-          decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
-        ),
-      );
+  // Removed unused _textField widget
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(AppLocalizations.of(context)!.addNewHarvest,
-          style: const TextStyle(
+        title: const Text('Add New Harvest',
+          style: TextStyle(
             fontWeight: FontWeight.w600,
             color: Colors.white,
             fontSize: 20,
@@ -699,14 +718,10 @@ Current Month Analysis: $advice
                     Opacity(
                       opacity: 0.1,
                       child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              const Color(0xFF02C697).withOpacity(0.1),
-                              const Color(0xFF02C697).withOpacity(0.05),
-                            ],
+                        decoration: const BoxDecoration(
+                          image: DecorationImage(
+                            image: AssetImage('assets/agriculture_pattern.png'), // You would need to add this asset
+                            fit: BoxFit.cover,
                           ),
                         ),
                       ),
@@ -888,7 +903,7 @@ Current Month Analysis: $advice
                           ),
                           const SizedBox(height: 20),
 
-                          // Quantity and Price fields in a row
+                          // Area and Price fields in a row
                           Row(
                             children: [
                               Expanded(
@@ -898,9 +913,9 @@ Current Month Analysis: $advice
                                     const Padding(
                                       padding: EdgeInsets.only(left: 5, bottom: 5),
                                       child: Text(
-                                        'Quantity (kg)',
+                                        'Planting Area (sq.m)',
                                         style: TextStyle(
-                                          color: Color(0xFF02C697), // Matching primary color
+                                          color: Color(0xFF02C697),
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -912,18 +927,36 @@ Current Month Analysis: $advice
                                         border: Border.all(color: Colors.grey[300]!),
                                       ),
                                       child: TextFormField(
-                                        controller: _qty,
+                                        controller: _area,
                                         keyboardType: TextInputType.number,
                                         decoration: InputDecoration(
-                                          hintText: 'Enter quantity',
+                                          hintText: 'Enter area in sq.m',
                                           border: InputBorder.none,
-                                          prefixIcon: const Icon(Icons.scale, color: Color(0xFF02C697)), // Matching primary color
+                                          prefixIcon: const Icon(Icons.square_foot, color: Color(0xFF02C697)),
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                                         ),
-                                        validator: (v) => v == null || v.isEmpty ? 'Enter Quantity' : null,
+                                        validator: (v) => v == null || v.isEmpty ? 'Enter Area' : null,
                                         onChanged: (value) => _onInputChanged(),
                                       ),
                                     ),
+                                    if (_hasPreviewed && _calculatedQtyPreview != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 10),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.scale, color: Color(0xFF02C697), size: 20),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'Estimated Quantity: ${_calculatedQtyPreview!.toStringAsFixed(0)} kg',
+                                              style: const TextStyle(
+                                                color: Color(0xFF02C697),
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),
@@ -937,7 +970,7 @@ Current Month Analysis: $advice
                                       child: Text(
                                         'Price (LKR/kg)',
                                         style: TextStyle(
-                                          color: Color(0xFF02C697), // Matching primary color
+                                          color: Color(0xFF02C697),
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -954,7 +987,7 @@ Current Month Analysis: $advice
                                         decoration: InputDecoration(
                                           hintText: 'Enter price',
                                           border: InputBorder.none,
-                                          prefixIcon: const Icon(Icons.attach_money, color: Color(0xFF02C697)), // Matching primary color
+                                          prefixIcon: const Icon(Icons.attach_money, color: Color(0xFF02C697)),
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                                         ),
                                         validator: (v) => v == null || v.isEmpty ? 'Enter Price' : null,
@@ -966,7 +999,28 @@ Current Month Analysis: $advice
                               ),
                             ],
                           ),
-                          const SizedBox(height: 25),
+                          const SizedBox(height: 20),
+
+                          // Delivery Radius field
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: TextFormField(
+                              controller: _deliveryRadius,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Delivery Radius (km)',
+                                hintText: 'Enter delivery radius',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (val) {
+                                if (val == null || val.isEmpty) return 'Enter delivery radius';
+                                final num? value = num.tryParse(val);
+                                if (value == null || value < 0) return 'Enter a valid radius';
+                                return null;
+                              },
+                              onChanged: (value) => _onInputChanged(),
+                            ),
+                          ),
 
                           // Preview and Submit Buttons
                           Row(

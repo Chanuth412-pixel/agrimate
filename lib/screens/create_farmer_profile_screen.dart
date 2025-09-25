@@ -116,6 +116,7 @@ class _CreateFarmerProfileScreenState extends State<CreateFarmerProfileScreen>
         'uid': uid,
         'createdAt': FieldValue.serverTimestamp(),
         'position': GeoPoint(position.latitude, position.longitude), // Save GPS location
+        'proximity': 2, // ✅ Added default delivery radius
       });
 
       // Show success message

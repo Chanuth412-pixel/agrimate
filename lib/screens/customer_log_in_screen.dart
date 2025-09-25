@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
-import '../l10n/app_localizations.dart';
 import '../widgets/glassy_back_button.dart';
 
 class CustomerLogInScreen extends StatefulWidget {
@@ -44,7 +43,6 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
       duration: const Duration(seconds: 1),
     );
 
-    // Start the animations when the screen loads
     _logoController.forward();
     Future.delayed(const Duration(milliseconds: 500), () {
       _textController.forward();
@@ -67,19 +65,17 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
     final password = _passwordController.text.trim();
 
     try {
-      // 1. Authenticate with Firebase
       final userCredential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(email: email, password: password);
 
       final uid = userCredential.user?.uid;
-
       if (uid == null) {
         throw Exception("Login failed: UID is null.");
       }
 
-      // 2. Fetch customer profile from Firestore
-      final docSnapshot =
-          await FirebaseFirestore.instance.collection('customers').doc(uid).get();
+      // Fetch customer profile from Firestore
+      final docRef = FirebaseFirestore.instance.collection('customers').doc(uid);
+      final docSnapshot = await docRef.get();
 
       if (!docSnapshot.exists) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -88,28 +84,39 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
         return;
       }
 
-      // 3. Save UID to SharedPreferences
+      // Save UID to SharedPreferences
       SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString('customerId', uid);
 
-      // 4. Optionally: Save login location
-      final position = await _getCurrentLocation();
-      if (position != null) {
-        await FirebaseFirestore.instance.collection('customers').doc(uid).update({
-          'lastLoginLocation': GeoPoint(position.latitude, position.longitude),
-          'lastLoginAt': FieldValue.serverTimestamp(),
-        });
+      // Update login location only on first login
+      final customerData = docSnapshot.data();
+      final locationAlreadySet = customerData != null &&
+          customerData.containsKey('lastLoginLocation');
+
+      if (!locationAlreadySet) {
+        final position = await _getCurrentLocation();
+        if (position != null) {
+          await docRef.update({
+            'lastLoginLocation': GeoPoint(position.latitude, position.longitude),
+            'locationSet': true,
+            'lastLoginAt': FieldValue.serverTimestamp(),
+          });
+        }
       }
 
-      // 5. Navigate to customer profile/dashboard
+      // Navigate to customer dashboard/profile
       Navigator.pushReplacementNamed(context, '/customerProfile');
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${AppLocalizations.of(context)!.loginFailed}: ${e.message}')),
+        SnackBar(
+          content: Text('${AppLocalizations.of(context)!.loginFailed}: ${e.message}'),
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${AppLocalizations.of(context)!.errorOccurred}: $e')),
+        SnackBar(
+          content: Text('${AppLocalizations.of(context)!.errorOccurred}: $e'),
+        ),
       );
     }
   }
@@ -158,9 +165,9 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
             color: Colors.black,
           ),
           decoration: InputDecoration(
-            prefixIcon: icon != null 
-              ? Icon(icon, color: Colors.grey[600], size: 20)
-              : null,
+            prefixIcon: icon != null
+                ? Icon(icon, color: Colors.grey[600], size: 20)
+                : null,
             suffixIcon: suffixIcon,
             hintText: label,
             hintStyle: TextStyle(
@@ -172,7 +179,8 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             filled: true,
             fillColor: Colors.white,
           ),
@@ -209,7 +217,7 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
               ),
             ),
           ),
-          // Centered white rounded container/card with soft shadow
+          // Centered white card
           Positioned.fill(
             child: Center(
               child: SingleChildScrollView(
@@ -234,7 +242,6 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // Title: "Welcome Back, Customer!" (bold green)
                           AnimatedBuilder(
                             animation: _textController,
                             builder: (context, child) {
@@ -251,9 +258,7 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
                               );
                             },
                           ),
-
                           const SizedBox(height: 8),
-                          // Subtitle: "Let's grow together" (gray)
                           Text(
                             AppLocalizations.of(context)!.letsGrowTogether,
                             style: const TextStyle(
@@ -261,23 +266,22 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
                               fontSize: 16,
                             ),
                           ),
-
                           const SizedBox(height: 32),
-                          // Email/Phone (mail icon)
                           buildInputField(
-                            AppLocalizations.of(context)!.emailPhone, 
+                            AppLocalizations.of(context)!.emailPhone,
                             _emailController,
                             icon: Icons.mail_outline,
                           ),
-                          // Password (lock icon + show/hide toggle)
                           buildInputField(
-                            AppLocalizations.of(context)!.password, 
-                            _passwordController, 
+                            AppLocalizations.of(context)!.password,
+                            _passwordController,
                             obscure: _obscurePassword,
                             icon: Icons.lock_outline,
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                _obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
                                 color: Colors.grey[600],
                               ),
                               onPressed: () {
@@ -287,9 +291,7 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
                               },
                             ),
                           ),
-
                           const SizedBox(height: 24),
-                          // Button: "Log in" (dark green, white text)
                           AnimatedBuilder(
                             animation: _buttonController,
                             builder: (context, child) {
@@ -324,9 +326,7 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
                               );
                             },
                           ),
-
                           const SizedBox(height: 16),
-                          // Footer: "Don't have an account? Create Profile"
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -335,7 +335,8 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
                                 style: const TextStyle(color: Color(0xFF666666)),
                               ),
                               GestureDetector(
-                                onTap: () => Navigator.pushNamed(context, '/createCustomerProfile'),
+                                onTap: () => Navigator.pushNamed(
+                                    context, '/createCustomerProfile'),
                                 child: Text(
                                   AppLocalizations.of(context)!.createProfile,
                                   style: const TextStyle(
@@ -354,8 +355,6 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
               ),
             ),
           ),
-
-          // Back button
           Positioned(
             top: 40,
             left: 20,
@@ -373,7 +372,8 @@ class _CustomerLogInScreenState extends State<CustomerLogInScreen>
                   ],
                 ),
                 child: IconButton(
-                  onPressed: () => Navigator.pushReplacementNamed(context, '/roleSelection'),
+                  onPressed: () => Navigator.pushReplacementNamed(
+                      context, '/roleSelection'),
                   icon: const Icon(Icons.arrow_back, color: Color(0xFF2E7D32)),
                 ),
               ),
