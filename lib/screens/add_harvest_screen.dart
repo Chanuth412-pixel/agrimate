@@ -699,10 +699,14 @@ Current Month Analysis: $advice
                     Opacity(
                       opacity: 0.1,
                       child: Container(
-                        decoration: const BoxDecoration(
-                          image: DecorationImage(
-                            image: AssetImage('assets/agriculture_pattern.png'), // You would need to add this asset
-                            fit: BoxFit.cover,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              const Color(0xFF02C697).withOpacity(0.1),
+                              const Color(0xFF02C697).withOpacity(0.05),
+                            ],
                           ),
                         ),
                       ),

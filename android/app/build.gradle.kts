@@ -11,7 +11,6 @@ plugins {
 android {
     namespace = "com.example.agrimate"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -45,9 +44,5 @@ android {
 flutter {
     source = "../.."
 }
-<<<<<<< HEAD
-
 
 apply<com.google.gms.googleservices.GoogleServicesPlugin>()
-=======
->>>>>>> 342e06ed1caacbcca71c104f21a2b079b8cdf416

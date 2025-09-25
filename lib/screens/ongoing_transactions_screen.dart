@@ -276,42 +276,48 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF02C697).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.eco,
-                        color: Color(0xFF02C697),
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          crop,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2D3748),
-                          ),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF02C697).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        Text(
-                          'Transaction ID: ${tx['Customer ID'] ?? 'N/A'}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
+                        child: const Icon(
+                          Icons.eco,
+                          color: Color(0xFF02C697),
+                          size: 24,
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              crop,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2D3748),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              'Transaction ID: ${tx['Customer ID'] ?? 'N/A'}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 _buildStatusChip(status),
               ],
@@ -342,7 +348,13 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                     children: [
                       const Icon(Icons.person, size: 16, color: Color(0xFF64748B)),
                       const SizedBox(width: 8),
-                      Text(customerName, style: const TextStyle(fontSize: 14)),
+                      Expanded(
+                        child: Text(
+                          customerName,
+                          style: const TextStyle(fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -350,7 +362,13 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                     children: [
                       const Icon(Icons.phone, size: 16, color: Color(0xFF64748B)),
                       const SizedBox(width: 8),
-                      Text(phoneNO, style: const TextStyle(fontSize: 14)),
+                      Expanded(
+                        child: Text(
+                          phoneNO,
+                          style: const TextStyle(fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -372,17 +390,11 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
             // Order Details
             Row(
               children: [
-                Expanded(
-                  child: _buildDetailBox('Quantity', '${quantity}kg', Icons.scale),
-                ),
+                _buildDetailBox('Quantity', '${quantity}kg', Icons.scale),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: _buildDetailBox('Unit Price', 'LKR $price', Icons.attach_money),
-                ),
+                _buildDetailBox('Unit Price', 'LKR $price', Icons.attach_money),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: _buildDetailBox('Total Value', 'LKR $totalValue', Icons.account_balance_wallet),
-                ),
+                _buildDetailBox('Total Value', 'LKR $totalValue', Icons.account_balance_wallet),
               ],
             ),
             const SizedBox(height: 16),
@@ -423,7 +435,13 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                         children: [
                           const Icon(Icons.person, size: 16, color: Color(0xFF64748B)),
                           const SizedBox(width: 8),
-                          Text('Driver: $deliveryGuyName', style: const TextStyle(fontSize: 14)),
+                          Expanded(
+                            child: Text(
+                              'Driver: $deliveryGuyName',
+                              style: const TextStyle(fontSize: 14),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                           if (tx['delivery_guy_id'] != null)
                             FutureBuilder<double?>(
                               future: _fetchDriverRating(tx['delivery_guy_id']),
@@ -432,6 +450,7 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                                   return Padding(
                                     padding: const EdgeInsets.only(left: 8.0),
                                     child: Row(
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
                                         const Icon(Icons.star, color: Colors.amber, size: 15),
                                         Text(snapshot.data!.toStringAsFixed(1), style: const TextStyle(fontSize: 13)),
@@ -450,7 +469,13 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                           children: [
                             const Icon(Icons.phone, size: 16, color: Color(0xFF64748B)),
                             const SizedBox(width: 8),
-                            Text('Phone: $deliveryGuyPhone', style: const TextStyle(fontSize: 14)),
+                            Expanded(
+                              child: Text(
+                                'Phone: $deliveryGuyPhone',
+                                style: const TextStyle(fontSize: 14),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -545,40 +570,45 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
   }
 
   Widget _buildDetailBox(String label, String value, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            icon,
-            size: 24,
-            color: const Color(0xFF02C697),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
+    return Flexible(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: 24,
+              color: const Color(0xFF02C697),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF2D3748),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF2D3748),
+              ),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
