@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'customer_detail_page.dart';
+import 'review_transaction_screen.dart';
 import 'add_crop_customer_c1.dart';
 import 'scheduled_orders_screen.dart';
 
@@ -99,29 +100,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                     return Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text(
-                                          'Welcome back!',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                            shadows: [
-                                              Shadow(
-                                                offset: Offset(2, 2),
-                                                blurRadius: 4,
-                                                color: Colors.black87,
-                                              ),
-                                              Shadow(
-                                                offset: Offset(-1, -1),
-                                                blurRadius: 2,
-                                                color: Colors.black54,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
                                         Text(
-                                          customerName,
+                                          'Welcome ${customerName.isNotEmpty ? customerName : 'Customer'}:',
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 28,
@@ -499,17 +479,35 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
                 final transactions = List<Map<String, dynamic>>.from(data['transactions']);
 
-                if (transactions.isEmpty) {
+                // Sort newest first by Date timestamp (if present)
+                transactions.sort((a, b) {
+                  final aTs = a['Date'];
+                  final bTs = b['Date'];
+                  if (aTs is Timestamp && bTs is Timestamp) {
+                    return bTs.compareTo(aTs); // descending
+                  }
+                  return 0;
+                });
+
+                // Keep all transactions until status becomes 'confirmed'
+                final filtered = transactions.where((tx) {
+                  // Only hide if explicitly archived
+                  final archived = tx['archived'] == true;
+                  return !archived;
+                }).toList();
+
+                if (filtered.isEmpty) {
                   return _buildEmptyState();
                 }
 
                 return ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: transactions.length > 3 ? 3 : transactions.length,
+                  // Show all pending/unconfirmed
+                  itemCount: filtered.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
-                    final tx = transactions[index];
+                    final tx = filtered[index];
                     return _buildTransactionItem(tx);
                   },
                 );
@@ -532,6 +530,10 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     final deliveryGuyName = tx['delivery_guy_name'];
     final deliveryGuyPhone = tx['delivery_guy_phone'];
     final reviewed = tx['reviewed'] == true;
+  final shippingAddress = tx['shippingAddress'] ?? tx['location'];
+  final deliveryMethod = tx['deliveryMethod'];
+  final farmerDelivered = tx['farmerDelivered'] == true;
+  final canDelete = status.toLowerCase() == 'delivered';
 
     return Container(
       decoration: BoxDecoration(
@@ -566,6 +568,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               _buildStatusChip(status),
             ],
           ),
+              if (canDelete)
+                IconButton(
+                  tooltip: 'Remove from list',
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  onPressed: () => _archiveTransaction(tx),
+                ),
           const SizedBox(height: 12),
           _buildInfoRow(Icons.person_outline, 'Farmer', farmerName),
           const SizedBox(height: 8),
@@ -576,6 +584,34 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             'Delivery',
             '${deliveredOn.day}/${deliveredOn.month}/${deliveredOn.year}',
           ),
+          if (deliveryMethod != null && deliveryMethod.toString().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _buildInfoRow(
+              Icons.local_shipping,
+              'Method',
+              deliveryMethod == 'self' ? 'Farmer Delivery' : deliveryMethod == 'delivery_guy' ? 'Delivery Guy' : deliveryMethod.toString(),
+            ),
+          ],
+          if (shippingAddress != null) ...[
+            const SizedBox(height: 8),
+            const Divider(height: 16),
+            const Text(
+              'Shipping Details',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (shippingAddress != null && shippingAddress.toString().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6.0),
+                child: _buildInfoRow(
+                  Icons.location_on_outlined,
+                  'Address',
+                  shippingAddress,
+                ),
+              ),
+          ],
           if (deliveryGuyName != null && deliveryGuyName.toString().isNotEmpty) ...[
             const Divider(height: 16),
             _buildInfoRow(Icons.delivery_dining, 'Delivery Guy', deliveryGuyName),
@@ -605,27 +641,40 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             ],
           ),
           if (status == 'delivered' && !reviewed)
+          if (status.toLowerCase() == 'delivered' && !reviewed)
             Padding(
               padding: const EdgeInsets.only(top: 12.0),
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.rate_review, color: Colors.white, size: 18),
-                label: const Text('Leave Review'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  textStyle: const TextStyle(fontSize: 15),
-                ),
-                onPressed: () {
-                  _showReviewDialog(context, tx, () {
-                    if (mounted) setState(() {});
-                  });
+              child: _GlassyActionButton(
+                icon: Icons.rate_review,
+                label: 'Leave Review',
+                gradientColors: const [Color(0xFFf6d365), Color(0xFFfda085)],
+                onPressed: () async {
+                  await _openReviewScreen(tx);
+                  if (mounted) setState(() {});
                 },
               ),
             ),
           if (status == 'delivered' && reviewed)
             const Padding(
               padding: EdgeInsets.only(top: 12.0),
-              child: Text('✅ Reviewed', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+              child: _GlassyBadge(
+                icon: Icons.check_box,
+                label: 'Reviewed',
+                colors: [Color(0xFFa8e063), Color(0xFF56ab2f)],
+              ),
+            ),
+          if (status.toLowerCase() == 'in progress' && farmerDelivered)
+            Padding(
+              padding: const EdgeInsets.only(top: 12.0),
+              child: _GlassyActionButton(
+                icon: Icons.check_circle,
+                label: 'Confirm Delivery',
+                gradientColors: const [Color(0xFF56ab2f), Color(0xFFa8e063)],
+                onPressed: () async {
+                  await _confirmCustomerDelivery(tx, openReview: true);
+                  if (mounted) setState(() {});
+                },
+              ),
             ),
         ],
       ),
@@ -675,7 +724,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         textColor = Colors.orange.shade800;
         displayText = 'Pending';
         break;
-      case 'in_transit':
+      case 'in progress':
+        bgColor = Colors.amber.shade100;
+        textColor = Colors.amber.shade900;
+        displayText = 'In Progress';
+        break;
+      case 'in_transit': // legacy
         bgColor = Colors.blue.shade100;
         textColor = Colors.blue.shade800;
         displayText = 'In Transit';
@@ -823,6 +877,211 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             },
             child: const Text('Submit Review'),
           ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmCustomerDelivery(Map<String, dynamic> tx, {bool openReview = false}) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final docRef = FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(user.uid);
+    final snap = await docRef.get();
+    if (!snap.exists) return;
+    final data = snap.data() as Map<String, dynamic>?;
+    if (data == null || !data.containsKey('transactions')) return;
+    List<dynamic> list = List.from(data['transactions']);
+    bool updated = false;
+    for (int i = 0; i < list.length; i++) {
+      final item = list[i];
+      if (item is Map<String, dynamic> &&
+          item['Crop'] == tx['Crop'] &&
+          item['Farmer ID'] == tx['Farmer ID'] &&
+          item['orderPlacedAt'] == tx['orderPlacedAt']) {
+        item['Status'] = 'delivered';
+        item['customerConfirmedAt'] = Timestamp.now();
+        list[i] = item;
+        updated = true;
+        break;
+      }
+    }
+    if (updated) {
+      await docRef.update({'transactions': list});
+      // Also reflect on farmer side
+      final farmerId = tx['Farmer ID'];
+      if (farmerId != null) {
+        final farmDoc = await FirebaseFirestore.instance.collection('Ongoing_Trans_Farm').doc(farmerId).get();
+        if (farmDoc.exists) {
+          final fData = farmDoc.data();
+          if (fData != null && fData.containsKey('transactions')) {
+            List<dynamic> fList = List.from(fData['transactions']);
+            for (int j = 0; j < fList.length; j++) {
+              final fItem = fList[j];
+              if (fItem is Map<String, dynamic> &&
+                  fItem['Crop'] == tx['Crop'] &&
+                  fItem['Customer ID'] == user.uid &&
+                  fItem['orderPlacedAt'] == tx['orderPlacedAt']) {
+                fItem['Status'] = 'delivered';
+                fItem['customerConfirmedAt'] = Timestamp.now();
+                fList[j] = fItem;
+                break;
+              }
+            }
+            await FirebaseFirestore.instance.collection('Ongoing_Trans_Farm').doc(farmerId).update({'transactions': fList});
+          }
+        }
+      }
+      if (openReview) await _openReviewScreen(tx);
+    }
+  }
+
+  Future<void> _openReviewScreen(Map<String, dynamic> tx) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReviewTransactionScreen(transaction: tx),
+      ),
+    );
+    if (result == true) {
+      // Mark reviewed in both customer and farmer docs
+      await _markReviewed(tx);
+    }
+  }
+
+  Future<void> _markReviewed(Map<String, dynamic> tx) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final docRef = FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(user.uid);
+    final snap = await docRef.get();
+    if (snap.exists) {
+      final data = snap.data() as Map<String, dynamic>?;
+      if (data != null && data.containsKey('transactions')) {
+        List<dynamic> list = List.from(data['transactions']);
+        for (int i = 0; i < list.length; i++) {
+          final item = list[i];
+            if (item is Map<String, dynamic> &&
+                item['Crop'] == tx['Crop'] &&
+                item['Farmer ID'] == tx['Farmer ID'] &&
+                item['orderPlacedAt'] == tx['orderPlacedAt']) {
+              item['reviewed'] = true;
+              list[i] = item;
+              break;
+            }
+        }
+        await docRef.update({'transactions': list});
+      }
+    }
+    final farmerId = tx['Farmer ID'];
+    if (farmerId != null) {
+      final farmDoc = await FirebaseFirestore.instance.collection('Ongoing_Trans_Farm').doc(farmerId).get();
+      if (farmDoc.exists) {
+        final fData = farmDoc.data();
+        if (fData != null && fData.containsKey('transactions')) {
+          List<dynamic> fList = List.from(fData['transactions']);
+          for (int j = 0; j < fList.length; j++) {
+            final fItem = fList[j];
+            if (fItem is Map<String, dynamic> &&
+                fItem['Crop'] == tx['Crop'] &&
+                fItem['Customer ID'] == FirebaseAuth.instance.currentUser?.uid &&
+                fItem['orderPlacedAt'] == tx['orderPlacedAt']) {
+              fItem['reviewed'] = true;
+              fList[j] = fItem;
+              break;
+            }
+          }
+          await FirebaseFirestore.instance.collection('Ongoing_Trans_Farm').doc(farmerId).update({'transactions': fList});
+        }
+      }
+    }
+  }
+
+  Future<void> _archiveTransaction(Map<String, dynamic> tx) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final docRef = FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(user.uid);
+    final snap = await docRef.get();
+    if (!snap.exists) return;
+    final data = snap.data() as Map<String, dynamic>?;
+    if (data == null || !data.containsKey('transactions')) return;
+    List<dynamic> list = List.from(data['transactions']);
+    for (int i = 0; i < list.length; i++) {
+      final item = list[i];
+      if (item is Map<String, dynamic> &&
+          item['Crop'] == tx['Crop'] &&
+          item['Farmer ID'] == tx['Farmer ID'] &&
+          item['orderPlacedAt'] == tx['orderPlacedAt']) {
+        item['archived'] = true;
+        list[i] = item;
+        break;
+      }
+    }
+    await docRef.update({'transactions': list});
+    if (mounted) setState(() {});
+  }
+}
+
+// ===== Glassy UI Components (top-level) =====
+class _GlassyActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final List<Color> gradientColors;
+  final VoidCallback onPressed;
+  const _GlassyActionButton({required this.icon, required this.label, required this.gradientColors, required this.onPressed});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: gradientColors),
+          borderRadius: BorderRadius.circular(40),
+          boxShadow: [
+            BoxShadow(color: gradientColors.last.withOpacity(.35), blurRadius: 12, offset: const Offset(0,6)),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(.25),
+                shape: BoxShape.circle,
+              ),
+              padding: const EdgeInsets.all(4),
+              child: Icon(icon, size: 18, color: Colors.white),
+            ),
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassyBadge extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final List<Color> colors;
+  const _GlassyBadge({required this.icon, required this.label, required this.colors});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: colors),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(color: colors.last.withOpacity(.35), blurRadius: 8, offset: const Offset(0,4)),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
         ],
       ),
     );

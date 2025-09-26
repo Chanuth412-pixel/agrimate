@@ -140,89 +140,149 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
     return ((daysDifference + beginningOfYear.weekday) / 7).ceil();
   }
 
-  void _showQuantityDialog(Map<String, dynamic> farmer) {
-    final TextEditingController _quantityController = TextEditingController();
+  Future<void> _showQuantityDialog(Map<String, dynamic> farmer) async {
+    final TextEditingController quantityController = TextEditingController();
+    final TextEditingController locationController = TextEditingController();
+
+    // Prefill address with customer's saved location if available
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        final customerDoc = await FirebaseFirestore.instance
+            .collection('customers')
+            .doc(uid)
+            .get();
+        final savedLocation = customerDoc.data()?['location'];
+        if (savedLocation is String && savedLocation.isNotEmpty) {
+          locationController.text = savedLocation; // default to customer location
+        }
+      }
+    } catch (e) {
+      debugPrint('Prefill address error: $e');
+    }
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Text('Enter Quantity (max ${farmer['quantity']} kg)'),
-          content: TextField(
-            controller: _quantityController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Quantity in kg',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final quantityText = _quantityController.text.trim();
-                final quantity = int.tryParse(quantityText);
-                if (quantity == null || quantity <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Enter a valid quantity')),
-                  );
-                  return;
-                }
-
-                if (quantity > (farmer['quantity'] ?? 0)) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content:
-                            Text('Requested quantity exceeds available stock')),
-                  );
-                  return;
-                }
-
-                Navigator.pop(context); // Close quantity dialog
-
-                // Ask if the user wants to schedule the order
-                final schedule = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Schedule Order'),
-                    content:
-                        const Text('Do you want to schedule this order?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('No'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Yes'),
-                      ),
-                    ],
+        return StatefulBuilder(
+          builder: (context, setStateDialog) => AlertDialog(
+            title: Text('Order Details (max ${farmer['quantity']} kg)'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: quantityController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Quantity in kg',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                );
-
-                if (schedule == true) {
-                  await _createScheduledOrder(farmer, quantity);
-                } else {
-                  await _createTransaction(farmer, quantity);
-                }
-              },
-              child: const Text('Confirm'),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: locationController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Location',
+                      hintText: 'Enter or confirm your location',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final quantityText = quantityController.text.trim();
+                  final quantity = int.tryParse(quantityText);
+                  if (quantity == null || quantity <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Enter a valid quantity')),
+                    );
+                    return;
+                  }
+
+                  if (quantity > (farmer['quantity'] ?? 0)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Requested quantity exceeds available stock')),
+                    );
+                    return;
+                  }
+
+                  final location = locationController.text.trim();
+                  if (location.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please enter a location')),
+                    );
+                    return;
+                  }
+
+                  Navigator.pop(context); // close order details dialog
+
+                  // Ask if the user wants to schedule the order
+                  final schedule = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Schedule Order'),
+                      content: const Text('Do you want to schedule this order?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('No'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Yes'),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (schedule == true) {
+                    await _createScheduledOrder(
+                      farmer,
+                      quantity,
+                      location: location,
+                    );
+                  } else {
+                    await _createTransaction(
+                      farmer,
+                      quantity,
+                      location: location,
+                    );
+                  }
+                },
+                child: const Text('Confirm'),
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
   Future<void> _createTransaction(
-      Map<String, dynamic> farmer, int quantity) async {
+    Map<String, dynamic> farmer, int quantity, {required String location}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final now = Timestamp.now();
+    final DateTime nowDate = DateTime.now();
+    // Calculate next (or same) Sunday as delivery date
+    // If you prefer ALWAYS next week even when today is Sunday, change daysToAdd == 0 ? 7 : 0
+  int daysToAdd = DateTime.sunday - nowDate.weekday; // Sunday = 7
+  if (daysToAdd <= 0) daysToAdd += 7; // if today is Sunday or past, go to next Sunday
+    final DateTime deliveryDate = nowDate.add(Duration(days: daysToAdd));
+    final Timestamp now = Timestamp.fromDate(nowDate);
+    final Timestamp deliveryTs = Timestamp.fromDate(deliveryDate);
 
     // Fetch Customer Name
     final customerDoc = await FirebaseFirestore.instance
@@ -230,7 +290,9 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
         .doc(user.uid)
         .get();
 
-    final customerName = customerDoc.data()?['Name'] ?? 'Unknown';
+  final customerName = customerDoc.data()?['Name'] ?? customerDoc.data()?['name'] ?? 'Unknown';
+  final customerPhone = customerDoc.data()?['phone'] ?? customerDoc.data()?['Phone'] ?? 'Not Provided';
+  final customerLocation = customerDoc.data()?['location'] ?? 'Not specified';
 
     // Transaction data for customer
     final transaction = {
@@ -242,7 +304,11 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       'Farmer Name': farmer['farmerName'],
       'Phone_NO': farmer['phone'] ?? 'Unknown',
       'Harvest Date': farmer['harvestDate'],
-      'Date': now,
+      // Delivery date set to nearest upcoming Sunday
+      'Date': deliveryTs,
+      // Order placed timestamp retained separately
+      'orderPlacedAt': now,
+      'location': location, // stored as 'location' per requirement
     };
 
     // Transaction data for farmer (add customer info)
@@ -250,7 +316,10 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       ...transaction,
       'Customer ID': user.uid,
       'Customer Name': customerName,
+      'customer_name': customerName,
       'Customer Email': user.email ?? 'unknown',
+      'Customer Phone': customerPhone,
+      'Customer Location': customerLocation,
     };
 
     try {
@@ -294,17 +363,24 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
   }
 
   Future<void> _createScheduledOrder(
-      Map<String, dynamic> farmer, int quantity) async {
+    Map<String, dynamic> farmer, int quantity, {required String location}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final now = Timestamp.now();
+    final DateTime nowDate = DateTime.now();
+  int daysToAdd = DateTime.sunday - nowDate.weekday;
+  if (daysToAdd <= 0) daysToAdd += 7; // always pick a future Sunday
+    final DateTime deliveryDate = nowDate.add(Duration(days: daysToAdd));
+    final Timestamp now = Timestamp.fromDate(nowDate);
+    final Timestamp deliveryTs = Timestamp.fromDate(deliveryDate);
 
     final customerDoc = await FirebaseFirestore.instance
         .collection('customers')
         .doc(user.uid)
         .get();
-    final customerName = customerDoc.data()?['Name'] ?? 'Unknown';
+  final customerName = customerDoc.data()?['Name'] ?? customerDoc.data()?['name'] ?? 'Unknown';
+  final customerPhone = customerDoc.data()?['phone'] ?? customerDoc.data()?['Phone'] ?? 'Not Provided';
+  final customerLocation = customerDoc.data()?['location'] ?? 'Not specified';
 
     final scheduledOrder = {
       'Crop': widget.cropName,
@@ -315,10 +391,16 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       'Farmer Name': farmer['farmerName'],
       'Phone_NO': farmer['phone'] ?? 'Unknown',
       'Harvest Date': farmer['harvestDate'],
-      'Date': now,
+      'Date': deliveryTs,
+      'orderPlacedAt': now,
       'Customer ID': user.uid,
       'Customer Name': customerName,
+      'customer_name': customerName,
       'Customer Email': user.email ?? 'unknown',
+      'Customer Phone': customerPhone,
+      'Customer Location': customerLocation,
+      'scheduled': true,
+      'location': location,
     };
 
     try {
@@ -328,6 +410,24 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
           .set({
         'orders': FieldValue.arrayUnion([scheduledOrder]),
       }, SetOptions(merge: true));
+
+      // Also push into ongoing transactions so it shows under Recent Transactions as Pending
+      await FirebaseFirestore.instance
+          .collection('Ongoing_Trans_Cus')
+          .doc(user.uid)
+          .set({
+        'transactions': FieldValue.arrayUnion([scheduledOrder]),
+      }, SetOptions(merge: true));
+
+      // Reserve (subtract) quantity immediately for scheduled orders too
+      await _decrementHarvestQuantity(
+        farmerId: farmer['farmerId'],
+        crop: widget.cropName,
+        price: farmer['price'],
+        originalQuantity: farmer['quantity'],
+        harvestDate: farmer['harvestDate'],
+        decrementBy: quantity,
+      );
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Order scheduled successfully!')),
@@ -358,12 +458,12 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
 
     List<dynamic> harvests = List.from(harvestDoc.data()!['harvests']);
 
+    bool updated = false;
     for (int i = 0; i < harvests.length; i++) {
       final entry = harvests[i];
 
       final bool cropMatch = entry['crop'] == crop;
       final bool priceMatch = entry['expectedPrice'] == price;
-      final bool qtyMatch = entry['quantity'] == originalQuantity;
 
       // match harvestDate regardless of stored type
       bool dateMatch = false;
@@ -373,10 +473,8 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
               .toDate()
               .isAtSameMomentAs((harvestDate as Timestamp).toDate());
         } else if (entry['harvestDate'] is String && harvestDate is String) {
-          dateMatch =
-              DateTime.parse(entry['harvestDate']) == DateTime.parse(harvestDate);
+          dateMatch = DateTime.parse(entry['harvestDate']) == DateTime.parse(harvestDate);
         } else {
-          // try normalized parsing
           final DateTime left = entry['harvestDate'] is Timestamp
               ? (entry['harvestDate'] as Timestamp).toDate()
               : DateTime.parse(entry['harvestDate'].toString());
@@ -389,14 +487,32 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
         dateMatch = false;
       }
 
-      if (cropMatch && priceMatch && qtyMatch && dateMatch) {
-        final int currentAvailable =
-            (entry['available'] ?? entry['quantity'] ?? 0) as int;
+      if (cropMatch && priceMatch && dateMatch) {
+        final int currentAvailable = (entry['available'] ?? entry['quantity'] ?? 0) as int;
         int newAvailable = currentAvailable - decrementBy;
         if (newAvailable < 0) newAvailable = 0;
         harvests[i]['available'] = newAvailable;
+        updated = true;
         break;
       }
+    }
+
+    // Fallback pass: if not updated (maybe price changed type), attempt loose crop/date match only
+    if (!updated) {
+      for (int i = 0; i < harvests.length; i++) {
+        final entry = harvests[i];
+        if (entry['crop'] != crop) continue;
+        int currentAvailable = (entry['available'] ?? entry['quantity'] ?? 0) as int;
+        int newAvailable = currentAvailable - decrementBy;
+        if (newAvailable < 0) newAvailable = 0;
+        harvests[i]['available'] = newAvailable;
+        updated = true;
+        break;
+      }
+    }
+
+    if (!updated) {
+      debugPrint('[Harvest Decrement] No matching harvest entry found for farmer=$farmerId crop=$crop');
     }
 
     await harvestDocRef.update({'harvests': harvests});

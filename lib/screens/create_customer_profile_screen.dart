@@ -283,6 +283,19 @@ class _CreateCustomerProfileScreenState extends State<CreateCustomerProfileScree
                                       type: TextInputType.emailAddress,
                                       icon: Icons.mail_outline,
                                     ),
+                                    // Location
+                                    _buildInputField(
+                                      AppLocalizations.of(context)!.location,
+                                      locationController,
+                                      icon: Icons.location_on_outlined,
+                                    ),
+                                    // Phone Number
+                                    _buildInputField(
+                                      AppLocalizations.of(context)!.phoneNumber,
+                                      phoneController,
+                                      type: TextInputType.phone,
+                                      icon: Icons.phone_outlined,
+                                    ),
                                     // Password (lock icon + show/hide toggle)
                                     _buildInputField(
                                       AppLocalizations.of(context)!.password, 
@@ -319,16 +332,7 @@ class _CreateCustomerProfileScreenState extends State<CreateCustomerProfileScree
                                         },
                                       ),
                                     ),
-                                    // Hidden fields for existing functionality
-                                    Visibility(
-                                      visible: false,
-                                      child: Column(
-                                        children: [
-                                          _buildInputField(AppLocalizations.of(context)!.location, locationController),
-                                          _buildInputField(AppLocalizations.of(context)!.phoneNumber, phoneController, type: TextInputType.phone),
-                                        ],
-                                      ),
-                                    ),
+                                    // (Previously hidden location & phone fields now visible above)
                                   ],
                                 ),
                               );
