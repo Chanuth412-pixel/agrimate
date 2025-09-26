@@ -1,7 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../constants/app_constants.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../utils/currency_util.dart';
 
 class FarmerDetailScreen extends StatelessWidget {
   final Map<String, dynamic> farmerData;
@@ -11,20 +14,21 @@ class FarmerDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Fetching farmer data from the passed map
-    String name = farmerData['name'] ?? 'Not Provided';
-    String location = farmerData['location'] ?? 'Not Provided';
-    String phone = farmerData['phone'] ?? 'Not Provided';
-    String email = farmerData['email'] ?? 'Not Provided';
+  final loc = AppLocalizations.of(context)!;
+  // Fetching farmer data from the passed map with localized fallbacks
+        String name = farmerData['name'] ?? loc.notProvided;
+        String location = farmerData['location'] ?? loc.notProvided;
+        String phone = farmerData['phone'] ?? loc.notProvided;
+  String email = farmerData['email'] ?? loc.notProvided;
     String farmerId = farmerData['uid'] ?? farmerData['id'] ?? '';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5DC), // Light beige background
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text(
-          'Farmer Profile',
-          style: TextStyle(
+        title: Text(
+          loc.farmerProfileTitle,
+          style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 20,
@@ -211,7 +215,7 @@ class FarmerDetailScreen extends StatelessWidget {
                 collection: 'farmers',
                 docId: farmerId,
                 canEdit: FirebaseAuth.instance.currentUser?.uid == farmerId && farmerId.isNotEmpty,
-                fallback: (farmerData['description'] ?? 'No description added yet.') as String,
+                fallback: (farmerData['description'] ?? loc.noDescriptionYet) as String,
               ),
             ),
           ),
@@ -248,21 +252,21 @@ class FarmerDetailScreen extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 16),
-                              const Text(
-                                'Contact Information',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF556B2F), // Dark olive green
-                                ),
-                              ),
+                                  Text(
+                                    loc.contactInfo,
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF556B2F), // Dark olive green
+                                    ),
+                                  ),
                             ],
                           ),
                           const SizedBox(height: 20),
 
                           _buildContactRow(
                             icon: Icons.phone,
-                            label: 'Phone',
+                                label: loc.phone,
                             value: phone,
                             onTap: () => _launchPhone(phone),
                           ),
@@ -274,6 +278,16 @@ class FarmerDetailScreen extends StatelessWidget {
                             onTap: () => _launchEmail(email),
                           ),
                         ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Delivery Price Per Km (editable by owner)
+                    _buildEarthyCard(
+                      child: _DeliveryPriceSection(
+                        farmerId: farmerId,
+                        canEdit: FirebaseAuth.instance.currentUser?.uid == farmerId && farmerId.isNotEmpty,
                       ),
                     ),
 
@@ -301,9 +315,9 @@ class FarmerDetailScreen extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 16),
-                              const Text(
-                                'Ratings & Reviews',
-                                style: TextStyle(
+                                   Text(
+                                     loc.ratingsAndReviews,
+                                     style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF556B2F), // Dark olive green
@@ -362,7 +376,7 @@ class FarmerDetailScreen extends StatelessWidget {
                           }
                         },
                         icon: const Icon(Icons.logout),
-                        label: const Text('Log out'),
+                             label: Text(loc.logOut),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFE53935),
                           foregroundColor: Colors.white,
@@ -499,10 +513,10 @@ class FarmerDetailScreen extends StatelessWidget {
           ? const Stream.empty()
           : FirebaseFirestore.instance.collection(collection).doc(docId).snapshots(),
       builder: (context, snapshot) {
+        final loc = AppLocalizations.of(context)!;
         final data = snapshot.data?.data() as Map<String, dynamic>?;
         final desc = (data?['description'] ?? fallback) as String;
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(18),
@@ -525,16 +539,16 @@ class FarmerDetailScreen extends StatelessWidget {
                     child: const Icon(Icons.info_outline, color: Color(0xFF556B2F), size: 20),
                   ),
                   const SizedBox(width: 12),
-                  const Text(
-                    'About',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF556B2F)),
+                  Text(
+                    loc.about,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF556B2F)),
                   ),
                   const Spacer(),
                   if (canEdit)
                     OutlinedButton.icon(
                       onPressed: () => _showEditDescriptionDialog(context, collection, docId, desc),
                       icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('Edit'),
+                      label: Text(loc.edit),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF556B2F),
                         side: BorderSide(color: const Color(0xFF8FBC8F).withOpacity(0.6)),
@@ -555,7 +569,7 @@ class FarmerDetailScreen extends StatelessWidget {
                   border: Border.all(color: const Color(0xFF8FBC8F).withOpacity(0.3)),
                 ),
                 child: Text(
-                  (desc).isNotEmpty ? desc : 'No description added yet.',
+                  (desc).isNotEmpty ? desc : loc.noDescriptionYet,
                   style: const TextStyle(fontSize: 14, color: Color(0xFF556B2F), height: 1.4),
                 ),
               ),
@@ -571,21 +585,22 @@ class FarmerDetailScreen extends StatelessWidget {
     await showDialog(
       context: context,
       builder: (ctx) {
+        final loc = AppLocalizations.of(ctx)!;
         return AlertDialog(
-          title: const Text('Edit description'),
+          title: Text(loc.editDescription),
           content: SizedBox(
             width: 420,
             child: TextField(
               controller: controller,
               maxLines: 6,
-              decoration: const InputDecoration(
-                hintText: 'Tell others about you... (services, experience, etc.)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: loc.descriptionHint,
+                border: const OutlineInputBorder(),
               ),
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(loc.cancel)),
             FilledButton(
               onPressed: () async {
                 final text = controller.text.trim();
@@ -597,11 +612,11 @@ class FarmerDetailScreen extends StatelessWidget {
                   if (context.mounted) Navigator.pop(ctx);
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${loc.failedToSave}: $e')));
                   }
                 }
               },
-              child: const Text('Save'),
+              child: Text(loc.save),
             ),
           ],
         );
@@ -1018,10 +1033,18 @@ class FarmerDetailScreen extends StatelessWidget {
       if (ratings.isEmpty) {
         return {'average': null, 'reviews': []};
       }
-      double avg =
-          ratings
-              .map((r) => (r['rating'] ?? 0).toDouble())
-              .fold(0.0, (a, b) => a + b) /
+      // Sort ratings newest first (createdAt) so recent reviews appear on top
+      ratings.sort((a, b) {
+        final aTs = (a is Map<String, dynamic>) ? a['createdAt'] : null;
+        final bTs = (b is Map<String, dynamic>) ? b['createdAt'] : null;
+        if (aTs is Timestamp && bTs is Timestamp) {
+          return bTs.compareTo(aTs);
+        }
+        return 0;
+      });
+      double avg = ratings
+          .map((r) => (r['rating'] ?? 0).toDouble())
+          .fold(0.0, (a, b) => a + b) /
           ratings.length;
       return {'average': avg, 'reviews': ratings};
     } catch (e) {
@@ -1045,3 +1068,194 @@ class FarmerDetailScreen extends StatelessWidget {
     }
   }
 }
+
+// Delivery price per km section widget
+class _DeliveryPriceSection extends StatefulWidget {
+  final String farmerId;
+  final bool canEdit;
+  const _DeliveryPriceSection({required this.farmerId, required this.canEdit});
+
+  @override
+  State<_DeliveryPriceSection> createState() => _DeliveryPriceSectionState();
+}
+
+class _DeliveryPriceSectionState extends State<_DeliveryPriceSection> {
+  bool _editing = false;
+  final _controller = TextEditingController();
+  int? _currentValue; // cached value for optimistic UI
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final snap = await FirebaseFirestore.instance.collection('farmers').doc(widget.farmerId).get();
+      if (mounted) {
+        final val = (snap.data()?["deliveryPricePerKm"] ?? 100);
+        _currentValue = (val is int) ? val : (val is num ? val.toInt() : 100);
+        _controller.text = _currentValue.toString();
+        setState(() {});
+      }
+    } catch (_) {
+      // silent fail; fallback remains 100
+    }
+  }
+
+  Future<void> _save() async {
+  final raw = _controller.text.trim();
+  if (raw.isEmpty) return;
+  final parsed = CurrencyUtil.parseToInt(raw);
+    if (parsed == null || parsed <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid positive number')));
+      return;
+    }
+    setState(() { _saving = true; });
+    try {
+      await FirebaseFirestore.instance.collection('farmers').doc(widget.farmerId).update({
+        'deliveryPricePerKm': parsed,
+        'deliveryPriceUpdatedAt': FieldValue.serverTimestamp(),
+      });
+      setState(() {
+        _currentValue = parsed;
+        _editing = false;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
+    } finally {
+      if (mounted) setState(() { _saving = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final valueDisplay = _currentValue != null ? '${CurrencyUtil.format(_currentValue!).replaceAll('.00', '')} / km' : 'Loading...';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF8FBC8F).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.local_shipping, color: Color(0xFF556B2F), size: 24),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              loc.deliveryPrice,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF556B2F),
+              ),
+            ),
+            const Spacer(),
+            if (widget.canEdit && !_editing)
+              OutlinedButton.icon(
+                onPressed: () => setState(() { _editing = true; _controller.text = (_currentValue ?? 100).toString(); }),
+                icon: const Icon(Icons.edit, size: 16),
+                label: Text(loc.edit),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF556B2F),
+                  side: BorderSide(color: const Color(0xFF8FBC8F).withOpacity(0.6)),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: _editing ? _buildEditor(context) : _buildDisplay(valueDisplay),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDisplay(String valueDisplay) {
+    return Container(
+      key: const ValueKey('display'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5DC).withOpacity(0.8),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF8FBC8F).withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.payments_outlined, color: Color(0xFF556B2F)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              valueDisplay,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF556B2F),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditor(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    return Container(
+      key: const ValueKey('editor'),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5DC).withOpacity(0.8),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF8FBC8F).withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _controller,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: '${loc.deliveryPrice} (LKR / km)',
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.currency_rupee),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              FilledButton(
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text(loc.save),
+              ),
+              const SizedBox(width: 12),
+              TextButton(
+                onPressed: _saving ? null : () => setState(() { _editing = false; }),
+                child: Text(loc.cancel),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'This price is visible to customers during delivery cost estimation.',
+            style: TextStyle(fontSize: 12, color: const Color(0xFF556B2F).withOpacity(0.7)),
+          )
+        ],
+      ),
+    );
+  }
+}
+

@@ -42,7 +42,8 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
   final _price = TextEditingController();
   final _deliveryRadius = TextEditingController();
 
-  final _crops = ['Tomato', 'Okra', 'Bean'];
+  // Internal crop identifiers; UI labels will use localization
+  final _crops = ['tomato', 'okra', 'bean'];
   String? _selectedCrop;
   String _precautions = '';
   String _weatherSummary = '';
@@ -676,7 +677,7 @@ Current Month Analysis: $advice
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add New Harvest',
+        title: Text(AppLocalizations.of(context)?.addNewHarvest ?? 'Add New Harvest',
           style: TextStyle(
             fontWeight: FontWeight.w600,
             color: Colors.white,
@@ -733,8 +734,8 @@ Current Month Analysis: $advice
                             color: Colors.white.withOpacity(0.9),
                           ),
                           const SizedBox(height: 10),
-                          const Text(
-                            'Plan Your Harvest',
+                          Text(
+                            AppLocalizations.of(context)?.planYourHarvest ?? 'Plan Your Harvest',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 24,
@@ -742,8 +743,8 @@ Current Month Analysis: $advice
                             ),
                           ),
                           const SizedBox(height: 5),
-                          const Text(
-                            'Get insights for better yield and profit',
+                          Text(
+                            AppLocalizations.of(context)?.harvestInsightsTagline ?? 'Get insights for better yield and profit',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 14,
@@ -779,7 +780,7 @@ Current Month Analysis: $advice
                             ),
                             child: DropdownButtonFormField<String>(
                               decoration: InputDecoration(
-                                labelText: 'Select Crop',
+                                labelText: AppLocalizations.of(context)?.selectCrop ?? 'Select Crop',
                                 labelStyle: const TextStyle(
                                   color: Color(0xFF02C697), // Matching primary color
                                   fontWeight: FontWeight.w500,
@@ -790,19 +791,31 @@ Current Month Analysis: $advice
                               ),
                               value: _selectedCrop,
                               items: _crops.map((crop) {
+                                final loc = AppLocalizations.of(context);
+                                String label;
+                                switch (crop) {
+                                  case 'tomato':
+                                    label = loc?.cropTomato ?? 'Tomato';
+                                    break;
+                                  case 'okra':
+                                    label = loc?.cropOkra ?? 'Okra';
+                                    break;
+                                  case 'bean':
+                                    label = loc?.cropBeans ?? 'Bean';
+                                    break;
+                                  default:
+                                    label = crop;
+                                }
                                 return DropdownMenuItem(
                                   value: crop,
-                                  child: Text(
-                                    crop,
-                                    style: const TextStyle(fontSize: 18),
-                                  ),
+                                  child: Text(label, style: const TextStyle(fontSize: 18)),
                                 );
                               }).toList(),
                               onChanged: (value) {
                                 setState(() => _selectedCrop = value);
                                 _onInputChanged();
                               },
-                              validator: (v) => v == null ? 'Select crop' : null,
+                              validator: (v) => v == null ? (AppLocalizations.of(context)?.selectCrop ?? 'Select crop') : null,
                               isExpanded: true,
                             ),
                           ),
@@ -815,10 +828,10 @@ Current Month Analysis: $advice
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Padding(
+                                    Padding(
                                       padding: EdgeInsets.only(left: 5, bottom: 5),
                                       child: Text(
-                                        'Planting Date',
+                                        AppLocalizations.of(context)?.plantingDate ?? 'Planting Date',
                                         style: TextStyle(
                                           color: Color(0xFF02C697), // Matching primary color
                                           fontWeight: FontWeight.w500,
@@ -835,7 +848,7 @@ Current Month Analysis: $advice
                                         controller: _planting,
                                         readOnly: true,
                                         decoration: InputDecoration(
-                                          hintText: 'Select date',
+                                          hintText: AppLocalizations.of(context)?.plantingDate ?? 'Select date',
                                           border: InputBorder.none,
                                           prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFF02C697)), // Matching primary color
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 15),
@@ -854,7 +867,7 @@ Current Month Analysis: $advice
                                             });
                                           }
                                         },
-                                        validator: (v) => v == null || v.isEmpty ? 'Enter Planting Date' : null,
+                                        validator: (v) => v == null || v.isEmpty ? (AppLocalizations.of(context)?.plantingDate ?? 'Enter Planting Date') : null,
                                       ),
                                     ),
                                   ],
@@ -865,10 +878,10 @@ Current Month Analysis: $advice
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Padding(
+                                    Padding(
                                       padding: EdgeInsets.only(left: 5, bottom: 5),
                                       child: Text(
-                                        'Harvest Date',
+                                        AppLocalizations.of(context)?.harvestDate ?? 'Harvest Date',
                                         style: TextStyle(
                                           color: Color(0xFF02C697), // Matching primary color
                                           fontWeight: FontWeight.w500,
@@ -885,12 +898,12 @@ Current Month Analysis: $advice
                                         controller: _harvest,
                                         readOnly: true,
                                         decoration: InputDecoration(
-                                          hintText: 'Select date',
+                                          hintText: AppLocalizations.of(context)?.harvestDate ?? 'Select date',
                                           border: InputBorder.none,
                                           prefixIcon: const Icon(Icons.event, color: Color(0xFF02C697)), // Matching primary color
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                                         ),
-                                        validator: (v) => v == null || v.isEmpty ? 'Enter Harvest Date' : null,
+                                        validator: (v) => v == null || v.isEmpty ? (AppLocalizations.of(context)?.harvestDate ?? 'Enter Harvest Date') : null,
                                       ),
                                     ),
                                   ],
@@ -907,10 +920,10 @@ Current Month Analysis: $advice
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Padding(
+                                    Padding(
                                       padding: EdgeInsets.only(left: 5, bottom: 5),
                                       child: Text(
-                                        'Planting Area (sq.m)',
+                                        AppLocalizations.of(context)?.plantingArea ?? 'Planting Area (sq.m)',
                                         style: TextStyle(
                                           color: Color(0xFF02C697),
                                           fontWeight: FontWeight.w500,
@@ -927,12 +940,12 @@ Current Month Analysis: $advice
                                         controller: _area,
                                         keyboardType: TextInputType.number,
                                         decoration: InputDecoration(
-                                          hintText: 'Enter area in sq.m',
+                                          hintText: AppLocalizations.of(context)?.enterAreaSqm ?? 'Enter area in sq.m',
                                           border: InputBorder.none,
                                           prefixIcon: const Icon(Icons.square_foot, color: Color(0xFF02C697)),
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                                         ),
-                                        validator: (v) => v == null || v.isEmpty ? 'Enter Area' : null,
+                                        validator: (v) => v == null || v.isEmpty ? (AppLocalizations.of(context)?.enterAreaSqm ?? 'Enter Area') : null,
                                         onChanged: (value) => _onInputChanged(),
                                       ),
                                     ),
@@ -962,10 +975,10 @@ Current Month Analysis: $advice
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Padding(
+                                    Padding(
                                       padding: EdgeInsets.only(left: 5, bottom: 5),
                                       child: Text(
-                                        'Price (LKR/kg)',
+                                        AppLocalizations.of(context)?.priceLkrPerKg ?? 'Price (LKR/kg)',
                                         style: TextStyle(
                                           color: Color(0xFF02C697),
                                           fontWeight: FontWeight.w500,
@@ -982,12 +995,12 @@ Current Month Analysis: $advice
                                         controller: _price,
                                         keyboardType: TextInputType.number,
                                         decoration: InputDecoration(
-                                          hintText: 'Enter price',
+                                          hintText: AppLocalizations.of(context)?.priceLkrPerKg ?? 'Enter price',
                                           border: InputBorder.none,
                                           prefixIcon: const Icon(Icons.attach_money, color: Color(0xFF02C697)),
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                                         ),
-                                        validator: (v) => v == null || v.isEmpty ? 'Enter Price' : null,
+                                        validator: (v) => v == null || v.isEmpty ? (AppLocalizations.of(context)?.priceLkrPerKg ?? 'Enter Price') : null,
                                         onChanged: (value) => _onInputChanged(),
                                       ),
                                     ),
@@ -1004,13 +1017,13 @@ Current Month Analysis: $advice
                             child: TextFormField(
                               controller: _deliveryRadius,
                               keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'Delivery Radius (km)',
-                                hintText: 'Enter delivery radius',
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: AppLocalizations.of(context)?.deliveryRadiusKm ?? 'Delivery Radius (km)',
+                                hintText: AppLocalizations.of(context)?.deliveryRadiusKm ?? 'Enter delivery radius',
+                                border: const OutlineInputBorder(),
                               ),
                               validator: (val) {
-                                if (val == null || val.isEmpty) return 'Enter delivery radius';
+                                if (val == null || val.isEmpty) return (AppLocalizations.of(context)?.deliveryRadiusKm ?? 'Enter delivery radius');
                                 final num? value = num.tryParse(val);
                                 if (value == null || value < 0) return 'Enter a valid radius';
                                 return null;
@@ -1033,12 +1046,12 @@ Current Month Analysis: $advice
                                     ),
                                     elevation: 3,
                                   ),
-                                  child: const Row(
+                                  child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.preview, size: 20, color: Colors.white),
-                                      SizedBox(width: 8),
-                                      Text('Preview', style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w600)),
+                                      const Icon(Icons.preview, size: 20, color: Colors.white),
+                                      const SizedBox(width: 8),
+                                      Text(AppLocalizations.of(context)?.preview ?? 'Preview', style: const TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w600)),
                                     ],
                                   ),
                                 ),
@@ -1055,12 +1068,12 @@ Current Month Analysis: $advice
                                     ),
                                     elevation: 3,
                                   ),
-                                  child: const Row(
+                                  child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.check_circle, size: 20, color: Colors.white),
-                                      SizedBox(width: 8),
-                                      Text('Submit', style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w600)),
+                                      const Icon(Icons.check_circle, size: 20, color: Colors.white),
+                                      const SizedBox(width: 8),
+                                      Text(AppLocalizations.of(context)?.submit ?? 'Submit', style: const TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w600)),
                                     ],
                                   ),
                                 ),
@@ -1080,8 +1093,8 @@ Current Month Analysis: $advice
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Harvest Insights',
+                    Text(
+                      AppLocalizations.of(context)?.harvestInsights ?? 'Harvest Insights',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -1093,9 +1106,9 @@ Current Month Analysis: $advice
                     // Weather Section
                     _buildInfoCard(
                       icon: Icons.wb_sunny,
-                      title: 'Weather Forecast',
+                      title: AppLocalizations.of(context)?.weatherForecast ?? 'Weather Forecast',
                       content: _weatherSummary.isEmpty 
-                          ? 'Preview to see weather insights' 
+                          ? (AppLocalizations.of(context)?.previewWeatherInsights ?? 'Preview to see weather insights') 
                           : _weatherSummary,
                       iconColor: const Color(0xFFFFA726),
                     ),
@@ -1104,9 +1117,9 @@ Current Month Analysis: $advice
                     // Market Analysis Section
                     _buildInfoCard(
                       icon: Icons.trending_up,
-                      title: 'Market Analysis',
+                      title: AppLocalizations.of(context)?.marketAnalysis ?? 'Market Analysis',
                       content: _demandSupplyStatus.isEmpty 
-                          ? 'Preview to see market analysis' 
+                          ? (AppLocalizations.of(context)?.previewMarketAnalysis ?? 'Preview to see market analysis') 
                           : _demandSupplyStatus,
                       iconColor: const Color(0xFF2196F3),
                     ),
@@ -1115,9 +1128,9 @@ Current Month Analysis: $advice
                     // Price Analysis Section
                     _buildInfoCard(
                       icon: Icons.monetization_on,
-                      title: 'Price Analysis',
+                      title: AppLocalizations.of(context)?.priceAnalysis ?? 'Price Analysis',
                       content: _priceStatus.isEmpty 
-                          ? 'Preview to see price analysis' 
+                          ? (AppLocalizations.of(context)?.previewPriceAnalysis ?? 'Preview to see price analysis') 
                           : _priceStatus,
                       iconColor: const Color(0xFF4CAF50),
                     ),
@@ -1126,9 +1139,9 @@ Current Month Analysis: $advice
                     // Precautions Section
                     _buildInfoCard(
                       icon: Icons.health_and_safety,
-                      title: 'Precautions for Crop Care',
+                      title: AppLocalizations.of(context)?.cropCarePrecautions ?? 'Precautions for Crop Care',
                       content: _precautions.isEmpty 
-                          ? 'Preview to see crop care recommendations' 
+                          ? (AppLocalizations.of(context)?.previewCropCareRecommendations ?? 'Preview to see crop care recommendations') 
                           : _precautions,
                       iconColor: const Color(0xFFD32F2F),
                     ),

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class CustomerDetailPage extends StatelessWidget {
@@ -12,8 +13,9 @@ class CustomerDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final String name = customerData['name'] ?? 'Not Provided';
     final String location = customerData['location'] ?? 'Not Provided';
-    final String phone = customerData['phone'] ?? 'Not Provided';
-    final String email = customerData['email'] ?? 'Not Provided';
+  final loc = AppLocalizations.of(context)!;
+  final String phone = customerData['phone'] ?? loc.notProvided;
+  final String email = customerData['email'] ?? loc.notProvided;
     final String customerId = customerData['uid'] ?? customerData['id'] ?? '';
 
     return Scaffold(
@@ -227,9 +229,9 @@ class CustomerDetailPage extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 16),
-                              const Text(
-                                'Contact Information',
-                                style: TextStyle(
+                              Text(
+                                loc.contactInfo,
+                                style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF556B2F),
@@ -240,14 +242,14 @@ class CustomerDetailPage extends StatelessWidget {
                           const SizedBox(height: 20),
                           _buildContactRow(
                             icon: Icons.phone,
-                            label: 'Phone',
+                            label: loc.phone,
                             value: phone,
                             onTap: () => _launchPhone(phone),
                           ),
                           const SizedBox(height: 16),
                           _buildContactRow(
                             icon: Icons.email,
-                            label: 'Email',
+                            label: loc.email,
                             value: email,
                             onTap: () => _launchEmail(email),
                           ),
@@ -276,9 +278,9 @@ class CustomerDetailPage extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 16),
-                              const Text(
-                                'Ratings & Reviews',
-                                style: TextStyle(
+                              Text(
+                                loc.ratingsAndReviews,
+                                style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF556B2F),
@@ -332,7 +334,7 @@ class CustomerDetailPage extends StatelessWidget {
                           }
                         },
                         icon: const Icon(Icons.logout),
-                        label: const Text('Log out'),
+                        label: Text(loc.logOut),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFE53935),
                           foregroundColor: Colors.white,

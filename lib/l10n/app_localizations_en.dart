@@ -72,6 +72,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get welcomeDriver => 'Welcome Driver!';
 
   @override
+  String get goodMorning => 'Good Morning';
+
+  @override
+  String get goodAfternoon => 'Good Afternoon';
+
+  @override
+  String get goodEvening => 'Good Evening';
+
+  @override
+  @override
+  String get currentPricePerKg => 'Current';
+
+  @override
   String get letsGrowTogether => 'Let\'s grow together';
 
   @override
@@ -185,6 +198,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ongoingTransactions => 'Ongoing Transactions';
 
   @override
+  String get activeTransactionsSubtitle => 'View and manage your active transactions';
+
+  @override
   String get weekDemandForecast => '4-Week Demand Forecast';
 
   @override
@@ -198,6 +214,82 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get addHarvest => 'Add Harvest';
+
+  @override
+  String get cropTomato => 'Tomato';
+
+  @override
+  String get cropOkra => 'Okra';
+
+  @override
+  String get cropBeans => 'Beans';
+
+  @override
+  String get cropCarrot => 'Carrot';
+
+  @override
+  String get cropBrinjal => 'Brinjal';
+
+  @override
+  String get myHarvestListings => 'My Harvest Listings';
+
+  @override
+  String get qtyLabel => 'Qty:';
+
+  @override
+  String get badCondition => 'Bad';
+
+  @override
+  String get planYourHarvest => 'Plan Your Harvest';
+
+  @override
+  String get harvestInsightsTagline => 'Get insights for better yield and profit';
+
+  @override
+  String get plantingDate => 'Planting Date';
+
+  @override
+  String get selectCrop => 'Select Crop';
+
+  @override
+  String get plantingArea => 'Planting Area (sq.m)';
+
+  @override
+  String get priceLkrPerKg => 'Price (LKR/kg)';
+
+  @override
+  String get enterAreaSqm => 'Enter area in sq.m';
+
+  @override
+  String get deliveryRadiusKm => 'Delivery Radius (km)';
+
+
+  @override
+  String get harvestInsights => 'Harvest Insights';
+
+  @override
+  String get weatherForecast => 'Weather Forecast';
+
+  @override
+  String get previewWeatherInsights => 'Preview to see weather insights';
+
+  @override
+  String get marketAnalysis => 'Market Analysis';
+
+  @override
+  String get previewMarketAnalysis => 'Preview to see market analysis';
+
+  @override
+  String get priceAnalysis => 'Price Analysis';
+
+  @override
+  String get previewPriceAnalysis => 'Preview to see price analysis';
+
+  @override
+  String get cropCarePrecautions => 'Precautions for Crop Care';
+
+  @override
+  String get previewCropCareRecommendations => 'Preview to see crop care recommendations';
 
   @override
   String get quantity => 'Quantity';
@@ -325,11 +417,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get errorSubmittingHarvest => 'Error submitting harvest data';
 
-  @override
-  String get plantingDate => 'Planting Date';
-
-  @override
-  String get selectCrop => 'Select Crop';
 
   @override
   String get signUpFailed => 'Sign up failed';
@@ -339,4 +426,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authError => 'Auth error';
+
+  // Farmer detail screen additions
+  @override
+  String get farmerProfileTitle => 'Farmer Profile';
+
+  @override
+  String get about => 'About';
+
+  @override
+  String get editDescription => 'Edit Description';
+
+  @override
+  String get noDescriptionYet => 'No description added yet.';
+
+  @override
+  String get notProvided => 'Not Provided';
+
+  @override
+  String get descriptionHint => 'Tell others about you... (services, experience, etc.)';
+
+  @override
+  String get failedToSave => 'Failed to save';
+
+  @override
+  String get deliveryPrice => 'Delivery Price';
+
+  @override
+  String get ratingsAndReviews => 'Ratings & Reviews';
+
+  @override
+  String get logOut => 'Log out';
 }

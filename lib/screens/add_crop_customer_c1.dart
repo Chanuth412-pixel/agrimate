@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:ui';
+import '../constants/app_constants.dart';
+import '../l10n/app_localizations.dart';
+import '../utils/currency_util.dart';
 
 class AddCropCustomerC1 extends StatefulWidget {
   final String cropName;
@@ -21,6 +25,20 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
   void initState() {
     super.initState();
     _fetchMatchingFarmers();
+  }
+
+  String get localizedCrop {
+    final loc = AppLocalizations.of(context);
+    switch (widget.cropName) {
+      case 'tomato':
+        return loc?.cropTomato ?? 'Tomato';
+      case 'bean':
+        return loc?.cropBeans ?? 'Bean';
+      case 'okra':
+        return loc?.cropOkra ?? 'Okra';
+      default:
+        return widget.cropName;
+    }
   }
 
   Future<void> _fetchMatchingFarmers() async {
@@ -114,6 +132,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
               'quantity': entry['available'] ?? entry['quantity'],
               'phone': farmerData['phone'] ?? 'Unknown',
               'harvestDate': entry['harvestDate'],
+              'deliveryPricePerKm': (farmerData['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm),
               // keep original entry refs if needed later
               '_originalEntry': entry,
             });
@@ -143,6 +162,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
   Future<void> _showQuantityDialog(Map<String, dynamic> farmer) async {
     final TextEditingController quantityController = TextEditingController();
     final TextEditingController locationController = TextEditingController();
+    int? quantityVal; // for dynamic pricing display
 
     // Prefill address with customer's saved location if available
     try {
@@ -180,6 +200,10 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
                       labelText: 'Quantity in kg',
                       border: OutlineInputBorder(),
                     ),
+                    onChanged: (val){
+                      final parsed = int.tryParse(val.trim());
+                      setStateDialog((){ quantityVal = parsed; });
+                    },
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -190,6 +214,13 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
                       hintText: 'Enter or confirm your location',
                       border: OutlineInputBorder(),
                     ),
+                  ),
+                  const SizedBox(height: 20),
+                  _CostPreview(
+                    quantity: quantityVal,
+                    unitPrice: (farmer['price'] ?? 0).toDouble(),
+                    distanceKm: (farmer['distance'] as num).toDouble(),
+                    ratePerKm: (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
                   ),
                 ],
               ),
@@ -296,7 +327,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
 
     // Transaction data for customer
     final transaction = {
-      'Crop': widget.cropName,
+  'Crop': widget.cropName, // store canonical code
       'Quantity Sold (1kg)': quantity,
       'Sale Price Per kg': farmer['price'],
       'Status': 'Pending',
@@ -309,6 +340,12 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       // Order placed timestamp retained separately
       'orderPlacedAt': now,
       'location': location, // stored as 'location' per requirement
+      // Pricing breakdown
+      'deliveryDistanceKm': (farmer['distance'] as num).toDouble(),
+  'deliveryRatePerKm': (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
+      'baseAmount': quantity * (farmer['price'] as num).toDouble(),
+  'deliveryCost': (farmer['distance'] as num).toDouble() * (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
+  'totalAmount': quantity * (farmer['price'] as num).toDouble() + (farmer['distance'] as num).toDouble() * (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
     };
 
     // Transaction data for farmer (add customer info)
@@ -340,9 +377,9 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       }, SetOptions(merge: true));
 
       // Update Harvest quantity
-      await _decrementHarvestQuantity(
-        farmerId: farmer['farmerId'],
-        crop: widget.cropName,
+  await _decrementHarvestQuantity(
+    farmerId: farmer['farmerId'],
+  crop: widget.cropName,
         price: farmer['price'],
         originalQuantity: farmer['quantity'],
         harvestDate: farmer['harvestDate'],
@@ -383,7 +420,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
   final customerLocation = customerDoc.data()?['location'] ?? 'Not specified';
 
     final scheduledOrder = {
-      'Crop': widget.cropName,
+  'Crop': widget.cropName,
       'Quantity Sold (1kg)': quantity,
       'Sale Price Per kg': farmer['price'],
       'Status': 'Pending',
@@ -401,6 +438,12 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       'Customer Location': customerLocation,
       'scheduled': true,
       'location': location,
+      // Pricing breakdown same as immediate
+      'deliveryDistanceKm': (farmer['distance'] as num).toDouble(),
+  'deliveryRatePerKm': (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
+      'baseAmount': quantity * (farmer['price'] as num).toDouble(),
+  'deliveryCost': (farmer['distance'] as num).toDouble() * (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
+  'totalAmount': quantity * (farmer['price'] as num).toDouble() + (farmer['distance'] as num).toDouble() * (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
     };
 
     try {
@@ -420,9 +463,9 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       }, SetOptions(merge: true));
 
       // Reserve (subtract) quantity immediately for scheduled orders too
-      await _decrementHarvestQuantity(
-        farmerId: farmer['farmerId'],
-        crop: widget.cropName,
+  await _decrementHarvestQuantity(
+    farmerId: farmer['farmerId'],
+  crop: widget.cropName,
         price: farmer['price'],
         originalQuantity: farmer['quantity'],
         harvestDate: farmer['harvestDate'],
@@ -538,70 +581,338 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('Farmers for ${widget.cropName}'),
-        backgroundColor: const Color(0xFF02C697),
+        title: Text('Farmers • ${widget.cropName}'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        foregroundColor: Colors.white,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _matchingFarmers.isEmpty
-              ? const Center(child: Text('No available farmers found.'))
-              : ListView.builder(
-                  itemCount: _matchingFarmers.length,
-                  itemBuilder: (context, index) {
-                    final farmer = _matchingFarmers[index];
-                    return Card(
-                      child: ListTile(
-                        title: Row(
+      body: Stack(
+        children: [
+          // Gradient background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF0F9B79), Color(0xFF0F9B79), Color(0xFFdfffe9)],
+                stops: [0, 0.35, 1],
+              ),
+            ),
+          ),
+          // Subtle leaf overlay (optional future asset)
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.white.withOpacity(.08), Colors.white.withOpacity(.02)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+            ),
+          ),
+          // Content
+          SafeArea(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                : _matchingFarmers.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                        itemCount: _matchingFarmers.length,
+                        itemBuilder: (context, index) {
+                          final farmer = _matchingFarmers[index];
+                          return _GlassFarmerCard(
+                            farmer: farmer,
+                            fetchRating: () => _fetchFarmerRating(farmer['farmerId']),
+                            onTap: () => _showQuantityDialog(farmer),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------- Glass Components & Helpers ----------
+
+class _GlassFarmerCard extends StatelessWidget {
+  final Map<String, dynamic> farmer;
+  final Future<double?> Function() fetchRating;
+  final VoidCallback onTap;
+  const _GlassFarmerCard({required this.farmer, required this.fetchRating, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final price = farmer['price'] ?? 0;
+    final priceDisplay = CurrencyUtil.format(price).replaceAll('.00', '');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: GestureDetector(
+        onTap: onTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(26),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(26),
+                color: Colors.white.withOpacity(.18),
+                border: Border.all(color: Colors.white.withOpacity(.35), width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(.15),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Icon badge
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(colors: [Color(0xFF56ab2f), Color(0xFFa8e063)]),
+                      boxShadow: [
+                        BoxShadow(color: const Color(0xFF56ab2f).withOpacity(.35), blurRadius: 12, offset: const Offset(0,6)),
+                      ],
+                    ),
+                    child: const Icon(Icons.agriculture, color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  // Textual content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
                             Expanded(
                               child: Text(
-                                '${farmer['farmerName']} - LKR${farmer['price']}/kg',
+                                farmer['farmerName'] ?? 'Unknown',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  letterSpacing: .2,
+                                ),
                               ),
                             ),
-                            FutureBuilder<double?>(
-                              future: _fetchFarmerRating(farmer['farmerId']),
-                              builder: (context, snapshot) {
-                                if (snapshot.connectionState ==
-                                    ConnectionState.waiting) {
-                                  return const SizedBox(
-                                    width: 40,
-                                    height: 16,
-                                    child: LinearProgressIndicator(),
-                                  );
-                                }
-                                if (!snapshot.hasData || snapshot.data == null) {
-                                  return const Text(
-                                    'No rating',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey,
-                                    ),
-                                  );
-                                }
-                                return Row(
-                                  children: [
-                                    const Icon(Icons.star,
-                                        color: Colors.amber, size: 18),
-                                    Text(
-                                      snapshot.data!.toStringAsFixed(1),
-                                      style: const TextStyle(fontSize: 15),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
+                            _RatingChip(fetchRating: fetchRating),
                           ],
                         ),
-                        subtitle: Text(
-                          'Distance: ${farmer['distance'].toStringAsFixed(1)} km\n'
-                          'Available Quantity: ${farmer['quantity']} kg',
+                        const SizedBox(height: 6),
+                        RichText(
+                          text: TextSpan(
+                            style: const TextStyle(fontSize: 13.5, color: Colors.white70, height: 1.35),
+                            children: [
+                              TextSpan(text: 'Price: ', style: TextStyle(color: Colors.white.withOpacity(.75), fontWeight: FontWeight.w500)),
+                              TextSpan(text: '$priceDisplay / kg\n'),
+                              TextSpan(text: 'Distance: ', style: TextStyle(color: Colors.white.withOpacity(.75), fontWeight: FontWeight.w500)),
+                              TextSpan(text: '${(farmer['distance'] as num).toStringAsFixed(1)} km\n'),
+                              TextSpan(text: 'Available: ', style: TextStyle(color: Colors.white.withOpacity(.75), fontWeight: FontWeight.w500)),
+                              TextSpan(text: '${farmer['quantity']} kg'),
+                            ],
+                          ),
                         ),
-                        onTap: () => _showQuantityDialog(farmer),
-                      ),
-                    );
-                  },
-                ),
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: _Pill(label: 'Tap to Order', icon: Icons.shopping_cart_checkout, colors: const [Color(0xFF02C697), Color(0xFF00E8A0)]),
+                        )
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RatingChip extends StatelessWidget {
+  final Future<double?> Function() fetchRating;
+  const _RatingChip({required this.fetchRating});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<double?>(
+      future: fetchRating(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(.25),
+              borderRadius: BorderRadius.circular(40),
+            ),
+            child: const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2,color: Colors.white)),
+          );
+        }
+        final rating = snapshot.data;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(40),
+            gradient: const LinearGradient(colors: [Color(0xFFFFC837), Color(0xFFFF8008)]),
+            boxShadow: [BoxShadow(color: const Color(0xFFFFA726).withOpacity(.35), blurRadius: 10, offset: const Offset(0,4))],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.star_rounded, color: Colors.white, size: 16),
+              const SizedBox(width: 4),
+              Text(
+                rating == null ? '—' : rating.toStringAsFixed(1),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final List<Color> colors;
+  const _Pill({required this.label, required this.icon, required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: colors),
+        borderRadius: BorderRadius.circular(40),
+        boxShadow: [BoxShadow(color: colors.last.withOpacity(.35), blurRadius: 12, offset: const Offset(0,6))],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+Widget _buildEmptyState() {
+  return Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(26),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(.18),
+              border: Border.all(color: Colors.white.withOpacity(.35)),
+            ),
+          child: const Icon(Icons.nature_outlined, size: 46, color: Colors.white),
+        ),
+        const SizedBox(height: 24),
+        const Text('No available farmers found', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Text('Try again later or pick another crop', style: TextStyle(color: Colors.white.withOpacity(.75), fontSize: 13)),
+      ],
+    ),
+  );
+}
+
+class _CostPreview extends StatelessWidget {
+  final int? quantity;
+  final double unitPrice;
+  final double distanceKm;
+  final double ratePerKm;
+  const _CostPreview({required this.quantity, required this.unitPrice, required this.distanceKm, required this.ratePerKm});
+
+  @override
+  Widget build(BuildContext context) {
+    final q = quantity;
+    final base = (q == null) ? null : q * unitPrice;
+    final delivery = (q == null) ? null : distanceKm * ratePerKm;
+    final total = (base != null && delivery != null) ? base + delivery : null;
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      child: total == null
+          ? _hint()
+          : _breakdown(base!, delivery!, total),
+    );
+  }
+
+  Widget _hint() {
+    return Container(
+      key: const ValueKey('hint'),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: const Color(0xFF0F9B79).withOpacity(.06),
+        border: Border.all(color: const Color(0xFF0F9B79).withOpacity(.25)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.info_outline, size: 18, color: Color(0xFF0F9B79)),
+          SizedBox(width: 8),
+          Expanded(child: Text('Enter quantity to preview total cost', style: TextStyle(fontSize: 12, color: Color(0xFF0F9B79), fontWeight: FontWeight.w500)))
+        ],
+      ),
+    );
+  }
+
+  Widget _breakdown(double base, double delivery, double total) {
+    String f(num v)=> CurrencyUtil.format(v).replaceAll('.00','');
+    return Container(
+      key: const ValueKey('cost'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 12, offset: const Offset(0,4)),
+        ],
+        border: Border.all(color: const Color(0xFF0F9B79).withOpacity(.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Cost Summary', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1D2939))),
+          const SizedBox(height: 8),
+          _row('Base (${quantity} kg × LKR ${unitPrice.toStringAsFixed(0)})', f(base)),
+          _row('Delivery (${distanceKm.toStringAsFixed(1)} km × LKR ${ratePerKm.toStringAsFixed(0)})', f(delivery)),
+          const Divider(height: 20),
+          _row('Total', f(total), emphasize: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(String label, String value, {bool emphasize = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: TextStyle(fontSize: 12.5, color: const Color(0xFF475467), fontWeight: emphasize ? FontWeight.w700 : FontWeight.w500))),
+          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: emphasize ? const Color(0xFF0F9B79) : const Color(0xFF1D2939))),
+        ],
+      ),
     );
   }
 }

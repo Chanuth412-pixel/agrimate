@@ -31,7 +31,8 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     [50, 55, 60, 58], // Carrot
     [45, 48, 52, 49], // Brinjal
   ];
-  final List<String> _cropNames = ['Tomato', 'Carrot', 'Brinjal'];
+  // Display crop names localized where rendered; raw identifiers remain for logic
+  final List<String> _cropNames = ['tomato', 'carrot', 'brinjal'];
 
   static const double _trendScrollDistance = 300.0;
   static const double _transactionScrollDistance = 500.0;
@@ -109,15 +110,13 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.pushNamed(context, '/addHarvest');
-        },
+        onPressed: () { Navigator.pushNamed(context, '/addHarvest'); },
         backgroundColor: const Color(0xFF02C697),
         elevation: 4,
         icon: const Icon(Icons.add),
-        label: const Text(
-          "Add Harvest",
-          style: TextStyle(fontWeight: FontWeight.w600),
+        label: Text(
+          (AppLocalizations.of(context)?.addHarvest ?? 'Add Harvest'),
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
       body: Column(
@@ -182,26 +181,38 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      'Good Morning!',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black.withOpacity(0.5), // Stronger shadow
-                                            offset: const Offset(1, 1),
-                                            blurRadius: 4, // Increased blur
-                                          ),
-                                          Shadow(
-                                            color: Colors.black.withOpacity(0.3), // Additional shadow
-                                            offset: const Offset(2, 2),
-                                            blurRadius: 8,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                                    Builder(builder: (context){
+                                      final loc = AppLocalizations.of(context);
+                                      String greetLabel;
+                                      final hour = DateTime.now().hour;
+                                      if (hour < 12) {
+                                        greetLabel = (loc?.goodMorning ?? 'Good Morning');
+                                      } else if (hour < 17) {
+                                        greetLabel = (loc?.goodAfternoon ?? 'Good Afternoon');
+                                      } else {
+                                        greetLabel = (loc?.goodEvening ?? 'Good Evening');
+                                      }
+                                      return Text(
+                                        greetLabel,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          shadows: [
+                                            Shadow(
+                                              color: Colors.black.withOpacity(0.5),
+                                              offset: const Offset(1, 1),
+                                              blurRadius: 4,
+                                            ),
+                                            Shadow(
+                                              color: Colors.black.withOpacity(0.3),
+                                              offset: const Offset(2, 2),
+                                              blurRadius: 8,
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }),
                                     const SizedBox(height: 4),
                                     Text(
                                       farmerName,
@@ -211,14 +222,14 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                         fontWeight: FontWeight.bold,
                                         shadows: [
                                           Shadow(
-                                            color: Colors.black54, // Stronger shadow
+                                            color: Colors.black54,
                                             offset: Offset(1, 1),
-                                            blurRadius: 5, // Increased blur
+                                            blurRadius: 5,
                                           ),
                                           Shadow(
-                                            color: Colors.black26, // Additional shadow
+                                            color: Colors.black26,
                                             offset: Offset(2, 2),
-                                            blurRadius: 10,
+                                            blurRadius: 8,
                                           ),
                                         ],
                                       ),
@@ -703,7 +714,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Crop Demand Trends',
+                        (AppLocalizations.of(context)?.cropDemandTrends ?? 'Crop Demand Trends'),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                           color: const Color(0xFF2D3748),
@@ -766,7 +777,13 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                   }
 
                   final crops = ['tomato', 'carrot', 'brinjal'];
-                  final cropNames = ['Tomato', 'Carrot', 'Brinjal'];
+                  final loc = AppLocalizations.of(context);
+                  // Localized crop names for navigation header
+                  final cropNames = [
+                    loc?.cropTomato ?? 'Tomato',
+                    loc?.cropCarrot ?? 'Carrot',
+                    loc?.cropBrinjal ?? 'Brinjal',
+                  ];
                   
                   return Column(
                     children: [
@@ -845,7 +862,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                       Expanded(
                         child: Container(
                           margin: const EdgeInsets.symmetric(horizontal: 12.0),
-                          child: _buildTrendCard('Tomato', [65, 70, 75, 80]),
+                          child: _buildTrendCard(AppLocalizations.of(context)?.cropTomato ?? 'Tomato', [65, 70, 75, 80]), // Already localized; other crops can be added similarly
                         ),
                       ),
                     ],
@@ -884,7 +901,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                 Flexible(
                   flex: 2,
                   child: Text(
-                    'Crop Demand Trends',
+                    (AppLocalizations.of(context)?.cropDemandTrends ?? 'Crop Demand Trends'),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -962,7 +979,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Current: ₹${_cropData[_currentChartIndex][_cropData[_currentChartIndex].length - 1]} per kg',
+                    '${(AppLocalizations.of(context)?.currentPricePerKg ?? 'Current')}: ₹${_cropData[_currentChartIndex][_cropData[_currentChartIndex].length - 1]} per kg',
                     style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFF02C697),
@@ -1104,7 +1121,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ongoing Transactions',
+                      (AppLocalizations.of(context)?.ongoingTransactions ?? 'Ongoing Transactions'),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF2D3748),
@@ -1113,7 +1130,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'View and manage your active transactions',
+                      (AppLocalizations.of(context)?.activeTransactionsSubtitle ?? 'View and manage your active transactions'),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.grey[600],
                         fontWeight: FontWeight.w500,
@@ -1183,7 +1200,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'My Harvest Listings',
+                        (AppLocalizations.of(context)?.myHarvestListings ?? 'My Harvest Listings'),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                           color: const Color(0xFF2D3748),
@@ -1269,7 +1286,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    item['crop'] ?? 'Unknown Crop',
+                                    _localizedCropName(context, item['crop']),
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 14,
@@ -1277,7 +1294,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                     ),
                                   ),
                                   Text(
-                                    'Qty: ${item['quantity']} kg • LKR ${item['price']}/kg',
+                                    '${AppLocalizations.of(context)?.qtyLabel ?? 'Qty:'} ${item['quantity']} kg • LKR ${item['price']}/kg',
                                     style: TextStyle(
                                       color: Colors.grey[600],
                                       fontSize: 12,
@@ -1680,7 +1697,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     } else if (crop.contains('brinjal') && price > 90) {
       return 'Good';
     } else {
-      return 'Bad';
+      return AppLocalizations.of(context)?.badCondition ?? 'Bad';
     }
   }
 
@@ -1740,7 +1757,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
       }
     }
     
-    // If more than 2 days have bad weather conditions, mark as 'Bad'
+  // If more than 2 days have bad weather conditions, mark as localized 'Bad'
     return badWeatherDays <= 2;
   }
 
@@ -2152,4 +2169,27 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     );
   }
   */
+}
+
+String _localizedCropName(BuildContext context, dynamic raw) {
+  final code = (raw ?? '').toString().toLowerCase();
+  final loc = AppLocalizations.of(context);
+  switch (code) {
+    case 'tomato':
+      return loc?.cropTomato ?? 'Tomato';
+    case 'carrot':
+      return loc?.cropCarrot ?? 'Carrot';
+    case 'brinjal':
+    case 'eggplant':
+      return loc?.cropBrinjal ?? 'Brinjal';
+    case 'okra':
+      return loc?.cropOkra ?? 'Okra';
+    case 'bean':
+    case 'beans':
+      return loc?.cropBeans ?? 'Beans';
+    default:
+      // If already localized (contains Sinhala characters) just return as-is
+      if (RegExp(r'[අ-ෆ]').hasMatch(code)) return raw.toString();
+      return raw?.toString().isNotEmpty == true ? raw.toString() : (loc?.notProvided ?? 'N/A');
+  }
 }

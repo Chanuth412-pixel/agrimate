@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../l10n/app_localizations.dart';
 import 'customer_detail_page.dart';
 import 'review_transaction_screen.dart';
 import 'add_crop_customer_c1.dart';
@@ -15,9 +16,9 @@ class CustomerProfileScreen extends StatefulWidget {
 
 class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   Map<String, String> cropDescriptions = {
-    'Tomato': 'Loading...',
-    'Bean': 'Loading...',
-    'Okra': 'Loading...',
+    'tomato': 'Loading...',
+    'bean': 'Loading...',
+    'okra': 'Loading...',
   };
 
   @override
@@ -31,18 +32,18 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       // Simple fallback descriptions
       setState(() {
         cropDescriptions = {
-          'Tomato': 'Premium Quality',
-          'Bean': 'Fresh Stock',
-          'Okra': 'Best Price'
+          'tomato': 'Premium Quality',
+          'bean': 'Fresh Stock',
+          'okra': 'Best Price'
         };
       });
     } catch (e) {
       // On error, use simple two-word fallback descriptions
       setState(() {
         cropDescriptions = {
-          'Tomato': 'Premium Quality',
-          'Bean': 'Fresh Stock',
-          'Okra': 'Best Price'
+          'tomato': 'Premium Quality',
+          'bean': 'Fresh Stock',
+          'okra': 'Best Price'
         };
       });
     }
@@ -101,7 +102,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'Welcome ${customerName.isNotEmpty ? customerName : 'Customer'}:',
+                                          'Welcome ${customerName.isNotEmpty ? customerName : 'Customer'}',
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 28,
@@ -324,15 +325,15 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                 scrollDirection: Axis.horizontal,
                 children: [
                   CropCard(
-                    name: 'Tomato',
+                    name: AppLocalizations.of(context)?.cropTomato ?? 'Tomato',
                     imagePath: 'assets/images/tomato.png',
                     color: const Color(0xFFE53935),
-                    description: cropDescriptions['Tomato'] ?? 'High demand',
+                    description: cropDescriptions['tomato'] ?? 'High demand',
                     onTap: () async {
                       final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const AddCropCustomerC1(cropName: 'Tomato'),
+                          builder: (context) => const AddCropCustomerC1(cropName: 'tomato'),
                         ),
                       );
                       if (result == 'updated') {
@@ -342,15 +343,15 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   ),
                   const SizedBox(width: 16),
                   CropCard(
-                    name: 'Bean',
+                    name: AppLocalizations.of(context)?.cropBeans ?? 'Beans',
                     imagePath: 'assets/images/bean.png',
                     color: const Color(0xFF4CAF50),
-                    description: cropDescriptions['Bean'] ?? 'Best season',
+                    description: cropDescriptions['bean'] ?? 'Best season',
                     onTap: () async {
                       final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const AddCropCustomerC1(cropName: 'Bean'),
+                          builder: (context) => const AddCropCustomerC1(cropName: 'bean'),
                         ),
                       );
                       if (result == 'updated') {
@@ -360,15 +361,15 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   ),
                   const SizedBox(width: 16),
                   CropCard(
-                    name: 'Okra',
+                    name: AppLocalizations.of(context)?.cropOkra ?? 'Okra',
                     imagePath: 'assets/images/okra.png',
                     color: const Color(0xFF7CB342),
-                    description: cropDescriptions['Okra'] ?? 'Good price',
+                    description: cropDescriptions['okra'] ?? 'Good price',
                     onTap: () async {
                       final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const AddCropCustomerC1(cropName: 'Okra'),
+                          builder: (context) => const AddCropCustomerC1(cropName: 'okra'),
                         ),
                       );
                       if (result == 'updated') {
@@ -478,13 +479,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                 }
 
                 final transactions = List<Map<String, dynamic>>.from(data['transactions']);
-
-                // Sort newest first by Date timestamp (if present)
+                // Sort newest first using orderPlacedAt if present else Date
                 transactions.sort((a, b) {
-                  final aTs = a['Date'];
-                  final bTs = b['Date'];
-                  if (aTs is Timestamp && bTs is Timestamp) {
-                    return bTs.compareTo(aTs); // descending
+                  dynamic aKey = a['orderPlacedAt'] ?? a['Date'];
+                  dynamic bKey = b['orderPlacedAt'] ?? b['Date'];
+                  if (aKey is Timestamp && bKey is Timestamp) {
+                    return bKey.compareTo(aKey); // descending
                   }
                   return 0;
                 });
@@ -634,12 +634,18 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               ),
               _buildDetailBox(
                 'Total',
-                'LKR ${price * quantity}',
+                _formatTotalWithDelivery(tx, price, quantity),
                 const Color(0xFFE8F5F1),
                 valueColor: const Color(0xFF02C697),
               ),
             ],
           ),
+          // Pricing breakdown (items + delivery + total)
+          if (tx.containsKey('deliveryRatePerKm') && tx.containsKey('deliveryDistanceKm'))
+            Padding(
+              padding: const EdgeInsets.only(top: 14.0),
+              child: _buildPricingBreakdown(tx, price, quantity),
+            ),
           if (status == 'delivered' && !reviewed)
           if (status.toLowerCase() == 'delivered' && !reviewed)
             Padding(
@@ -707,6 +713,120 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               color: Colors.grey,
             ),
             textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTotalWithDelivery(Map<String, dynamic> tx, dynamic price, dynamic quantity){
+    try {
+      final double unit = (price is num) ? price.toDouble() : double.parse(price.toString());
+      final double qty = (quantity is num) ? quantity.toDouble() : double.parse(quantity.toString());
+      // If enriched pricing fields exist use them
+      if (tx.containsKey('totalAmount')) {
+        final total = (tx['totalAmount'] as num).toDouble();
+        return 'LKR ${total.toStringAsFixed(0)}';
+      }
+      final base = unit * qty;
+      double delivery = 0;
+      if (tx.containsKey('deliveryDistanceKm') && tx.containsKey('deliveryRatePerKm')) {
+        final dist = (tx['deliveryDistanceKm'] as num?)?.toDouble();
+        final rate = (tx['deliveryRatePerKm'] as num?)?.toDouble();
+        if (dist != null && rate != null) delivery = dist * rate;
+      }
+      final total = base + delivery;
+      return 'LKR ${total.toStringAsFixed(0)}';
+    } catch (_) {
+      return 'LKR ${(price * quantity)}';
+    }
+  }
+
+  String _formatDeliveryBreakdown(Map<String, dynamic> tx) {
+    try {
+      final dist = (tx['deliveryDistanceKm'] as num).toDouble();
+      final rate = (tx['deliveryRatePerKm'] as num).toDouble();
+      final cost = (tx['deliveryCost'] as num?)?.toDouble() ?? dist * rate;
+      return '${dist.toStringAsFixed(1)} km x LKR ${rate.toStringAsFixed(0)} = LKR ${cost.toStringAsFixed(0)}';
+    } catch (_) {
+      return 'N/A';
+    }
+  }
+
+  Widget _buildPricingBreakdown(Map<String, dynamic> tx, dynamic price, dynamic quantity) {
+    double unit = 0, qty = 0, base = 0, delivery = 0, total = 0, dist = 0, rate = 0;
+    try {
+      unit = (price is num) ? price.toDouble() : double.parse(price.toString());
+      qty = (quantity is num) ? quantity.toDouble() : double.parse(quantity.toString());
+      base = unit * qty;
+      if (tx['deliveryDistanceKm'] is num) dist = (tx['deliveryDistanceKm'] as num).toDouble();
+      if (tx['deliveryRatePerKm'] is num) rate = (tx['deliveryRatePerKm'] as num).toDouble();
+      if (tx['deliveryCost'] is num) {
+        delivery = (tx['deliveryCost'] as num).toDouble();
+      } else if (dist > 0 && rate > 0) {
+        delivery = dist * rate;
+      }
+      if (tx['totalAmount'] is num) {
+        total = (tx['totalAmount'] as num).toDouble();
+      } else {
+        total = base + delivery;
+      }
+    } catch (_) {}
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF02C697).withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF02C697).withOpacity(0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.delivery_dining, size: 18, color: Color(0xFF02C697)),
+              SizedBox(width: 6),
+              Text('Pricing Breakdown', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _pricingLine('Items', 'LKR ${base.toStringAsFixed(2)}'),
+          if (delivery > 0)
+            _pricingLine(
+              'Delivery${(dist > 0 && rate > 0) ? ' (${dist.toStringAsFixed(1)}km x LKR ${rate.toStringAsFixed(0)})' : ''}',
+              'LKR ${delivery.toStringAsFixed(2)}',
+            ),
+          const Divider(height: 18),
+          _pricingLine('Total', 'LKR ${total.toStringAsFixed(2)}', emphasize: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _pricingLine(String label, String value, {bool emphasize = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: emphasize ? const Color(0xFF2D3748) : Colors.grey[700],
+                fontWeight: emphasize ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: emphasize ? FontWeight.w700 : FontWeight.w600,
+              color: emphasize ? const Color(0xFF02C697) : const Color(0xFF2D3748),
+            ),
           ),
         ],
       ),

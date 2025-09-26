@@ -164,6 +164,15 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                       }
 
                       var rawList = List<Map<String, dynamic>>.from(data['transactions']);
+                      // Sort newest first by orderPlacedAt fallback Date
+                      rawList.sort((a, b) {
+                        dynamic aKey = a['orderPlacedAt'] ?? a['Date'];
+                        dynamic bKey = b['orderPlacedAt'] ?? b['Date'];
+                        if (aKey is Timestamp && bKey is Timestamp) {
+                          return bKey.compareTo(aKey);
+                        }
+                        return 0;
+                      });
                       // Filter out archived transactions for farmer view
                       final transactions = rawList.where((t) => t['archived_farmer'] != true).toList();
                       if (transactions.isEmpty) {
@@ -245,7 +254,7 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
   Widget _buildTransactionCard(Map<String, dynamic> tx, String? userId, List<Map<String, dynamic>> transactions) {
     final crop = tx['Crop'] ?? 'Unknown';
     final quantity = tx['Quantity Sold (1kg)'] ?? 0;
-    final price = tx['Sale Price Per kg'] ?? 0;
+  final price = tx['Sale Price Per kg'] ?? 0;
     final status = tx['Status'] ?? 'Pending';
   final initialCustomerName = tx['Customer Name'] ?? tx['customerName'] ?? tx['customer_name'] ?? 'Unknown';
   final customerPhoneRaw = tx['Customer Phone'] ?? tx['customer_phone'] ?? '';
@@ -257,7 +266,17 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
     final deliverStatus = tx['deliver_status'] ?? '';
     final deliveryGuyName = tx['delivery_guy_name'];
     final deliveryGuyPhone = tx['delivery_guy_phone'];
-  final totalValue = (quantity * price).toStringAsFixed(2);
+  // Base item total
+  final double baseAmount = (quantity is num ? quantity.toDouble() : 0) * (price is num ? price.toDouble() : 0);
+  // Delivery enrichment (if not already stored, compute fallback later)
+  final double? storedDeliveryCost = (tx['deliveryCost'] is num) ? (tx['deliveryCost'] as num).toDouble() : null;
+  final double? distanceKm = (tx['deliveryDistanceKm'] is num) ? (tx['deliveryDistanceKm'] as num).toDouble() : null;
+  final double? ratePerKm = (tx['deliveryRatePerKm'] is num) ? (tx['deliveryRatePerKm'] as num).toDouble() : null;
+  final double deliveryCost = storedDeliveryCost ?? ((distanceKm != null && ratePerKm != null) ? distanceKm * ratePerKm : 0);
+  final double totalWithDelivery = (tx['totalAmount'] is num)
+      ? (tx['totalAmount'] as num).toDouble()
+      : baseAmount + deliveryCost;
+  final totalValue = totalWithDelivery.toStringAsFixed(2);
   final customerId = tx['Customer ID'];
   final farmerId = tx['Farmer ID'];
   final orderPlacedAt = tx['orderPlacedAt'];
@@ -496,6 +515,10 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                 _buildDetailBox('Total Value', 'LKR $totalValue', Icons.account_balance_wallet),
               ],
             ),
+            if (deliveryCost > 0) ...[
+              const SizedBox(height: 12),
+              _buildDeliveryBreakdown(baseAmount, deliveryCost, distanceKm, ratePerKm, totalWithDelivery),
+            ],
             const SizedBox(height: 16),
 
             // Delivery Information
@@ -607,11 +630,18 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // 2. Approve Order (Farmer confirms & moves to in_transit or ready state)
+                // 2. Approve Order (Farmer confirms & locks in progress)
                 Expanded(
                   child: ElevatedButton(
           onPressed: (status.toLowerCase() == 'pending' && deliveryMethod != null)
-            ? () => _approveOrder(userId, tx, transactions)
+            ? () async {
+                final ok = await _showIrreversibleConfirm(context,
+                  title: 'Approve Order?',
+                  message: 'Once you approve this order it will move to In Progress and you cannot revert to Pending. Continue?');
+                if (ok == true) {
+                  await _approveOrder(userId, tx, transactions);
+                }
+              }
                         : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: (status.toLowerCase() == 'pending' && deliveryMethod != null)
@@ -628,11 +658,18 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // 3. Confirm Delivery (mark delivered)
+                // 3. Mark Farmer Delivered (customer still must confirm)
                 Expanded(
                   child: ElevatedButton(
           onPressed: (status.toLowerCase() == 'in progress' || status.toLowerCase() == 'assigned')
-            ? () => _confirmDelivered(userId, tx, transactions)
+            ? () async {
+                final ok = await _showIrreversibleConfirm(context,
+                  title: 'Mark As Delivered?',
+                  message: 'Once marked, customer will be asked to confirm. Status stays In Progress until customer confirms. Continue?');
+                if (ok == true) {
+                  await _confirmDelivered(userId, tx, transactions);
+                }
+              }
                         : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: (status.toLowerCase() == 'in_transit' || status.toLowerCase() == 'assigned')
@@ -642,10 +679,7 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       disabledBackgroundColor: Colors.grey.shade300,
                     ),
-                    child: const Text(
-                      'Deliver',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
+                    child: const Text('Delivered', style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 ),
               ],
@@ -814,6 +848,67 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
     );
   }
 
+  Widget _buildDeliveryBreakdown(double base, double delivery, double? dist, double? rate, double total) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF02C697).withOpacity(0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF02C697).withOpacity(0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.delivery_dining, size: 18, color: Color(0xFF02C697)),
+              SizedBox(width: 6),
+              Text('Pricing Breakdown', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _line('Items', 'LKR ${base.toStringAsFixed(2)}'),
+          if (delivery > 0)
+            _line(
+              'Delivery${(dist != null && rate != null) ? ' (${dist.toStringAsFixed(1)}km x LKR ${rate.toStringAsFixed(0)})' : ''}',
+              'LKR ${delivery.toStringAsFixed(2)}',
+            ),
+          const Divider(height: 18),
+          _line('Total', 'LKR ${total.toStringAsFixed(2)}', emphasize: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _line(String label, String value, {bool emphasize = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.5),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: emphasize ? const Color(0xFF2D3748) : Colors.grey[700],
+                fontWeight: emphasize ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: emphasize ? FontWeight.w700 : FontWeight.w600,
+              color: emphasize ? const Color(0xFF02C697) : const Color(0xFF2D3748),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showDeliveryMethodDialog(BuildContext context, Map<String, dynamic> tx, String? userId, List<Map<String, dynamic>> transactions) {
     showDialog(
       context: context,
@@ -961,7 +1056,10 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
   Future<void> _confirmDelivered(String? userId, Map<String, dynamic> tx, List<Map<String, dynamic>> transactions) async {
     if (userId == null) return;
     final updatedTx = Map<String, dynamic>.from(tx);
-    updatedTx['Status'] = 'delivered';
+    // Keep status In Progress until customer confirms; just flag internal marker
+    if ((updatedTx['Status'] ?? '').toString().toLowerCase() != 'delivered') {
+      updatedTx['Status'] = 'In Progress';
+    }
     final updatedTransactions = transactions.map((t) => t == tx ? updatedTx : t).toList();
     await FirebaseFirestore.instance
         .collection('Ongoing_Trans_Farm')
@@ -973,6 +1071,25 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
       await _flagFarmerDeliveredOnCustomer(customerId, tx);
     }
     setState(() {});
+  }
+
+  Future<bool?> _showIrreversibleConfirm(BuildContext context, {required String title, required String message}) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(message),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF02C697)),
+            child: const Text('Confirm'),
+          )
+        ],
+      ),
+    );
   }
 
   Future<void> _updateCustomerSideStatus(String customerId, Map<String, dynamic> tx, String newStatus) async {
