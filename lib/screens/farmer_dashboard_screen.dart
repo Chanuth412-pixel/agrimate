@@ -6,6 +6,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../l10n/app_localizations.dart';
 import '../services/weather_service.dart';
 import '../widgets/weather_forecast_tile.dart';
+import 'farmer_detail_screen.dart';
 
 class FarmerDashboardScreen extends StatefulWidget {
   const FarmerDashboardScreen({super.key});
@@ -18,6 +19,31 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
   final WeatherService _weatherService = WeatherService();
   final Map<String, List<Map<String, dynamic>>> _weatherData = {};
   String _selectedRange = '1M';
+
+  Future<void> _openFarmerProfile() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+
+      final snap = await FirebaseFirestore.instance
+          .collection('farmers')
+          .doc(uid)
+          .get();
+
+      final data = snap.data() ?? <String, dynamic>{};
+      data['uid'] = uid; // ensure uid is available to the detail screen
+
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => FarmerDetailScreen(farmerData: data),
+        ),
+      );
+    } catch (e) {
+      // Keep it silent to avoid UI changes; optional logging
+      // print('Error opening farmer profile: $e');
+    }
+  }
 
   @override
   void initState() {
@@ -87,6 +113,13 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
           ),
         ),
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _GlassIconButton(
+              icon: Icons.person_outline,
+              onTap: _openFarmerProfile,
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: _GlassIconButton(
