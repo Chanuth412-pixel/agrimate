@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class FarmerDetailScreen extends StatelessWidget {
   final Map<String, dynamic> farmerData;
@@ -53,70 +54,56 @@ class FarmerDetailScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // Top section with background image and farmer details
+          // Top section redesigned with Background.jpg and centered avatar + quick actions
           Container(
-            height: 400,
+            height: 280,
             width: double.infinity,
-            decoration: BoxDecoration(
-              image: const DecorationImage(
-                image: AssetImage('assets/images/green_leaves_051.jpg'),
-                fit: BoxFit.cover,
-              ),
-              borderRadius: const BorderRadius.only(
+            decoration: const BoxDecoration(
+              borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(30),
                 bottomRight: Radius.circular(30),
               ),
             ),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.3),
-                    Colors.black.withOpacity(0.6),
-                  ],
+            child: Stack(
+              children: [
+                // Background image
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(30),
+                      bottomRight: Radius.circular(30),
+                    ),
+                    child: Image.asset(
+                      'assets/images/Background.jpg',
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 40),
-
-                      // Welcome message
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(25),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
-                          ),
-                        ),
-                        child: const Text(
-                          '🌾 Welcome to AgriMate 🌾',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
+                // Dark overlay for contrast
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(30),
+                        bottomRight: Radius.circular(30),
                       ),
-
-                      const SizedBox(height: 20),
-
-                      // Profile Picture with earthy styling
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.25),
+                          Colors.black.withOpacity(0.55),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Centered avatar, name and location
+                Align(
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       Hero(
                         tag: 'farmer_${farmerId}',
                         child: Container(
@@ -124,7 +111,7 @@ class FarmerDetailScreen extends StatelessWidget {
                           height: 120,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: const Color(0xFF8FBC8F), // Soft sage green
+                            color: const Color(0xFF8FBC8F),
                             border: Border.all(color: Colors.white, width: 4),
                             boxShadow: [
                               BoxShadow(
@@ -134,87 +121,75 @@ class FarmerDetailScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: ClipOval(
-                            child: farmerData['profileImageUrl'] != null
-                                ? Image.network(
-                                    farmerData['profileImageUrl'],
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
+                          child: StreamBuilder<DocumentSnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('farmers')
+                                .doc(farmerId)
+                                .snapshots(),
+                            builder: (context, snapshot) {
+                              final snapData = snapshot.data?.data() as Map<String, dynamic>?;
+                              final latestUrl = snapData?['profileImageUrl'] ?? farmerData['profileImageUrl'];
+                              final updatedAt = (snapData?['profileImageUpdatedAt'] as Timestamp?)?.millisecondsSinceEpoch;
+                              final hasUrl = latestUrl != null && latestUrl.toString().isNotEmpty;
+                              return ClipOval(
+                                child: hasUrl
+                                    ? Image.network(
+                                        updatedAt != null ? '$latestUrl?v=$updatedAt' : latestUrl,
+                                        key: ValueKey(updatedAt ?? latestUrl),
+                                        fit: BoxFit.cover,
+                                        loadingBuilder: (context, child, loadingProgress) {
+                                          if (loadingProgress == null) return child;
+                                          return Container(
+                                            color: const Color(0xFF8FBC8F),
+                                            child: const Center(
+                                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                            ),
+                                          );
+                                        },
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Container(
+                                            color: const Color(0xFF8FBC8F),
+                                            child: const Icon(Icons.person, size: 60, color: Colors.white),
+                                          );
+                                        },
+                                      )
+                                    : Container(
                                         color: const Color(0xFF8FBC8F),
-                                        child: const Icon(
-                                          Icons.person,
-                                          size: 60,
-                                          color: Colors.white,
-                                        ),
-                                      );
-                                    },
-                                  )
-                                : Container(
-                                    color: const Color(0xFF8FBC8F),
-                                    child: const Icon(
-                                      Icons.person,
-                                      size: 60,
-                                      color: Colors.white,
-                                    ),
-                                  ),
+                                        child: const Icon(Icons.person, size: 60, color: Colors.white),
+                                      ),
+                              );
+                            },
                           ),
                         ),
                       ),
-
-                      const SizedBox(height: 20),
-
-                      // Name with agricultural styling
+                      const SizedBox(height: 14),
                       Text(
                         name,
                         style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w700,
                           color: Colors.white,
-                          letterSpacing: 0.5,
-                          shadows: [
-                            Shadow(
-                              offset: Offset(0, 2),
-                              blurRadius: 4,
-                              color: Colors.black26,
-                            ),
-                          ],
+                          letterSpacing: 0.2,
+                          shadows: [Shadow(color: Colors.black45, offset: Offset(0,1), blurRadius: 4)],
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 8),
-
-                      // Location with agricultural theme
+                      const SizedBox(height: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(
-                            0xFF9ACD32,
-                          ).withOpacity(0.3), // Yellow-green
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.4),
-                          ),
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white.withOpacity(0.4)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
-                              Icons.location_on,
-                              size: 18,
-                              color: Colors.white,
-                            ),
+                            const Icon(Icons.location_on, size: 16, color: Colors.white),
                             const SizedBox(width: 6),
                             Text(
                               location,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                              ),
+                              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
                             ),
                           ],
                         ),
@@ -222,6 +197,21 @@ class FarmerDetailScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                // Quick actions removed as per request
+              ],
+            ),
+          ),
+
+          // Floating About card (replaces summary card)
+          Transform.translate(
+            offset: const Offset(0, -24),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _AboutFloatingCard(
+                collection: 'farmers',
+                docId: farmerId,
+                canEdit: FirebaseAuth.instance.currentUser?.uid == farmerId && farmerId.isNotEmpty,
+                fallback: (farmerData['description'] ?? 'No description added yet.') as String,
               ),
             ),
           ),
@@ -234,7 +224,7 @@ class FarmerDetailScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 0),
 
                     // Contact Information Card
                     _buildEarthyCard(
@@ -348,6 +338,43 @@ class FarmerDetailScreen extends StatelessWidget {
                     ),
 
                     const SizedBox(height: 20),
+
+                    // Logout button at the bottom
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          try {
+                            await FirebaseAuth.instance.signOut();
+                            if (context.mounted) {
+                              Navigator.of(context).pushNamedAndRemoveUntil(
+                                '/farmerLogIn',
+                                (route) => false,
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Logout failed: $e')),
+                              );
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.logout),
+                        label: const Text('Log out'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE53935),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                   ],
                 ),
               ),
@@ -390,9 +417,196 @@ class FarmerDetailScreen extends StatelessWidget {
     );
   }
 
+  // Small round action button used in header
+  Widget _roundHeaderAction({required IconData icon, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.25),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.5),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 3)),
+          ],
+        ),
+        child: Icon(icon, color: Colors.white),
+      ),
+    );
+  }
+
+  // Quick summary card displayed beneath header
+  // Keeps data unchanged; purely presentation
+  Widget _QuickSummaryCard({required String farmerId, required String phone, required String email}) {
+    return Container(
+      height: 86,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 8)),
+        ],
+        border: Border.all(color: const Color(0xFF8FBC8F).withOpacity(0.25)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _summaryItem(title: 'ID', value: farmerId.isNotEmpty ? farmerId.substring(0, 6) : 'N/A'),
+          _divider(),
+          _summaryItem(title: 'Phone', value: phone.isNotEmpty ? phone : 'N/A'),
+          _divider(),
+          _summaryItem(title: 'Email', value: email.isNotEmpty ? email : 'N/A'),
+        ],
+      ),
+    );
+  }
+
+  Widget _divider() => Container(width: 1, height: double.infinity, color: const Color(0xFF8FBC8F).withOpacity(0.25));
+
+  Widget _summaryItem({required String title, required String value}) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(title, style: TextStyle(fontSize: 12, color: const Color(0xFF556B2F).withOpacity(0.6), fontWeight: FontWeight.w500)),
+          const SizedBox(height: 4),
+          Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF556B2F))),
+        ],
+      ),
+    );
+  }
+
+  // Image upload removed per request
+
   // Glass morphism card widget (keeping for compatibility)
   Widget _buildGlassCard({required Widget child}) {
     return _buildEarthyCard(child: child);
+  }
+
+  // About floating card under header (editable by owner)
+  Widget _AboutFloatingCard({
+    required String collection,
+    required String docId,
+    required bool canEdit,
+    required String fallback,
+  }) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: docId.isEmpty
+          ? const Stream.empty()
+          : FirebaseFirestore.instance.collection(collection).doc(docId).snapshots(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data() as Map<String, dynamic>?;
+        final desc = (data?['description'] ?? fallback) as String;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 8)),
+            ],
+            border: Border.all(color: const Color(0xFF8FBC8F).withOpacity(0.25)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8FBC8F).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.info_outline, color: Color(0xFF556B2F), size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'About',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF556B2F)),
+                  ),
+                  const Spacer(),
+                  if (canEdit)
+                    OutlinedButton.icon(
+                      onPressed: () => _showEditDescriptionDialog(context, collection, docId, desc),
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text('Edit'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF556B2F),
+                        side: BorderSide(color: const Color(0xFF8FBC8F).withOpacity(0.6)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        visualDensity: VisualDensity.compact,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F5DC).withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF8FBC8F).withOpacity(0.3)),
+                ),
+                child: Text(
+                  (desc).isNotEmpty ? desc : 'No description added yet.',
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF556B2F), height: 1.4),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showEditDescriptionDialog(BuildContext context, String collection, String docId, String initial) async {
+    final controller = TextEditingController(text: initial);
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Edit description'),
+          content: SizedBox(
+            width: 420,
+            child: TextField(
+              controller: controller,
+              maxLines: 6,
+              decoration: const InputDecoration(
+                hintText: 'Tell others about you... (services, experience, etc.)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () async {
+                final text = controller.text.trim();
+                try {
+                  await FirebaseFirestore.instance.collection(collection).doc(docId).update({
+                    'description': text,
+                    'descriptionUpdatedAt': FieldValue.serverTimestamp(),
+                  });
+                  if (context.mounted) Navigator.pop(ctx);
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
+                  }
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   // Contact row widget with earthy theme

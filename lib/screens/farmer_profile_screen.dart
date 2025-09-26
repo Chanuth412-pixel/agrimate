@@ -83,6 +83,27 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     }
   }
 
+  Future<void> _openFarmerProfile() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      final snap = await FirebaseFirestore.instance
+          .collection('farmers')
+          .doc(uid)
+          .get();
+      final data = snap.data() ?? <String, dynamic>{};
+      data['uid'] = uid; // ensure uid available
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => FarmerDetailScreen(farmerData: data),
+        ),
+      );
+    } catch (_) {
+      // silent fail to avoid UI changes
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -203,6 +224,33 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                       ),
                                     ),
                                   ],
+                                ),
+                              ),
+                              // Profile button (top-right)
+                              InkWell(
+                                onTap: _openFarmerProfile,
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.3),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.5),
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.25),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.person_outline,
+                                    color: Colors.white,
+                                    size: 22,
+                                  ),
                                 ),
                               ),
                             ],
