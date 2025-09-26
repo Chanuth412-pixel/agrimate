@@ -31,6 +31,13 @@
 
   <title>agrimate</title>
   <link rel="manifest" href="manifest.json">
+  
+  <script>
+    // Force HTML renderer to avoid CanvasKit CDN issues
+    window.flutterConfiguration = {
+      renderer: "html"
+    };
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
