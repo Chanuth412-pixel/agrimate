@@ -9,7 +9,6 @@ import 'farmer_detail_screen.dart';
 import 'ongoing_transactions_screen.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
 
 class FarmerProfileScreen extends StatefulWidget {
   const FarmerProfileScreen({super.key});
@@ -23,6 +22,11 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   static const String apiKey = '9fb4df22ed842a6a5b04febf271c4b1c';
   final ScrollController _trendsScrollController = ScrollController();
   final ScrollController _transactionsScrollController = ScrollController();
+
+  // Weather fetched for the current farmer position
+  Map<String, dynamic>? _currentWeather;
+  double? _lastWeatherLat;
+  double? _lastWeatherLon;
 
   // Chart navigation state
   int _currentChartIndex = 0;
@@ -40,13 +44,25 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   void initState() {
     super.initState();
     // _loadWeatherData(); // Commented out for now - will implement later with OpenWeatherMap API
+    // no content scroll listener; using overlay-style header like customer_profile_screen
   }
 
   @override
   void dispose() {
     _trendsScrollController.dispose();
     _transactionsScrollController.dispose();
+    // removed content scroll controller cleanup
     super.dispose();
+  }
+
+  // header overlay behavior is implemented by using a fixed background and scrolling content
+
+  // Returns a greeting based on the current local time
+  String _greetingForNow() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning!';
+    if (hour < 17) return 'Good Afternoon!';
+    return 'Good Evening!';
   }
 
   void _scrollTrends(bool forward) {
@@ -104,6 +120,59 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     }
   }
 
+  // Fetch current weather from OpenWeatherMap for given coords and store in state
+  Future<void> _fetchWeatherForCoords(double lat, double lon) async {
+    try {
+      // Avoid refetching for same coords
+      if (_lastWeatherLat == lat && _lastWeatherLon == lon && _currentWeather != null) return;
+
+      final url = 'https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&appid=$apiKey&units=metric';
+      final res = await http.get(Uri.parse(url));
+      if (res.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(res.body) as Map<String, dynamic>;
+        if (!mounted) return;
+        setState(() {
+          _currentWeather = jsonData;
+          _lastWeatherLat = lat;
+          _lastWeatherLon = lon;
+        });
+      }
+    } catch (e) {
+      // ignore errors silently for now; optionally log
+      // print('Weather fetch error: $e');
+    }
+  }
+
+  // Build a small weather widget for header (icon + optional temp)
+  Widget _buildWeatherIconWidget() {
+    if (_currentWeather == null) {
+      return const Icon(
+        Icons.wb_sunny_outlined,
+        color: Colors.white,
+        size: 24,
+      );
+    }
+
+    final weatherList = _currentWeather!['weather'] as List<dynamic>?;
+    final iconCode = (weatherList != null && weatherList.isNotEmpty) ? (weatherList[0]['icon'] as String?) : null;
+    final tempNum = _currentWeather!['main']?['temp'] as num?;
+
+    final iconUrl = iconCode != null ? 'https://openweathermap.org/img/wn/$iconCode@2x.png' : null;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (iconUrl != null)
+          Image.network(iconUrl, width: 36, height: 36, errorBuilder: (_, __, ___) => const Icon(Icons.wb_sunny_outlined, color: Colors.white, size: 24)),
+        if (tempNum != null)
+          Text(
+            '${tempNum.toDouble().round()}°C',
+            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -120,269 +189,142 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Top section with background image and greeting
+          // Background image (fixed)
           Container(
-            width: double.infinity,
-            height: 220, // Fixed height for the header section
-            decoration: BoxDecoration(
+            height: 220,
+            decoration: const BoxDecoration(
               image: DecorationImage(
                 image: AssetImage('assets/images/Background.jpg'),
                 fit: BoxFit.cover,
               ),
             ),
-            child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
-                  child: StreamBuilder<DocumentSnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('farmers')
-                        .doc(FirebaseAuth.instance.currentUser?.uid)
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator(color: Colors.white));
-                      }
+          ),
 
-                      final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-                      final farmerName = data['name'] ?? 'Farmer';
+          // Main content overlaying the background
+          SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Header section (sits on top of background)
+                  Container(
+                    height: 180,
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+                    child: StreamBuilder<DocumentSnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('farmers')
+                          .doc(FirebaseAuth.instance.currentUser?.uid)
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(child: CircularProgressIndicator(color: Colors.white));
+                        }
 
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.3), // Increased from 0.25
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.5), // Increased from 0.4
-                                    width: 2,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.3), // Increased shadow
-                                      blurRadius: 10, // Increased blur
-                                      offset: const Offset(0, 3), // Increased offset
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.wb_sunny_outlined,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Good Morning!',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black.withOpacity(0.5), // Stronger shadow
-                                            offset: const Offset(1, 1),
-                                            blurRadius: 4, // Increased blur
-                                          ),
-                                          Shadow(
-                                            color: Colors.black.withOpacity(0.3), // Additional shadow
-                                            offset: const Offset(2, 2),
-                                            blurRadius: 8,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      farmerName,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black54, // Stronger shadow
-                                            offset: Offset(1, 1),
-                                            blurRadius: 5, // Increased blur
-                                          ),
-                                          Shadow(
-                                            color: Colors.black26, // Additional shadow
-                                            offset: Offset(2, 2),
-                                            blurRadius: 10,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Profile button (top-right)
-                              InkWell(
-                                onTap: _openFarmerProfile,
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
+                        final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+                        final farmerName = data['name'] ?? 'Farmer';
+
+                        // If farmer document contains a position field, try to fetch weather for it
+                        try {
+                          final pos = data['position'];
+                          double? lat;
+                          double? lon;
+                          if (pos != null) {
+                            if (pos is GeoPoint) {
+                              lat = pos.latitude;
+                              lon = pos.longitude;
+                            } else if (pos is Map) {
+                              if (pos['latitude'] != null && pos['longitude'] != null) {
+                                lat = (pos['latitude'] as num).toDouble();
+                                lon = (pos['longitude'] as num).toDouble();
+                              } else if (pos['lat'] != null && pos['lon'] != null) {
+                                lat = (pos['lat'] as num).toDouble();
+                                lon = (pos['lon'] as num).toDouble();
+                              }
+                            }
+
+                            if (lat != null && lon != null) {
+                              _fetchWeatherForCoords(lat, lon);
+                            }
+                          }
+                        } catch (_) {}
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.3),
                                     shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.5),
-                                      width: 2,
-                                    ),
+                                    border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
                                     boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.25),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 3),
-                                      ),
+                                      BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 3)),
                                     ],
                                   ),
-                                  child: const Icon(
-                                    Icons.person_outline,
-                                    color: Colors.white,
-                                    size: 22,
-                                  ),
+                                  child: _buildWeatherIconWidget(),
                                 ),
-                              ),
-                            ],
-                          ),
-                          /*
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.25), // Increased from 0.2
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.4), // Increased from 0.3
-                                width: 1.5, // Increased border width
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2), // Stronger shadow
-                                  blurRadius: 8, // Increased blur
-                                  offset: const Offset(0, 3), // Increased offset
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Text(
-                                      '�️',
-                                      style: TextStyle(fontSize: 16),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '28°C', // TODO: Replace with OpenWeatherMap API data.main.temp
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black.withOpacity(0.4),
-                                            offset: const Offset(1, 1),
-                                            blurRadius: 3,
-                                          ),
-                                        ],
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _greetingForNow(),
+                                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500, shadows: [
+                                          Shadow(color: Colors.black.withOpacity(0.5), offset: const Offset(1, 1), blurRadius: 4),
+                                          Shadow(color: Colors.black.withOpacity(0.3), offset: const Offset(2, 2), blurRadius: 8),
+                                        ]),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                Container(
-                                  width: 1,
-                                  height: 20,
-                                  color: Colors.white.withOpacity(0.3),
-                                ),
-                                Row(
-                                  children: [
-                                    const Text(
-                                      '🌧️',
-                                      style: TextStyle(fontSize: 16),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '2.3mm', // TODO: Replace with OpenWeatherMap API data.rain['1h'] or data.rain['3h']
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black.withOpacity(0.4),
-                                            offset: const Offset(1, 1),
-                                            blurRadius: 3,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Container(
-                                  width: 1,
-                                  height: 20,
-                                  color: Colors.white.withOpacity(0.3),
-                                ),
-                                Text(
-                                  '🌾 Today\'s Overview',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    shadows: [
-                                      Shadow(
-                                        color: Colors.black.withOpacity(0.4),
-                                        offset: const Offset(1, 1),
-                                        blurRadius: 3,
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        farmerName,
+                                        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, shadows: [
+                                          Shadow(color: Colors.black54, offset: Offset(1, 1), blurRadius: 5),
+                                          Shadow(color: Colors.black26, offset: Offset(2, 2), blurRadius: 10),
+                                        ]),
                                       ),
                                     ],
                                   ),
                                 ),
+                                InkWell(
+                                  onTap: _openFarmerProfile,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.5), width: 2), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3))]),
+                                    child: const Icon(Icons.person_outline, color: Colors.white, size: 22),
+                                  ),
+                                ),
                               ],
                             ),
-                          ),
-                          */
-                        ],
-                      );
-                    },
+                          ],
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ),
-            ),
-          
-          // Main content area with white background
-          Expanded(
-            child: Container(
-              color: const Color(0xFFF8F9FA),
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 16),
-                    
-                    // Crop Demand Trends Card (with navigation)
-                    _buildCropDemandTrendsCard(),
-                    
-                    // Ongoing Transactions Card
-                    _buildOngoingTransactionsCard(),
-                    
-                    // My Harvest Listings Card
-                    _buildHarvestListingsCard(),
-                    
-                    const SizedBox(height: 100), // Space for floating action button
-                  ],
-                ),
+
+                  // Content section
+                  Container(
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF8F9FA),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(24),
+                        topRight: Radius.circular(24),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 16),
+                        _buildCropDemandTrendsCard(),
+                        _buildOngoingTransactionsCard(),
+                        _buildHarvestListingsCard(),
+                        const SizedBox(height: 100),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
