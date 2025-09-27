@@ -9,7 +9,6 @@ import 'farmer_detail_screen.dart';
 import 'ongoing_transactions_screen.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
 
 class FarmerProfileScreen extends StatefulWidget {
   const FarmerProfileScreen({super.key});
@@ -23,6 +22,15 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   static const String apiKey = '9fb4df22ed842a6a5b04febf271c4b1c';
   final ScrollController _trendsScrollController = ScrollController();
   final ScrollController _transactionsScrollController = ScrollController();
+
+  // Advertisement carousel
+  final PageController _adPageController = PageController(viewportFraction: 0.9);
+  int _currentAdPage = 0;
+
+  // Weather fetched for the current farmer position
+  Map<String, dynamic>? _currentWeather;
+  double? _lastWeatherLat;
+  double? _lastWeatherLon;
 
   // Chart navigation state
   int _currentChartIndex = 0;
@@ -41,13 +49,32 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   void initState() {
     super.initState();
     // _loadWeatherData(); // Commented out for now - will implement later with OpenWeatherMap API
+    // no content scroll listener; using overlay-style header like customer_profile_screen
+    _adPageController.addListener(() {
+      final newPage = _adPageController.page?.round() ?? 0;
+      if (newPage != _currentAdPage && mounted) {
+        setState(() => _currentAdPage = newPage);
+      }
+    });
   }
 
   @override
   void dispose() {
     _trendsScrollController.dispose();
     _transactionsScrollController.dispose();
+    _adPageController.dispose();
+    // removed content scroll controller cleanup
     super.dispose();
+  }
+
+  // header overlay behavior is implemented by using a fixed background and scrolling content
+
+  // Returns a greeting based on the current local time
+  String _greetingForNow() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning!';
+    if (hour < 17) return 'Good Afternoon!';
+    return 'Good Evening!';
   }
 
   void _scrollTrends(bool forward) {
@@ -105,6 +132,59 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     }
   }
 
+  // Fetch current weather from OpenWeatherMap for given coords and store in state
+  Future<void> _fetchWeatherForCoords(double lat, double lon) async {
+    try {
+      // Avoid refetching for same coords
+      if (_lastWeatherLat == lat && _lastWeatherLon == lon && _currentWeather != null) return;
+
+      final url = 'https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&appid=$apiKey&units=metric';
+      final res = await http.get(Uri.parse(url));
+      if (res.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(res.body) as Map<String, dynamic>;
+        if (!mounted) return;
+        setState(() {
+          _currentWeather = jsonData;
+          _lastWeatherLat = lat;
+          _lastWeatherLon = lon;
+        });
+      }
+    } catch (e) {
+      // ignore errors silently for now; optionally log
+      // print('Weather fetch error: $e');
+    }
+  }
+
+  // Build a small weather widget for header (icon + optional temp)
+  Widget _buildWeatherIconWidget() {
+    if (_currentWeather == null) {
+      return const Icon(
+        Icons.wb_sunny_outlined,
+        color: Colors.white,
+        size: 24,
+      );
+    }
+
+    final weatherList = _currentWeather!['weather'] as List<dynamic>?;
+    final iconCode = (weatherList != null && weatherList.isNotEmpty) ? (weatherList[0]['icon'] as String?) : null;
+    final tempNum = _currentWeather!['main']?['temp'] as num?;
+
+    final iconUrl = iconCode != null ? 'https://openweathermap.org/img/wn/$iconCode@2x.png' : null;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (iconUrl != null)
+          Image.network(iconUrl, width: 36, height: 36, errorBuilder: (_, __, ___) => const Icon(Icons.wb_sunny_outlined, color: Colors.white, size: 24)),
+        if (tempNum != null)
+          Text(
+            '${tempNum.toDouble().round()}°C',
+            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -119,34 +199,65 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Top section with background image and greeting
+          // Background image (fixed)
           Container(
-            width: double.infinity,
-            height: 220, // Fixed height for the header section
-            decoration: BoxDecoration(
+            height: 220,
+            decoration: const BoxDecoration(
               image: DecorationImage(
                 image: AssetImage('assets/images/Background.jpg'),
                 fit: BoxFit.cover,
               ),
             ),
-            child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
-                  child: StreamBuilder<DocumentSnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('farmers')
-                        .doc(FirebaseAuth.instance.currentUser?.uid)
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator(color: Colors.white));
-                      }
+          ),
 
-                      final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-                      final farmerName = data['name'] ?? 'Farmer';
+          // Main content overlaying the background
+          SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Header section (sits on top of background)
+                  Container(
+                    height: 180,
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+                    child: StreamBuilder<DocumentSnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('farmers')
+                          .doc(FirebaseAuth.instance.currentUser?.uid)
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(child: CircularProgressIndicator(color: Colors.white));
+                        }
+
+                        final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+                        final farmerName = data['name'] ?? 'Farmer';
+
+                        // If farmer document contains a position field, try to fetch weather for it
+                        try {
+                          final pos = data['position'];
+                          double? lat;
+                          double? lon;
+                          if (pos != null) {
+                            if (pos is GeoPoint) {
+                              lat = pos.latitude;
+                              lon = pos.longitude;
+                            } else if (pos is Map) {
+                              if (pos['latitude'] != null && pos['longitude'] != null) {
+                                lat = (pos['latitude'] as num).toDouble();
+                                lon = (pos['longitude'] as num).toDouble();
+                              } else if (pos['lat'] != null && pos['lon'] != null) {
+                                lat = (pos['lat'] as num).toDouble();
+                                lon = (pos['lon'] as num).toDouble();
+                              }
+                            }
+
+                            if (lat != null && lon != null) {
+                              _fetchWeatherForCoords(lat, lon);
+                            }
+                          }
+                        } catch (_) {}
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,38 +292,26 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Builder(builder: (context){
-                                      final loc = AppLocalizations.of(context);
-                                      String greetLabel;
-                                      final hour = DateTime.now().hour;
-                                      if (hour < 12) {
-                                        greetLabel = (loc?.goodMorning ?? 'Good Morning');
-                                      } else if (hour < 17) {
-                                        greetLabel = (loc?.goodAfternoon ?? 'Good Afternoon');
-                                      } else {
-                                        greetLabel = (loc?.goodEvening ?? 'Good Evening');
-                                      }
-                                      return Text(
-                                        greetLabel,
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
-                                          shadows: [
-                                            Shadow(
-                                              color: Colors.black.withOpacity(0.5),
-                                              offset: const Offset(1, 1),
-                                              blurRadius: 4,
-                                            ),
-                                            Shadow(
-                                              color: Colors.black.withOpacity(0.3),
-                                              offset: const Offset(2, 2),
-                                              blurRadius: 8,
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    }),
+                                    Text(
+                                      'Good Morning!',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        shadows: [
+                                          Shadow(
+                                            color: Colors.black.withOpacity(0.5), // Stronger shadow
+                                            offset: const Offset(1, 1),
+                                            blurRadius: 4, // Increased blur
+                                          ),
+                                          Shadow(
+                                            color: Colors.black.withOpacity(0.3), // Additional shadow
+                                            offset: const Offset(2, 2),
+                                            blurRadius: 8,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                     const SizedBox(height: 4),
                                     Text(
                                       farmerName,
@@ -222,14 +321,14 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                         fontWeight: FontWeight.bold,
                                         shadows: [
                                           Shadow(
-                                            color: Colors.black54,
+                                            color: Colors.black54, // Stronger shadow
                                             offset: Offset(1, 1),
-                                            blurRadius: 5,
+                                            blurRadius: 5, // Increased blur
                                           ),
                                           Shadow(
-                                            color: Colors.black26,
+                                            color: Colors.black26, // Additional shadow
                                             offset: Offset(2, 2),
-                                            blurRadius: 8,
+                                            blurRadius: 10,
                                           ),
                                         ],
                                       ),

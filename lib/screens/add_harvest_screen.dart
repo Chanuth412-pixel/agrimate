@@ -130,7 +130,10 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
 
   // Function to fetch weather data for the next 5 days
   Future<void> _fetchWeatherData(String city) async {
-    const String apiKey = '9fb4df22ed842a6a5b04febf271c4b1c'; // Hardcoded OpenWeather API key
+    const String _fallbackKey = '9fb4df22ed842a6a5b04febf271c4b1c'; // Hardcoded fallback
+    final String apiKey = dotenv.env['OPENWEATHER_API_KEY']?.trim().isNotEmpty == true
+        ? dotenv.env['OPENWEATHER_API_KEY']!.trim()
+        : _fallbackKey;
     
     try {
       // Use Colombo's coordinates as default

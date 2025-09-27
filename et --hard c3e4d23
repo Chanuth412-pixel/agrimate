@@ -1,0 +1,60 @@
+*   [33m5403e4a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mch-branch[m[33m, [m[1;32mbackup/ch-branch-before-merge-20250927152158[m[33m)[m Resolve merge conflict: clean up farmer_profile_screen
+[31m|[m[32m\[m  
+[31m|[m *   [33mdc898c4[m[33m ([m[1;32mbranch-anji[m[33m)[m Merge branch 'branch-anji' of https://github.com/Chanuth412-pixel/agrimate into branch-anji
+[31m|[m [33m|[m[34m\[m  
+[31m|[m [33m|[m * [33meb5baa7[m[33m ([m[1;31morigin/branch-anji[m[33m)[m Add the advertiesment
+[31m|[m [33m|[m * [33me65294c[m Add files on branch-anji
+* [33m|[m [34m|[m [33m89678bc[m[33m ([m[1;31morigin/ch-branch[m[33m)[m Farmer routes
+[33m|[m[33m/[m [34m/[m  
+* [34m/[m [33mf90cf57[m Updated UI
+[34m|[m[34m/[m  
+* [33m8171dda[m Commits osh added
+*   [33mc3e4d23[m Merge branch 'ch-branch' of https://github.com/Chanuth412-pixel/agrimate into ch-branch
+[35m|[m[36m\[m  
+[35m|[m * [33m0ad9d81[m Updated UI
+* [36m|[m [33m466f22d[m[33m ([m[1;31morigin/test-branch[m[33m, [m[1;32mtest-branch[m[33m)[m Test 2
+* [36m|[m [33m217cc70[m Test this
+* [36m|[m [33mb9f8f35[m[33m ([m[1;31morigin/branch-uvi[m[33m, [m[1;32mtest_branch[m[33m, [m[1;32mbranch-uvi[m[33m)[m Updated by Uvindu
+[36m|[m[36m/[m  
+* [33ma532b48[m Tracktor anim
+*   [33mcbf4814[m[33m ([m[1;32mmain[m[33m)[m Merge origin/osh_branch - resolved conflicts by keeping current customer profile implementation
+[1;31m|[m[1;32m\[m  
+[1;31m|[m * [33m7196910[m Updated
+* [1;32m|[m [33m06514ac[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mbranch_2[m[33m)[m 2 dashboards
+[1;32m|[m[1;32m/[m  
+* [33m565898a[m[33m ([m[1;31morigin/branch_2[m[33m)[m Latest changes with new image and updates
+*   [33m43485b3[m Merge branch 'osh_branch' of https://github.com/Chanuth412-pixel/agrimate
+[1;33m|[m[1;34m\[m  
+[1;33m|[m * [33m8f7c327[m Updated UI
+[1;33m|[m * [33m2782516[m Updated UI
+* [1;34m|[m [33ma46c0ff[m Merge branch 'main' of https://github.com/Chanuth412-pixel/agrimate
+[1;35m|[m[1;34m\[m[1;34m|[m 
+[1;35m|[m * [33m08376ec[m Commited by Anjana
+* [1;36m|[m [33m363c14a[m Commited So Far by _Chauth_fixed_add_harvest_1_
+* [1;36m|[m [33mf1e9fd0[m Commited So Far by _Chauth_fixed_add_harvest_
+[1;36m|[m[1;36m/[m  
+* [33m06da35c[m Commited So Far by _C_
+* [33mc1a62ac[m Commited So Far by _Chanuth_farmer_ui
+* [33me62b2c6[m Commited So Far by _Chanuth_testing_api_final_1
+* [33mbb2e4b8[m Commited So Far by _Chanuth_testing_api_final
+* [33m8819e81[m Commited So Far by _Chanuth_testing_api_3
+* [33mfce76b3[m Commited So Far by _Chanuth_testing_api
+* [33m6ab2891[m Commited by Anjana
+* [33mb3c86b2[m Your commit Chanuth
+* [33m87d0fa6[m Commited So Far by _C_
+* [33mdcfd1e8[m Commited So Far by _C_
+* [33m18ca0f2[m Commited So Far by _Chanuth_
+* [33m7672cfa[m Commited So Far by _Chanuth_
+* [33m25fdc8b[m Commited So Far by _Chanuth_
+* [33mb7162d6[m Commited so far by Uvindu
+* [33mf301cb7[m Added farmer location tracking when signning up and added customer location tracking when log in
+* [33mea14210[m Commited so far by_Anjana
+* [33m1a52204[m Commited So Far by _Chanuth_
+* [33m6f41841[m Pushing all files including deletions
+* [33mc3931cf[m Fixed home screen navigation and Firebase initialization
+*   [33md61fc56[m Resolved merge conflicts
+[31m|[m[32m\[m  
+[31m|[m * [33m342e06e[m Initial commit
+* [33m4672889[m Update Flutter + Firebase app
+* [33med63480[m Initial folder and file structure setup
+* [33m16a2789[m Initial commit

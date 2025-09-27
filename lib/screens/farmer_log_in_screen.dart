@@ -376,8 +376,11 @@ class _FarmerLogInScreenState extends State<FarmerLogInScreen> with TickerProvid
 
                           const SizedBox(height: 16),
                           // Footer: "Don't have an account? Create Profile"
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          // Use Wrap instead of Row to avoid overflow on narrow screens
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
                             children: [
                               Text(
                                 AppLocalizations.of(context)!.dontHaveAccount,
