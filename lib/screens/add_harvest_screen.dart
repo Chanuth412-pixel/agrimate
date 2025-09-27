@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui'; // For BackdropFilter (glassy UI)
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -676,118 +677,123 @@ Current Month Analysis: $advice
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(AppLocalizations.of(context)?.addNewHarvest ?? 'Add New Harvest',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-            fontSize: 20,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withOpacity(0.3)),
+          ),
+          child: Text(
+            AppLocalizations.of(context)?.addNewHarvest ?? 'Add New Harvest',
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+              fontSize: 18,
+              letterSpacing: .5,
+            ),
           ),
         ),
-        backgroundColor: const Color(0xFF02C697), // Matching farmer profile primary color
-        elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFFF5F7FA), // Matching farmer profile background
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header with image
-              Container(
-                height: 180,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF02C697), // Matching farmer profile primary color
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(30),
-                    bottomRight: Radius.circular(30),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF02C697).withOpacity(0.3), // Matching primary color shadow
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  children: [
-                    // Background pattern
-                    Opacity(
-                      opacity: 0.1,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.1),
-                        ),
-                      ),
-                    ),
-                    Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.eco,
-                            size: 50,
-                            color: Colors.white.withOpacity(0.9),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            AppLocalizations.of(context)?.planYourHarvest ?? 'Plan Your Harvest',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            AppLocalizations.of(context)?.harvestInsightsTagline ?? 'Get insights for better yield and profit',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+      body: Stack(
+        children: [
+          // Gradient background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF0F2027), // deep green/blue
+                  Color(0xFF203A43), // teal-ish dark
+                  Color(0xFF2C5364), // desaturated blue-green
+                ],
               ),
-              
-              // Form Container
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Card(
-                  elevation: 5,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+          // Subtle overlay pattern using blur & opacity layers
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.18,
+              child: Image(
+                image: AssetImage('assets/images/Add_harvest.jpg'),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          // Scrollable content
+          SingleChildScrollView(
+            padding: const EdgeInsets.only(top: 110, bottom: 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header glass panel
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _GlassPanel(
+                    borderRadius: 30,
+                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 26),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.eco, size: 48, color: Colors.white.withOpacity(0.95)),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          AppLocalizations.of(context)?.planYourHarvest ?? 'Plan Your Harvest',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: .8,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          AppLocalizations.of(context)?.harvestInsightsTagline ?? 'Get insights for better yield and profit',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(.85),
+                            fontSize: 14,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
+                ),
+
+                // Form Glass Card
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 10),
+                  child: _GlassPanel(
+                    borderRadius: 28,
+                    padding: const EdgeInsets.all(22),
                     child: Form(
                       key: _formKey,
                       child: Column(
                         children: [
                           // Crop Selection
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey[50],
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey[300]!),
-                            ),
+                          _glassFieldWrapper(
                             child: DropdownButtonFormField<String>(
+                              dropdownColor: const Color(0xFF122026),
+                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
                               decoration: InputDecoration(
                                 labelText: AppLocalizations.of(context)?.selectCrop ?? 'Select Crop',
-                                labelStyle: const TextStyle(
-                                  color: Color(0xFF02C697), // Matching primary color
-                                  fontWeight: FontWeight.w500,
-                                ),
+                                labelStyle: TextStyle(color: Colors.tealAccent.shade100, fontWeight: FontWeight.w600),
                                 border: InputBorder.none,
-                                prefixIcon: const Icon(Icons.eco, color: Color(0xFF02C697)), // Matching primary color
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                                prefixIcon: const Icon(Icons.eco, color: Color(0xFF14D6A2)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
                               ),
                               value: _selectedCrop,
                               items: _crops.map((crop) {
@@ -808,7 +814,7 @@ Current Month Analysis: $advice
                                 }
                                 return DropdownMenuItem(
                                   value: crop,
-                                  child: Text(label, style: const TextStyle(fontSize: 18)),
+                                  child: Text(label),
                                 );
                               }).toList(),
                               onChanged: (value) {
@@ -833,25 +839,21 @@ Current Month Analysis: $advice
                                       child: Text(
                                         AppLocalizations.of(context)?.plantingDate ?? 'Planting Date',
                                         style: TextStyle(
-                                          color: Color(0xFF02C697), // Matching primary color
-                                          fontWeight: FontWeight.w500,
+                                          color: Colors.tealAccent.shade100,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                     ),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[50],
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Colors.grey[300]!),
-                                      ),
+                                    _glassFieldWrapper(
                                       child: TextFormField(
                                         controller: _planting,
                                         readOnly: true,
                                         decoration: InputDecoration(
                                           hintText: AppLocalizations.of(context)?.plantingDate ?? 'Select date',
                                           border: InputBorder.none,
-                                          prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFF02C697)), // Matching primary color
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                                          prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFF14D6A2)),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+                                          hintStyle: TextStyle(color: Colors.white.withOpacity(.45)),
                                         ),
                                         onTap: () async {
                                           final picked = await showDatePicker(
@@ -883,25 +885,21 @@ Current Month Analysis: $advice
                                       child: Text(
                                         AppLocalizations.of(context)?.harvestDate ?? 'Harvest Date',
                                         style: TextStyle(
-                                          color: Color(0xFF02C697), // Matching primary color
-                                          fontWeight: FontWeight.w500,
+                                          color: Colors.tealAccent.shade100,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                     ),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[50],
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Colors.grey[300]!),
-                                      ),
+                                    _glassFieldWrapper(
                                       child: TextFormField(
                                         controller: _harvest,
                                         readOnly: true,
                                         decoration: InputDecoration(
                                           hintText: AppLocalizations.of(context)?.harvestDate ?? 'Select date',
                                           border: InputBorder.none,
-                                          prefixIcon: const Icon(Icons.event, color: Color(0xFF02C697)), // Matching primary color
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                                          prefixIcon: const Icon(Icons.event, color: Color(0xFF14D6A2)),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+                                          hintStyle: TextStyle(color: Colors.white.withOpacity(.45)),
                                         ),
                                         validator: (v) => v == null || v.isEmpty ? (AppLocalizations.of(context)?.harvestDate ?? 'Enter Harvest Date') : null,
                                       ),
@@ -925,25 +923,21 @@ Current Month Analysis: $advice
                                       child: Text(
                                         AppLocalizations.of(context)?.plantingArea ?? 'Planting Area (sq.m)',
                                         style: TextStyle(
-                                          color: Color(0xFF02C697),
-                                          fontWeight: FontWeight.w500,
+                                          color: Colors.tealAccent.shade100,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                     ),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[50],
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Colors.grey[300]!),
-                                      ),
+                                    _glassFieldWrapper(
                                       child: TextFormField(
                                         controller: _area,
                                         keyboardType: TextInputType.number,
                                         decoration: InputDecoration(
                                           hintText: AppLocalizations.of(context)?.enterAreaSqm ?? 'Enter area in sq.m',
                                           border: InputBorder.none,
-                                          prefixIcon: const Icon(Icons.square_foot, color: Color(0xFF02C697)),
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                                          prefixIcon: const Icon(Icons.square_foot, color: Color(0xFF14D6A2)),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+                                          hintStyle: TextStyle(color: Colors.white.withOpacity(.45)),
                                         ),
                                         validator: (v) => v == null || v.isEmpty ? (AppLocalizations.of(context)?.enterAreaSqm ?? 'Enter Area') : null,
                                         onChanged: (value) => _onInputChanged(),
@@ -954,12 +948,12 @@ Current Month Analysis: $advice
                                         padding: const EdgeInsets.only(top: 10),
                                         child: Row(
                                           children: [
-                                            const Icon(Icons.scale, color: Color(0xFF02C697), size: 20),
+                                            const Icon(Icons.scale, color: Color(0xFF14D6A2), size: 20),
                                             const SizedBox(width: 8),
                                             Text(
                                               'Estimated Quantity: ${_calculatedQtyPreview!.toStringAsFixed(0)} kg',
                                               style: const TextStyle(
-                                                color: Color(0xFF02C697),
+                                                color: Color(0xFF14D6A2),
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 16,
                                               ),
@@ -980,25 +974,21 @@ Current Month Analysis: $advice
                                       child: Text(
                                         AppLocalizations.of(context)?.priceLkrPerKg ?? 'Price (LKR/kg)',
                                         style: TextStyle(
-                                          color: Color(0xFF02C697),
-                                          fontWeight: FontWeight.w500,
+                                          color: Colors.tealAccent.shade100,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                     ),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[50],
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Colors.grey[300]!),
-                                      ),
+                                    _glassFieldWrapper(
                                       child: TextFormField(
                                         controller: _price,
                                         keyboardType: TextInputType.number,
                                         decoration: InputDecoration(
                                           hintText: AppLocalizations.of(context)?.priceLkrPerKg ?? 'Enter price',
                                           border: InputBorder.none,
-                                          prefixIcon: const Icon(Icons.attach_money, color: Color(0xFF02C697)),
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                                          prefixIcon: const Icon(Icons.attach_money, color: Color(0xFF14D6A2)),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+                                          hintStyle: TextStyle(color: Colors.white.withOpacity(.45)),
                                         ),
                                         validator: (v) => v == null || v.isEmpty ? (AppLocalizations.of(context)?.priceLkrPerKg ?? 'Enter Price') : null,
                                         onChanged: (value) => _onInputChanged(),
@@ -1014,21 +1004,26 @@ Current Month Analysis: $advice
                           // Delivery Radius field
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: TextFormField(
-                              controller: _deliveryRadius,
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                labelText: AppLocalizations.of(context)?.deliveryRadiusKm ?? 'Delivery Radius (km)',
-                                hintText: AppLocalizations.of(context)?.deliveryRadiusKm ?? 'Enter delivery radius',
-                                border: const OutlineInputBorder(),
+                            child: _glassFieldWrapper(
+                              child: TextFormField(
+                                controller: _deliveryRadius,
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: AppLocalizations.of(context)?.deliveryRadiusKm ?? 'Delivery Radius (km)',
+                                  hintText: AppLocalizations.of(context)?.deliveryRadiusKm ?? 'Enter delivery radius',
+                                  border: InputBorder.none,
+                                  prefixIcon: const Icon(Icons.delivery_dining, color: Color(0xFF14D6A2)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+                                  hintStyle: TextStyle(color: Colors.white.withOpacity(.45)),
+                                ),
+                                validator: (val) {
+                                  if (val == null || val.isEmpty) return (AppLocalizations.of(context)?.deliveryRadiusKm ?? 'Enter delivery radius');
+                                  final num? value = num.tryParse(val);
+                                  if (value == null || value < 0) return 'Enter a valid radius';
+                                  return null;
+                                },
+                                onChanged: (value) => _onInputChanged(),
                               ),
-                              validator: (val) {
-                                if (val == null || val.isEmpty) return (AppLocalizations.of(context)?.deliveryRadiusKm ?? 'Enter delivery radius');
-                                final num? value = num.tryParse(val);
-                                if (value == null || value < 0) return 'Enter a valid radius';
-                                return null;
-                              },
-                              onChanged: (value) => _onInputChanged(),
                             ),
                           ),
 
@@ -1036,46 +1031,23 @@ Current Month Analysis: $advice
                           Row(
                             children: [
                               Expanded(
-                                child: ElevatedButton(
-                                  onPressed: _preview,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFFF9800),
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    elevation: 3,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(Icons.preview, size: 20, color: Colors.white),
-                                      const SizedBox(width: 8),
-                                      Text(AppLocalizations.of(context)?.preview ?? 'Preview', style: const TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w600)),
-                                    ],
-                                  ),
+                                child: _glassButton(
+                                  onTap: _preview,
+                                  gradientColors: const [Color(0xFFFFA726), Color(0xFFFF7043)],
+                                  icon: Icons.preview,
+                                  label: AppLocalizations.of(context)?.preview ?? 'Preview',
                                 ),
                               ),
                               const SizedBox(width: 15),
                               Expanded(
-                                child: ElevatedButton(
-                                  onPressed: _hasPreviewed ? _submit : null,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: _hasPreviewed ? const Color(0xFF02C697) : Colors.grey, // Matching primary color
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    elevation: 3,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(Icons.check_circle, size: 20, color: Colors.white),
-                                      const SizedBox(width: 8),
-                                      Text(AppLocalizations.of(context)?.submit ?? 'Submit', style: const TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w600)),
-                                    ],
-                                  ),
+                                child: _glassButton(
+                                  onTap: _hasPreviewed ? _submit : null,
+                                  gradientColors: _hasPreviewed
+                                      ? const [Color(0xFF02C697), Color(0xFF26D7A1)]
+                                      : [Colors.grey.shade600, Colors.grey.shade500],
+                                  icon: Icons.check_circle,
+                                  label: AppLocalizations.of(context)?.submit ?? 'Submit',
+                                  disabled: !_hasPreviewed,
                                 ),
                               ),
                             ],
@@ -1085,124 +1057,127 @@ Current Month Analysis: $advice
                     ),
                   ),
                 ),
-              ),
 
-              // Information sections with cards
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      AppLocalizations.of(context)?.harvestInsights ?? 'Harvest Insights',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF02C697), // Matching primary color
+                // Information sections with glass cards
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppLocalizations.of(context)?.harvestInsights ?? 'Harvest Insights',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 15),
-                    
-                    // Weather Section
-                    _buildInfoCard(
-                      icon: Icons.wb_sunny,
-                      title: AppLocalizations.of(context)?.weatherForecast ?? 'Weather Forecast',
-                      content: _weatherSummary.isEmpty 
-                          ? (AppLocalizations.of(context)?.previewWeatherInsights ?? 'Preview to see weather insights') 
-                          : _weatherSummary,
-                      iconColor: const Color(0xFFFFA726),
-                    ),
-                    const SizedBox(height: 15),
+                      const SizedBox(height: 18),
 
-                    // Market Analysis Section
-                    _buildInfoCard(
-                      icon: Icons.trending_up,
-                      title: AppLocalizations.of(context)?.marketAnalysis ?? 'Market Analysis',
-                      content: _demandSupplyStatus.isEmpty 
-                          ? (AppLocalizations.of(context)?.previewMarketAnalysis ?? 'Preview to see market analysis') 
-                          : _demandSupplyStatus,
-                      iconColor: const Color(0xFF2196F3),
-                    ),
-                    const SizedBox(height: 15),
-
-                    // Price Analysis Section
-                    _buildInfoCard(
-                      icon: Icons.monetization_on,
-                      title: AppLocalizations.of(context)?.priceAnalysis ?? 'Price Analysis',
-                      content: _priceStatus.isEmpty 
-                          ? (AppLocalizations.of(context)?.previewPriceAnalysis ?? 'Preview to see price analysis') 
-                          : _priceStatus,
-                      iconColor: const Color(0xFF4CAF50),
-                    ),
-                    const SizedBox(height: 15),
-
-                    // Precautions Section
-                    _buildInfoCard(
-                      icon: Icons.health_and_safety,
-                      title: AppLocalizations.of(context)?.cropCarePrecautions ?? 'Precautions for Crop Care',
-                      content: _precautions.isEmpty 
-                          ? (AppLocalizations.of(context)?.previewCropCareRecommendations ?? 'Preview to see crop care recommendations') 
-                          : _precautions,
-                      iconColor: const Color(0xFFD32F2F),
-                    ),
-                  ],
+                      _buildInfoCard(
+                        icon: Icons.wb_sunny,
+                        title: AppLocalizations.of(context)?.weatherForecast ?? 'Weather Forecast',
+                        content: _weatherSummary.isEmpty
+                            ? (AppLocalizations.of(context)?.previewWeatherInsights ?? 'Preview to see weather insights')
+                            : _weatherSummary,
+                        iconColor: const Color(0xFFFFA726),
+                      ),
+                      const SizedBox(height: 18),
+                      _buildInfoCard(
+                        icon: Icons.trending_up,
+                        title: AppLocalizations.of(context)?.marketAnalysis ?? 'Market Analysis',
+                        content: _demandSupplyStatus.isEmpty
+                            ? (AppLocalizations.of(context)?.previewMarketAnalysis ?? 'Preview to see market analysis')
+                            : _demandSupplyStatus,
+                        iconColor: const Color(0xFF2196F3),
+                      ),
+                      const SizedBox(height: 18),
+                      _buildInfoCard(
+                        icon: Icons.monetization_on,
+                        title: AppLocalizations.of(context)?.priceAnalysis ?? 'Price Analysis',
+                        content: _priceStatus.isEmpty
+                            ? (AppLocalizations.of(context)?.previewPriceAnalysis ?? 'Preview to see price analysis')
+                            : _priceStatus,
+                        iconColor: const Color(0xFF4CAF50),
+                      ),
+                      const SizedBox(height: 18),
+                      _buildInfoCard(
+                        icon: Icons.health_and_safety,
+                        title: AppLocalizations.of(context)?.cropCarePrecautions ?? 'Precautions for Crop Care',
+                        content: _precautions.isEmpty
+                            ? (AppLocalizations.of(context)?.previewCropCareRecommendations ?? 'Preview to see crop care recommendations')
+                            : _precautions,
+                        iconColor: const Color(0xFFD32F2F),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildInfoCard({required IconData icon, required String title, required String content, required Color iconColor}) {
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: iconColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
+    return _GlassPanel(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [iconColor.withOpacity(.85), iconColor.withOpacity(.55)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  child: Icon(icon, color: iconColor, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF02C697), // Matching primary color
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: iconColor.withOpacity(.4),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
+                  ],
+                ),
+                child: Icon(icon, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: .4,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Enhanced content display with scrollable container for long content
-            Container(
-              constraints: BoxConstraints(
-                maxHeight: content.length > 200 ? 300 : double.infinity,
               ),
-              child: content.length > 200 
-                ? SingleChildScrollView(
-                    child: Text(
-                      content,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[700],
-                        height: 1.5,
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            constraints: BoxConstraints(
+              maxHeight: content.length > 200 ? 300 : double.infinity,
+            ),
+            child: content.length > 200
+                ? Scrollbar(
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      child: Text(
+                        content,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: Colors.white.withOpacity(.85),
+                          height: 1.5,
+                          letterSpacing: .2,
+                        ),
                       ),
                     ),
                   )
@@ -1210,35 +1185,141 @@ Current Month Analysis: $advice
                     content,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[700],
-                      height: 1.4,
+                      color: Colors.white.withOpacity(.9),
+                      height: 1.42,
+                      letterSpacing: .2,
                     ),
                   ),
+          ),
+          if (content.length > 200)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.white.withOpacity(.55)),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Scroll for more details',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withOpacity(.6),
+                      fontStyle: FontStyle.italic,
+                      letterSpacing: .3,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            // Add a scroll indicator for long content
-            if (content.length > 200)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.keyboard_arrow_down,
-                      size: 16,
-                      color: Colors.grey[500],
-                    ),
-                    Text(
-                      'Scroll for more details',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey[500],
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
+        ],
+      ),
+    );
+  }
+
+  // --- Glass helpers ---
+  Widget _GlassPanel({required Widget child, double borderRadius = 20, EdgeInsets? padding}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(color: Colors.white.withOpacity(.25), width: 1),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withOpacity(.12),
+                Colors.white.withOpacity(.07),
+                Colors.white.withOpacity(.04),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(.45),
+                blurRadius: 25,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          padding: padding ?? const EdgeInsets.all(18),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  Widget _glassFieldWrapper({required Widget child}) {
+    return _GlassPanel(
+      borderRadius: 16,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          inputDecorationTheme: const InputDecorationTheme(
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            errorBorder: InputBorder.none,
+            focusedErrorBorder: InputBorder.none,
+          ),
+          textTheme: Theme.of(context).textTheme.apply(bodyColor: Colors.white),
+        ),
+        child: DefaultTextStyle.merge(
+          style: const TextStyle(color: Colors.white),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  Widget _glassButton({
+    required VoidCallback? onTap,
+    required List<Color> gradientColors,
+    required IconData icon,
+    required String label,
+    bool disabled = false,
+  }) {
+    return Opacity(
+      opacity: disabled ? .55 : 1,
+      child: GestureDetector(
+        onTap: disabled ? null : onTap,
+        child: _GlassPanel(
+          borderRadius: 18,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: gradientColors.reversed.toList(),
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Icon(icon, size: 18, color: Colors.white),
+              ),
+              const SizedBox(width: 10),
+              ShaderMask(
+                shaderCallback: (rect) => LinearGradient(
+                  colors: gradientColors,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ).createShader(rect),
+                blendMode: BlendMode.srcIn,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: .4,
+                  ),
                 ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
