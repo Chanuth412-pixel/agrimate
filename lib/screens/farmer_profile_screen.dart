@@ -259,245 +259,200 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                           }
                         } catch (_) {}
 
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.3), // Increased from 0.25
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.5), // Increased from 0.4
-                                    width: 2,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.3), // Increased shadow
-                                      blurRadius: 10, // Increased blur
-                                      offset: const Offset(0, 3), // Increased offset
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.wb_sunny_outlined,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Good Morning!',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black.withOpacity(0.5), // Stronger shadow
-                                            offset: const Offset(1, 1),
-                                            blurRadius: 4, // Increased blur
-                                          ),
-                                          Shadow(
-                                            color: Colors.black.withOpacity(0.3), // Additional shadow
-                                            offset: const Offset(2, 2),
-                                            blurRadius: 8,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      farmerName,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black54, // Stronger shadow
-                                            offset: Offset(1, 1),
-                                            blurRadius: 5, // Increased blur
-                                          ),
-                                          Shadow(
-                                            color: Colors.black26, // Additional shadow
-                                            offset: Offset(2, 2),
-                                            blurRadius: 10,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Profile button (top-right)
-                              InkWell(
-                                onTap: _openFarmerProfile,
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.3),
                                     shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.5),
-                                      width: 2,
-                                    ),
+                                    border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
                                     boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.25),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 3),
-                                      ),
+                                      BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 3)),
                                     ],
                                   ),
-                                  child: const Icon(
-                                    Icons.person_outline,
-                                    color: Colors.white,
-                                    size: 22,
-                                  ),
+                                  child: _buildWeatherIconWidget(),
                                 ),
-                              ),
-                            ],
-                          ),
-                          /*
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.25), // Increased from 0.2
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.4), // Increased from 0.3
-                                width: 1.5, // Increased border width
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2), // Stronger shadow
-                                  blurRadius: 8, // Increased blur
-                                  offset: const Offset(0, 3), // Increased offset
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Text(
-                                      '�️',
-                                      style: TextStyle(fontSize: 16),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '28°C', // TODO: Replace with OpenWeatherMap API data.main.temp
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black.withOpacity(0.4),
-                                            offset: const Offset(1, 1),
-                                            blurRadius: 3,
-                                          ),
-                                        ],
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _greetingForNow(),
+                                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500, shadows: [
+                                          Shadow(color: Colors.black.withOpacity(0.5), offset: const Offset(1, 1), blurRadius: 4),
+                                          Shadow(color: Colors.black.withOpacity(0.3), offset: const Offset(2, 2), blurRadius: 8),
+                                        ]),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                Container(
-                                  width: 1,
-                                  height: 20,
-                                  color: Colors.white.withOpacity(0.3),
-                                ),
-                                Row(
-                                  children: [
-                                    const Text(
-                                      '🌧️',
-                                      style: TextStyle(fontSize: 16),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '2.3mm', // TODO: Replace with OpenWeatherMap API data.rain['1h'] or data.rain['3h']
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black.withOpacity(0.4),
-                                            offset: const Offset(1, 1),
-                                            blurRadius: 3,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Container(
-                                  width: 1,
-                                  height: 20,
-                                  color: Colors.white.withOpacity(0.3),
-                                ),
-                                Text(
-                                  '🌾 Today\'s Overview',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    shadows: [
-                                      Shadow(
-                                        color: Colors.black.withOpacity(0.4),
-                                        offset: const Offset(1, 1),
-                                        blurRadius: 3,
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        farmerName,
+                                        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, shadows: [
+                                          Shadow(color: Colors.black54, offset: Offset(1, 1), blurRadius: 5),
+                                          Shadow(color: Colors.black26, offset: Offset(2, 2), blurRadius: 10),
+                                        ]),
                                       ),
                                     ],
                                   ),
                                 ),
+                                InkWell(
+                                  onTap: _openFarmerProfile,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.5), width: 2), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3))]),
+                                    child: const Icon(Icons.person_outline, color: Colors.white, size: 22),
+                                  ),
+                                ),
                               ],
                             ),
-                          ),
-                          */
-                        ],
-                      );
-                    },
+                          ],
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ),
-            ),
-          
-          // Main content area with white background
-          Expanded(
-            child: Container(
-              color: const Color(0xFFF8F9FA),
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 16),
-                    
-                    // Crop Demand Trends Card (with navigation)
-                    _buildCropDemandTrendsCard(),
-                    
-                    // Ongoing Transactions Card
-                    _buildOngoingTransactionsCard(),
-                    
-                    // My Harvest Listings Card
-                    _buildHarvestListingsCard(),
-                    
-                    const SizedBox(height: 100), // Space for floating action button
-                  ],
-                ),
+
+                  // Content section
+                  Container(
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF8F9FA),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(24),
+                        topRight: Radius.circular(24),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 16),
+                        // Advertisements carousel
+                        _buildAdvertisementsSection(),
+                        const SizedBox(height: 16),
+                        _buildCropDemandTrendsCard(),
+                        _buildOngoingTransactionsCard(),
+                        _buildHarvestListingsCard(),
+                        const SizedBox(height: 100),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  // ================= Advertisement Carousel =================
+  Widget _buildAdvertisementsSection() {
+    // Replace the asset names below with your actual advertisement image asset paths
+    final ads = [
+      'assets/images/ad_1.png',
+      'assets/images/ad_2.png',
+    ];
+
+    final width = MediaQuery.of(context).size.width;
+    final bannerHeight = width < 380 ? 60.0 : (width < 480 ? 110.0 : (width < 720 ? 125.0 : 150.0));
+
+    return Column(
+      children: [
+        SizedBox(
+          height: bannerHeight,
+          child: PageView.builder(
+            controller: _adPageController,
+            itemCount: ads.length,
+            itemBuilder: (context, index) {
+              final img = ads[index];
+              return AnimatedBuilder(
+                animation: _adPageController,
+                builder: (context, child) {
+                  double scale = 1.0;
+                  if (_adPageController.position.haveDimensions) {
+                    final page = _adPageController.page ?? _adPageController.initialPage.toDouble();
+                    final diff = (page - index).abs();
+                    scale = (1 - (diff * 0.08)).clamp(0.9, 1.0);
+                  }
+                  return Center(
+                    child: Transform.scale(
+                      scale: scale,
+                      child: child,
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.asset(
+                            img,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Center(
+                              child: Icon(
+                                Icons.image_not_supported,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                          // Optional dark gradient overlay for readability
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.black.withOpacity(0.15),
+                                    Colors.black.withOpacity(0.05),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(ads.length, (i) {
+            final selected = i == _currentAdPage;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              height: 8,
+              width: selected ? 20 : 8,
+              decoration: BoxDecoration(
+                color: selected ? const Color(0xFF02C697) : const Color(0xFF02C697).withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+            );
+          }),
+        )
+      ],
     );
   }
 
