@@ -23,6 +23,10 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   final ScrollController _trendsScrollController = ScrollController();
   final ScrollController _transactionsScrollController = ScrollController();
 
+  // Advertisement carousel
+  final PageController _adPageController = PageController(viewportFraction: 0.9);
+  int _currentAdPage = 0;
+
   // Weather fetched for the current farmer position
   Map<String, dynamic>? _currentWeather;
   double? _lastWeatherLat;
@@ -45,12 +49,19 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     super.initState();
     // _loadWeatherData(); // Commented out for now - will implement later with OpenWeatherMap API
     // no content scroll listener; using overlay-style header like customer_profile_screen
+    _adPageController.addListener(() {
+      final newPage = _adPageController.page?.round() ?? 0;
+      if (newPage != _currentAdPage && mounted) {
+        setState(() => _currentAdPage = newPage);
+      }
+    });
   }
 
   @override
   void dispose() {
     _trendsScrollController.dispose();
     _transactionsScrollController.dispose();
+    _adPageController.dispose();
     // removed content scroll controller cleanup
     super.dispose();
   }
@@ -317,6 +328,9 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                     child: Column(
                       children: [
                         const SizedBox(height: 16),
+                        // Advertisements carousel
+                        _buildAdvertisementsSection(),
+                        const SizedBox(height: 16),
                         _buildCropDemandTrendsCard(),
                         _buildOngoingTransactionsCard(),
                         _buildHarvestListingsCard(),
@@ -330,6 +344,116 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ================= Advertisement Carousel =================
+  Widget _buildAdvertisementsSection() {
+    // Replace the asset names below with your actual advertisement image asset paths
+    final ads = [
+      'assets/images/ad_1.png',
+      'assets/images/ad_2.png',
+    ];
+
+    final width = MediaQuery.of(context).size.width;
+    final bannerHeight = width < 380 ? 60.0 : (width < 480 ? 110.0 : (width < 720 ? 125.0 : 150.0));
+
+    return Column(
+      children: [
+        SizedBox(
+          height: bannerHeight,
+          child: PageView.builder(
+            controller: _adPageController,
+            itemCount: ads.length,
+            itemBuilder: (context, index) {
+              final img = ads[index];
+              return AnimatedBuilder(
+                animation: _adPageController,
+                builder: (context, child) {
+                  double scale = 1.0;
+                  if (_adPageController.position.haveDimensions) {
+                    final page = _adPageController.page ?? _adPageController.initialPage.toDouble();
+                    final diff = (page - index).abs();
+                    scale = (1 - (diff * 0.08)).clamp(0.9, 1.0);
+                  }
+                  return Center(
+                    child: Transform.scale(
+                      scale: scale,
+                      child: child,
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.asset(
+                            img,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Center(
+                              child: Icon(
+                                Icons.image_not_supported,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                          // Optional dark gradient overlay for readability
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.black.withOpacity(0.15),
+                                    Colors.black.withOpacity(0.05),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(ads.length, (i) {
+            final selected = i == _currentAdPage;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              height: 8,
+              width: selected ? 20 : 8,
+              decoration: BoxDecoration(
+                color: selected ? const Color(0xFF02C697) : const Color(0xFF02C697).withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+            );
+          }),
+        )
+      ],
     );
   }
 
