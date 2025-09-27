@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../l10n/app_localizations.dart';
 import 'customer_detail_page.dart';
+import 'review_transaction_screen.dart';
 import 'add_crop_customer_c1.dart';
 import 'scheduled_orders_screen.dart';
 
@@ -14,9 +16,9 @@ class CustomerProfileScreen extends StatefulWidget {
 
 class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   Map<String, String> cropDescriptions = {
-    'Tomato': 'Loading...',
-    'Bean': 'Loading...',
-    'Okra': 'Loading...',
+    'tomato': 'Loading...',
+    'bean': 'Loading...',
+    'okra': 'Loading...',
   };
 
   @override
@@ -30,18 +32,18 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       // Simple fallback descriptions
       setState(() {
         cropDescriptions = {
-          'Tomato': 'Premium Quality',
-          'Bean': 'Fresh Stock',
-          'Okra': 'Best Price'
+          'tomato': 'Premium Quality',
+          'bean': 'Fresh Stock',
+          'okra': 'Best Price'
         };
       });
     } catch (e) {
       // On error, use simple two-word fallback descriptions
       setState(() {
         cropDescriptions = {
-          'Tomato': 'Premium Quality',
-          'Bean': 'Fresh Stock',
-          'Okra': 'Best Price'
+          'tomato': 'Premium Quality',
+          'bean': 'Fresh Stock',
+          'okra': 'Best Price'
         };
       });
     }
@@ -99,29 +101,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                     return Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text(
-                                          'Welcome back!',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                            shadows: [
-                                              Shadow(
-                                                offset: Offset(2, 2),
-                                                blurRadius: 4,
-                                                color: Colors.black87,
-                                              ),
-                                              Shadow(
-                                                offset: Offset(-1, -1),
-                                                blurRadius: 2,
-                                                color: Colors.black54,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
                                         Text(
-                                          customerName,
+                                          'Welcome ${customerName.isNotEmpty ? customerName : 'Customer'}',
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 28,
@@ -344,15 +325,15 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                 scrollDirection: Axis.horizontal,
                 children: [
                   CropCard(
-                    name: 'Tomato',
+                    name: AppLocalizations.of(context)?.cropTomato ?? 'Tomato',
                     imagePath: 'assets/images/tomato.png',
                     color: const Color(0xFFE53935),
-                    description: cropDescriptions['Tomato'] ?? 'High demand',
+                    description: cropDescriptions['tomato'] ?? 'High demand',
                     onTap: () async {
                       final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const AddCropCustomerC1(cropName: 'Tomato'),
+                          builder: (context) => const AddCropCustomerC1(cropName: 'tomato'),
                         ),
                       );
                       if (result == 'updated') {
@@ -362,15 +343,15 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   ),
                   const SizedBox(width: 16),
                   CropCard(
-                    name: 'Bean',
+                    name: AppLocalizations.of(context)?.cropBeans ?? 'Beans',
                     imagePath: 'assets/images/bean.png',
                     color: const Color(0xFF4CAF50),
-                    description: cropDescriptions['Bean'] ?? 'Best season',
+                    description: cropDescriptions['bean'] ?? 'Best season',
                     onTap: () async {
                       final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const AddCropCustomerC1(cropName: 'Bean'),
+                          builder: (context) => const AddCropCustomerC1(cropName: 'bean'),
                         ),
                       );
                       if (result == 'updated') {
@@ -380,15 +361,15 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   ),
                   const SizedBox(width: 16),
                   CropCard(
-                    name: 'Okra',
+                    name: AppLocalizations.of(context)?.cropOkra ?? 'Okra',
                     imagePath: 'assets/images/okra.png',
                     color: const Color(0xFF7CB342),
-                    description: cropDescriptions['Okra'] ?? 'Good price',
+                    description: cropDescriptions['okra'] ?? 'Good price',
                     onTap: () async {
                       final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const AddCropCustomerC1(cropName: 'Okra'),
+                          builder: (context) => const AddCropCustomerC1(cropName: 'okra'),
                         ),
                       );
                       if (result == 'updated') {
@@ -498,18 +479,35 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                 }
 
                 final transactions = List<Map<String, dynamic>>.from(data['transactions']);
+                // Sort newest first using orderPlacedAt if present else Date
+                transactions.sort((a, b) {
+                  dynamic aKey = a['orderPlacedAt'] ?? a['Date'];
+                  dynamic bKey = b['orderPlacedAt'] ?? b['Date'];
+                  if (aKey is Timestamp && bKey is Timestamp) {
+                    return bKey.compareTo(aKey); // descending
+                  }
+                  return 0;
+                });
 
-                if (transactions.isEmpty) {
+                // Keep all transactions until status becomes 'confirmed'
+                final filtered = transactions.where((tx) {
+                  // Only hide if explicitly archived
+                  final archived = tx['archived'] == true;
+                  return !archived;
+                }).toList();
+
+                if (filtered.isEmpty) {
                   return _buildEmptyState();
                 }
 
                 return ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: transactions.length > 3 ? 3 : transactions.length,
+                  // Show all pending/unconfirmed
+                  itemCount: filtered.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
-                    final tx = transactions[index];
+                    final tx = filtered[index];
                     return _buildTransactionItem(tx);
                   },
                 );
@@ -532,6 +530,10 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     final deliveryGuyName = tx['delivery_guy_name'];
     final deliveryGuyPhone = tx['delivery_guy_phone'];
     final reviewed = tx['reviewed'] == true;
+  final shippingAddress = tx['shippingAddress'] ?? tx['location'];
+  final deliveryMethod = tx['deliveryMethod'];
+  final farmerDelivered = tx['farmerDelivered'] == true;
+  final canDelete = status.toLowerCase() == 'delivered';
 
     return Container(
       decoration: BoxDecoration(
@@ -566,6 +568,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               _buildStatusChip(status),
             ],
           ),
+              if (canDelete)
+                IconButton(
+                  tooltip: 'Remove from list',
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  onPressed: () => _archiveTransaction(tx),
+                ),
           const SizedBox(height: 12),
           _buildInfoRow(Icons.person_outline, 'Farmer', farmerName),
           const SizedBox(height: 8),
@@ -576,6 +584,34 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             'Delivery',
             '${deliveredOn.day}/${deliveredOn.month}/${deliveredOn.year}',
           ),
+          if (deliveryMethod != null && deliveryMethod.toString().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _buildInfoRow(
+              Icons.local_shipping,
+              'Method',
+              deliveryMethod == 'self' ? 'Farmer Delivery' : deliveryMethod == 'delivery_guy' ? 'Delivery Guy' : deliveryMethod.toString(),
+            ),
+          ],
+          if (shippingAddress != null) ...[
+            const SizedBox(height: 8),
+            const Divider(height: 16),
+            const Text(
+              'Shipping Details',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (shippingAddress != null && shippingAddress.toString().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6.0),
+                child: _buildInfoRow(
+                  Icons.location_on_outlined,
+                  'Address',
+                  shippingAddress,
+                ),
+              ),
+          ],
           if (deliveryGuyName != null && deliveryGuyName.toString().isNotEmpty) ...[
             const Divider(height: 16),
             _buildInfoRow(Icons.delivery_dining, 'Delivery Guy', deliveryGuyName),
@@ -598,34 +634,53 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               ),
               _buildDetailBox(
                 'Total',
-                'LKR ${price * quantity}',
+                _formatTotalWithDelivery(tx, price, quantity),
                 const Color(0xFFE8F5F1),
                 valueColor: const Color(0xFF02C697),
               ),
             ],
           ),
+          // Pricing breakdown (items + delivery + total)
+          if (tx.containsKey('deliveryRatePerKm') && tx.containsKey('deliveryDistanceKm'))
+            Padding(
+              padding: const EdgeInsets.only(top: 14.0),
+              child: _buildPricingBreakdown(tx, price, quantity),
+            ),
           if (status == 'delivered' && !reviewed)
+          if (status.toLowerCase() == 'delivered' && !reviewed)
             Padding(
               padding: const EdgeInsets.only(top: 12.0),
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.rate_review, color: Colors.white, size: 18),
-                label: const Text('Leave Review'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  textStyle: const TextStyle(fontSize: 15),
-                ),
-                onPressed: () {
-                  _showReviewDialog(context, tx, () {
-                    if (mounted) setState(() {});
-                  });
+              child: _GlassyActionButton(
+                icon: Icons.rate_review,
+                label: 'Leave Review',
+                gradientColors: const [Color(0xFFf6d365), Color(0xFFfda085)],
+                onPressed: () async {
+                  await _openReviewScreen(tx);
+                  if (mounted) setState(() {});
                 },
               ),
             ),
           if (status == 'delivered' && reviewed)
             const Padding(
               padding: EdgeInsets.only(top: 12.0),
-              child: Text('✅ Reviewed', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+              child: _GlassyBadge(
+                icon: Icons.check_box,
+                label: 'Reviewed',
+                colors: [Color(0xFFa8e063), Color(0xFF56ab2f)],
+              ),
+            ),
+          if (status.toLowerCase() == 'in progress' && farmerDelivered)
+            Padding(
+              padding: const EdgeInsets.only(top: 12.0),
+              child: _GlassyActionButton(
+                icon: Icons.check_circle,
+                label: 'Confirm Delivery',
+                gradientColors: const [Color(0xFF56ab2f), Color(0xFFa8e063)],
+                onPressed: () async {
+                  await _confirmCustomerDelivery(tx, openReview: true);
+                  if (mounted) setState(() {});
+                },
+              ),
             ),
         ],
       ),
@@ -664,6 +719,120 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
   }
 
+  String _formatTotalWithDelivery(Map<String, dynamic> tx, dynamic price, dynamic quantity){
+    try {
+      final double unit = (price is num) ? price.toDouble() : double.parse(price.toString());
+      final double qty = (quantity is num) ? quantity.toDouble() : double.parse(quantity.toString());
+      // If enriched pricing fields exist use them
+      if (tx.containsKey('totalAmount')) {
+        final total = (tx['totalAmount'] as num).toDouble();
+        return 'LKR ${total.toStringAsFixed(0)}';
+      }
+      final base = unit * qty;
+      double delivery = 0;
+      if (tx.containsKey('deliveryDistanceKm') && tx.containsKey('deliveryRatePerKm')) {
+        final dist = (tx['deliveryDistanceKm'] as num?)?.toDouble();
+        final rate = (tx['deliveryRatePerKm'] as num?)?.toDouble();
+        if (dist != null && rate != null) delivery = dist * rate;
+      }
+      final total = base + delivery;
+      return 'LKR ${total.toStringAsFixed(0)}';
+    } catch (_) {
+      return 'LKR ${(price * quantity)}';
+    }
+  }
+
+  String _formatDeliveryBreakdown(Map<String, dynamic> tx) {
+    try {
+      final dist = (tx['deliveryDistanceKm'] as num).toDouble();
+      final rate = (tx['deliveryRatePerKm'] as num).toDouble();
+      final cost = (tx['deliveryCost'] as num?)?.toDouble() ?? dist * rate;
+      return '${dist.toStringAsFixed(1)} km x LKR ${rate.toStringAsFixed(0)} = LKR ${cost.toStringAsFixed(0)}';
+    } catch (_) {
+      return 'N/A';
+    }
+  }
+
+  Widget _buildPricingBreakdown(Map<String, dynamic> tx, dynamic price, dynamic quantity) {
+    double unit = 0, qty = 0, base = 0, delivery = 0, total = 0, dist = 0, rate = 0;
+    try {
+      unit = (price is num) ? price.toDouble() : double.parse(price.toString());
+      qty = (quantity is num) ? quantity.toDouble() : double.parse(quantity.toString());
+      base = unit * qty;
+      if (tx['deliveryDistanceKm'] is num) dist = (tx['deliveryDistanceKm'] as num).toDouble();
+      if (tx['deliveryRatePerKm'] is num) rate = (tx['deliveryRatePerKm'] as num).toDouble();
+      if (tx['deliveryCost'] is num) {
+        delivery = (tx['deliveryCost'] as num).toDouble();
+      } else if (dist > 0 && rate > 0) {
+        delivery = dist * rate;
+      }
+      if (tx['totalAmount'] is num) {
+        total = (tx['totalAmount'] as num).toDouble();
+      } else {
+        total = base + delivery;
+      }
+    } catch (_) {}
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF02C697).withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF02C697).withOpacity(0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.delivery_dining, size: 18, color: Color(0xFF02C697)),
+              SizedBox(width: 6),
+              Text('Pricing Breakdown', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _pricingLine('Items', 'LKR ${base.toStringAsFixed(2)}'),
+          if (delivery > 0)
+            _pricingLine(
+              'Delivery${(dist > 0 && rate > 0) ? ' (${dist.toStringAsFixed(1)}km x LKR ${rate.toStringAsFixed(0)})' : ''}',
+              'LKR ${delivery.toStringAsFixed(2)}',
+            ),
+          const Divider(height: 18),
+          _pricingLine('Total', 'LKR ${total.toStringAsFixed(2)}', emphasize: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _pricingLine(String label, String value, {bool emphasize = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: emphasize ? const Color(0xFF2D3748) : Colors.grey[700],
+                fontWeight: emphasize ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: emphasize ? FontWeight.w700 : FontWeight.w600,
+              color: emphasize ? const Color(0xFF02C697) : const Color(0xFF2D3748),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStatusChip(String status) {
     Color bgColor;
     Color textColor;
@@ -675,7 +844,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         textColor = Colors.orange.shade800;
         displayText = 'Pending';
         break;
-      case 'in_transit':
+      case 'in progress':
+        bgColor = Colors.amber.shade100;
+        textColor = Colors.amber.shade900;
+        displayText = 'In Progress';
+        break;
+      case 'in_transit': // legacy
         bgColor = Colors.blue.shade100;
         textColor = Colors.blue.shade800;
         displayText = 'In Transit';
@@ -823,6 +997,211 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             },
             child: const Text('Submit Review'),
           ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmCustomerDelivery(Map<String, dynamic> tx, {bool openReview = false}) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final docRef = FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(user.uid);
+    final snap = await docRef.get();
+    if (!snap.exists) return;
+    final data = snap.data() as Map<String, dynamic>?;
+    if (data == null || !data.containsKey('transactions')) return;
+    List<dynamic> list = List.from(data['transactions']);
+    bool updated = false;
+    for (int i = 0; i < list.length; i++) {
+      final item = list[i];
+      if (item is Map<String, dynamic> &&
+          item['Crop'] == tx['Crop'] &&
+          item['Farmer ID'] == tx['Farmer ID'] &&
+          item['orderPlacedAt'] == tx['orderPlacedAt']) {
+        item['Status'] = 'delivered';
+        item['customerConfirmedAt'] = Timestamp.now();
+        list[i] = item;
+        updated = true;
+        break;
+      }
+    }
+    if (updated) {
+      await docRef.update({'transactions': list});
+      // Also reflect on farmer side
+      final farmerId = tx['Farmer ID'];
+      if (farmerId != null) {
+        final farmDoc = await FirebaseFirestore.instance.collection('Ongoing_Trans_Farm').doc(farmerId).get();
+        if (farmDoc.exists) {
+          final fData = farmDoc.data();
+          if (fData != null && fData.containsKey('transactions')) {
+            List<dynamic> fList = List.from(fData['transactions']);
+            for (int j = 0; j < fList.length; j++) {
+              final fItem = fList[j];
+              if (fItem is Map<String, dynamic> &&
+                  fItem['Crop'] == tx['Crop'] &&
+                  fItem['Customer ID'] == user.uid &&
+                  fItem['orderPlacedAt'] == tx['orderPlacedAt']) {
+                fItem['Status'] = 'delivered';
+                fItem['customerConfirmedAt'] = Timestamp.now();
+                fList[j] = fItem;
+                break;
+              }
+            }
+            await FirebaseFirestore.instance.collection('Ongoing_Trans_Farm').doc(farmerId).update({'transactions': fList});
+          }
+        }
+      }
+      if (openReview) await _openReviewScreen(tx);
+    }
+  }
+
+  Future<void> _openReviewScreen(Map<String, dynamic> tx) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReviewTransactionScreen(transaction: tx),
+      ),
+    );
+    if (result == true) {
+      // Mark reviewed in both customer and farmer docs
+      await _markReviewed(tx);
+    }
+  }
+
+  Future<void> _markReviewed(Map<String, dynamic> tx) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final docRef = FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(user.uid);
+    final snap = await docRef.get();
+    if (snap.exists) {
+      final data = snap.data() as Map<String, dynamic>?;
+      if (data != null && data.containsKey('transactions')) {
+        List<dynamic> list = List.from(data['transactions']);
+        for (int i = 0; i < list.length; i++) {
+          final item = list[i];
+            if (item is Map<String, dynamic> &&
+                item['Crop'] == tx['Crop'] &&
+                item['Farmer ID'] == tx['Farmer ID'] &&
+                item['orderPlacedAt'] == tx['orderPlacedAt']) {
+              item['reviewed'] = true;
+              list[i] = item;
+              break;
+            }
+        }
+        await docRef.update({'transactions': list});
+      }
+    }
+    final farmerId = tx['Farmer ID'];
+    if (farmerId != null) {
+      final farmDoc = await FirebaseFirestore.instance.collection('Ongoing_Trans_Farm').doc(farmerId).get();
+      if (farmDoc.exists) {
+        final fData = farmDoc.data();
+        if (fData != null && fData.containsKey('transactions')) {
+          List<dynamic> fList = List.from(fData['transactions']);
+          for (int j = 0; j < fList.length; j++) {
+            final fItem = fList[j];
+            if (fItem is Map<String, dynamic> &&
+                fItem['Crop'] == tx['Crop'] &&
+                fItem['Customer ID'] == FirebaseAuth.instance.currentUser?.uid &&
+                fItem['orderPlacedAt'] == tx['orderPlacedAt']) {
+              fItem['reviewed'] = true;
+              fList[j] = fItem;
+              break;
+            }
+          }
+          await FirebaseFirestore.instance.collection('Ongoing_Trans_Farm').doc(farmerId).update({'transactions': fList});
+        }
+      }
+    }
+  }
+
+  Future<void> _archiveTransaction(Map<String, dynamic> tx) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final docRef = FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(user.uid);
+    final snap = await docRef.get();
+    if (!snap.exists) return;
+    final data = snap.data() as Map<String, dynamic>?;
+    if (data == null || !data.containsKey('transactions')) return;
+    List<dynamic> list = List.from(data['transactions']);
+    for (int i = 0; i < list.length; i++) {
+      final item = list[i];
+      if (item is Map<String, dynamic> &&
+          item['Crop'] == tx['Crop'] &&
+          item['Farmer ID'] == tx['Farmer ID'] &&
+          item['orderPlacedAt'] == tx['orderPlacedAt']) {
+        item['archived'] = true;
+        list[i] = item;
+        break;
+      }
+    }
+    await docRef.update({'transactions': list});
+    if (mounted) setState(() {});
+  }
+}
+
+// ===== Glassy UI Components (top-level) =====
+class _GlassyActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final List<Color> gradientColors;
+  final VoidCallback onPressed;
+  const _GlassyActionButton({required this.icon, required this.label, required this.gradientColors, required this.onPressed});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: gradientColors),
+          borderRadius: BorderRadius.circular(40),
+          boxShadow: [
+            BoxShadow(color: gradientColors.last.withOpacity(.35), blurRadius: 12, offset: const Offset(0,6)),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(.25),
+                shape: BoxShape.circle,
+              ),
+              padding: const EdgeInsets.all(4),
+              child: Icon(icon, size: 18, color: Colors.white),
+            ),
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassyBadge extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final List<Color> colors;
+  const _GlassyBadge({required this.icon, required this.label, required this.colors});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: colors),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(color: colors.last.withOpacity(.35), blurRadius: 8, offset: const Offset(0,4)),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
         ],
       ),
     );

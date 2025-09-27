@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -15,8 +16,9 @@ class CustomerDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String name = customerData['name'] ?? 'Not Provided';
-    final String phone = customerData['phone'] ?? 'Not Provided';
-    final String email = customerData['email'] ?? 'Not Provided';
+  final loc = AppLocalizations.of(context)!;
+  final String phone = customerData['phone'] ?? loc.notProvided;
+  final String email = customerData['email'] ?? loc.notProvided;
     final String customerId = customerData['uid'] ?? customerData['id'] ?? '';
 
     // Location string is read from passed data; it will update when Firestore stream updates
@@ -236,19 +238,8 @@ class CustomerDetailPage extends StatelessWidget {
             ),
           ),
 
-          // Floating About card (replaces summary card)
-          Transform.translate(
-            offset: const Offset(0, -24),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _AboutFloatingCard(
-                collection: 'customers',
-                docId: customerId,
-                canEdit: FirebaseAuth.instance.currentUser?.uid == customerId && customerId.isNotEmpty,
-                fallback: (customerData['description'] ?? 'No description added yet.') as String,
-              ),
-            ),
-          ),
+          // Removed About description card
+          const SizedBox(height: 16),
 
           // Main content
           Expanded(
@@ -278,9 +269,9 @@ class CustomerDetailPage extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 16),
-                              const Text(
-                                'Contact Information',
-                                style: TextStyle(
+                              Text(
+                                loc.contactInfo,
+                                style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF556B2F),
@@ -291,14 +282,14 @@ class CustomerDetailPage extends StatelessWidget {
                           const SizedBox(height: 20),
                           _buildContactRow(
                             icon: Icons.phone,
-                            label: 'Phone',
+                            label: loc.phone,
                             value: phone,
                             onTap: () => _launchPhone(phone),
                           ),
                           const SizedBox(height: 16),
                           _buildContactRow(
                             icon: Icons.email,
-                            label: 'Email',
+                            label: loc.email,
                             value: email,
                             onTap: () => _launchEmail(email),
                           ),
@@ -327,9 +318,9 @@ class CustomerDetailPage extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 16),
-                              const Text(
-                                'Ratings & Reviews',
-                                style: TextStyle(
+                              Text(
+                                loc.ratingsAndReviews,
+                                style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF556B2F),
@@ -383,7 +374,7 @@ class CustomerDetailPage extends StatelessWidget {
                           }
                         },
                         icon: const Icon(Icons.logout),
-                        label: const Text('Log out'),
+                        label: Text(loc.logOut),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFE53935),
                           foregroundColor: Colors.white,
@@ -846,125 +837,4 @@ class CustomerDetailPage extends StatelessWidget {
     }
   }
 
-  // About floating card under header (editable by owner)
-  Widget _AboutFloatingCard({
-    required String collection,
-    required String docId,
-    required bool canEdit,
-    required String fallback,
-  }) {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: docId.isEmpty
-          ? const Stream.empty()
-          : FirebaseFirestore.instance.collection(collection).doc(docId).snapshots(),
-      builder: (context, snapshot) {
-        final data = snapshot.data?.data() as Map<String, dynamic>?;
-        final desc = (data?['description'] ?? fallback) as String;
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 8)),
-            ],
-            border: Border.all(color: const Color(0xFF8FBC8F).withOpacity(0.25)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF8FBC8F).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.info_outline, color: Color(0xFF556B2F), size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'About',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF556B2F)),
-                  ),
-                  const Spacer(),
-                  if (canEdit)
-                    OutlinedButton.icon(
-                      onPressed: () => _showEditDescriptionDialog(context, collection, docId, desc),
-                      icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('Edit'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF556B2F),
-                        side: BorderSide(color: const Color(0xFF8FBC8F).withOpacity(0.6)),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        visualDensity: VisualDensity.compact,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5F5DC).withOpacity(0.8),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF8FBC8F).withOpacity(0.3)),
-                ),
-                child: Text(
-                  (desc).isNotEmpty ? desc : 'No description added yet.',
-                  style: const TextStyle(fontSize: 14, color: Color(0xFF556B2F), height: 1.4),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _showEditDescriptionDialog(BuildContext context, String collection, String docId, String initial) async {
-    final controller = TextEditingController(text: initial);
-    await showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Edit description'),
-          content: SizedBox(
-            width: 420,
-            child: TextField(
-              controller: controller,
-              maxLines: 6,
-              decoration: const InputDecoration(
-                hintText: 'Tell others about you... (preferences, interests, etc.)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            FilledButton(
-              onPressed: () async {
-                final text = controller.text.trim();
-                try {
-                  await FirebaseFirestore.instance.collection(collection).doc(docId).update({
-                    'description': text,
-                    'descriptionUpdatedAt': FieldValue.serverTimestamp(),
-                  });
-                  if (context.mounted) Navigator.pop(ctx);
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
-                  }
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 }

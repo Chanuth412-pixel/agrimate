@@ -221,6 +221,14 @@ abstract class AppLocalizations {
   /// **'Welcome Driver!'**
   String get welcomeDriver;
 
+  // Dynamic greeting segments
+  String get goodMorning; // e.g., Good Morning / සුබ උදෑසනක්
+  String get goodAfternoon; // e.g., Good Afternoon / සුබ දවල්
+  String get goodEvening; // e.g., Good Evening / සුබ සැන්දෑවක්
+
+  // Farmer profile specific additions (current price label)
+  String get currentPricePerKg; // Current
+
   /// No description provided for @letsGrowTogether.
   ///
   /// In en, this message translates to:
@@ -443,6 +451,12 @@ abstract class AppLocalizations {
   /// **'Ongoing Transactions'**
   String get ongoingTransactions;
 
+  /// No description provided for @activeTransactionsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'View and manage your active transactions'**
+  String get activeTransactionsSubtitle;
+
   /// No description provided for @weekDemandForecast.
   ///
   /// In en, this message translates to:
@@ -473,29 +487,144 @@ abstract class AppLocalizations {
   /// **'Add Harvest'**
   String get addHarvest;
 
-  /// No description provided for @quantity.
+  /// No description provided for @cropTomato.
   ///
   /// In en, this message translates to:
-  /// **'Quantity'**
-  String get quantity;
+  /// **'Tomato'**
+  String get cropTomato;
 
-  /// No description provided for @unitPrice.
+  /// No description provided for @cropOkra.
   ///
   /// In en, this message translates to:
-  /// **'Unit Price'**
-  String get unitPrice;
+  /// **'Okra'**
+  String get cropOkra;
 
-  /// No description provided for @pending.
+  /// No description provided for @cropBeans.
   ///
   /// In en, this message translates to:
-  /// **'Pending'**
-  String get pending;
+  /// **'Beans'**
+  String get cropBeans;
 
-  /// No description provided for @assigned.
+  /// No description provided for @cropCarrot.
   ///
   /// In en, this message translates to:
-  /// **'Assigned'**
-  String get assigned;
+  /// **'Carrot'**
+  String get cropCarrot;
+
+  /// No description provided for @cropBrinjal.
+  ///
+  /// In en, this message translates to:
+  /// **'Brinjal'**
+  String get cropBrinjal;
+
+  /// No description provided for @myHarvestListings.
+  ///
+  /// In en, this message translates to:
+  /// **'My Harvest Listings'**
+  String get myHarvestListings;
+
+  /// No description provided for @qtyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Qty:'**
+  String get qtyLabel;
+
+  /// No description provided for @badCondition.
+  ///
+  /// In en, this message translates to:
+  /// **'Bad'**
+  String get badCondition;
+
+  /// No description provided for @planYourHarvest.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan Your Harvest'**
+  String get planYourHarvest;
+
+  /// No description provided for @harvestInsightsTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'Get insights for better yield and profit'**
+  String get harvestInsightsTagline;
+
+  /// No description provided for @plantingArea.
+  ///
+  /// In en, this message translates to:
+  /// **'Planting Area (sq.m)'**
+  String get plantingArea;
+
+  /// No description provided for @priceLkrPerKg.
+  ///
+  /// In en, this message translates to:
+  /// **'Price (LKR/kg)'**
+  String get priceLkrPerKg;
+
+  /// No description provided for @enterAreaSqm.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter area in sq.m'**
+  String get enterAreaSqm;
+
+  /// No description provided for @deliveryRadiusKm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery Radius (km)'**
+  String get deliveryRadiusKm;
+
+  /// No description provided for @harvestInsights.
+  ///
+  /// In en, this message translates to:
+  /// **'Harvest Insights'**
+  String get harvestInsights;
+
+  /// No description provided for @weatherForecast.
+  ///
+  /// In en, this message translates to:
+  /// **'Weather Forecast'**
+  String get weatherForecast;
+
+  /// No description provided for @previewWeatherInsights.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview to see weather insights'**
+  String get previewWeatherInsights;
+
+  /// No description provided for @marketAnalysis.
+  ///
+  /// In en, this message translates to:
+  /// **'Market Analysis'**
+  String get marketAnalysis;
+
+  /// No description provided for @previewMarketAnalysis.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview to see market analysis'**
+  String get previewMarketAnalysis;
+
+  /// No description provided for @priceAnalysis.
+  ///
+  /// In en, this message translates to:
+  /// **'Price Analysis'**
+  String get priceAnalysis;
+
+  /// No description provided for @previewPriceAnalysis.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview to see price analysis'**
+  String get previewPriceAnalysis;
+
+  /// No description provided for @cropCarePrecautions.
+  ///
+  /// In en, this message translates to:
+  /// **'Precautions for Crop Care'**
+  String get cropCarePrecautions;
+
+  /// No description provided for @previewCropCareRecommendations.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview to see crop care recommendations'**
+  String get previewCropCareRecommendations;
+
 
   /// No description provided for @inTransit.
   ///
@@ -754,6 +883,37 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Auth error'**
   String get authError;
+
+  // Farmer detail screen additions
+  /// Title for the farmer detail screen app bar.
+  String get farmerProfileTitle; // Farmer Profile
+
+  /// Generic label for about/description section header.
+  String get about; // About
+
+  /// Dialog title / action description for editing the profile description.
+  String get editDescription; // Edit Description
+
+  /// Fallback text when no description has been provided yet.
+  String get noDescriptionYet; // No description added yet.
+
+  /// Fallback for missing data fields (name, phone, etc.).
+  String get notProvided; // Not Provided
+
+  /// Hint text in description editor.
+  String get descriptionHint; // Tell others about you... (services, experience, etc.)
+
+  /// Generic failure message for save/update actions.
+  String get failedToSave; // Failed to save
+
+  /// Label for delivery price section / field.
+  String get deliveryPrice; // Delivery Price
+
+  /// Section title for ratings & reviews.
+  String get ratingsAndReviews; // Ratings & Reviews
+
+  /// Logout button text alternative (some screens may already use logout, keep both if stylistic difference required)
+  String get logOut; // Log out
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

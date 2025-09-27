@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
+import '../constants/app_constants.dart';
 import '../firestore_service.dart'; // Ensure this path matches your structure
 import '../l10n/app_localizations.dart';
 import '../widgets/glassy_back_button.dart';
@@ -116,7 +117,8 @@ class _CreateFarmerProfileScreenState extends State<CreateFarmerProfileScreen>
         'uid': uid,
         'createdAt': FieldValue.serverTimestamp(),
         'position': GeoPoint(position.latitude, position.longitude), // Save GPS location
-        'proximity': 2, // ✅ Added default delivery radius
+  'proximity': 2, // ✅ Added default delivery radius
+  'deliveryPricePerKm': AppConstants.defaultDeliveryPricePerKm, // ✅ Default delivery price per km (LKR 100)
       });
 
       // Show success message
@@ -312,6 +314,19 @@ class _CreateFarmerProfileScreenState extends State<CreateFarmerProfileScreen>
                                       type: TextInputType.emailAddress,
                                       icon: Icons.mail_outline,
                                     ),
+                                    // Location
+                                    _buildInputField(
+                                      AppLocalizations.of(context)!.location,
+                                      locationController,
+                                      icon: Icons.location_on_outlined,
+                                    ),
+                                    // Phone Number
+                                    _buildInputField(
+                                      AppLocalizations.of(context)!.phoneNumber,
+                                      phoneController,
+                                      type: TextInputType.phone,
+                                      icon: Icons.phone_outlined,
+                                    ),
                                     // Password (lock icon + show/hide toggle)
                                     _buildInputField(
                                       AppLocalizations.of(context)!.password, 
@@ -348,16 +363,7 @@ class _CreateFarmerProfileScreenState extends State<CreateFarmerProfileScreen>
                                         },
                                       ),
                                     ),
-                                    // Hidden fields for existing functionality
-                                    Visibility(
-                                      visible: false,
-                                      child: Column(
-                                        children: [
-                                          _buildInputField(AppLocalizations.of(context)!.location, locationController),
-                                          _buildInputField(AppLocalizations.of(context)!.phoneNumber, phoneController, type: TextInputType.phone),
-                                        ],
-                                      ),
-                                    ),
+                                    // (Previously hidden location & phone fields now visible above)
                                   ],
                                 ),
                               );

@@ -21,6 +21,7 @@ class _CreateDriverProfileScreenState extends State<CreateDriverProfileScreen> w
   final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _locationController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -73,6 +74,7 @@ class _CreateDriverProfileScreenState extends State<CreateDriverProfileScreen> w
         'name': _nameController.text.trim(),
         'email': _emailController.text.trim(),
         'phone': _phoneController.text.trim().isEmpty ? 'Not specified' : _phoneController.text.trim(),
+        'location': _locationController.text.trim().isEmpty ? 'Not specified' : _locationController.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -242,6 +244,19 @@ class _CreateDriverProfileScreenState extends State<CreateDriverProfileScreen> w
                                       keyboardType: TextInputType.emailAddress,
                                       icon: Icons.mail_outline,
                                     ),
+                                    // Location
+                                    buildInputField(
+                                      AppLocalizations.of(context)!.location,
+                                      _locationController,
+                                      icon: Icons.location_on_outlined,
+                                    ),
+                                    // Phone Number
+                                    buildInputField(
+                                      AppLocalizations.of(context)!.phoneNumber,
+                                      _phoneController,
+                                      keyboardType: TextInputType.phone,
+                                      icon: Icons.phone_outlined,
+                                    ),
                                     // Password (lock icon + show/hide toggle)
                                     buildInputField(
                                       AppLocalizations.of(context)!.password, 
@@ -278,11 +293,7 @@ class _CreateDriverProfileScreenState extends State<CreateDriverProfileScreen> w
                                         },
                                       ),
                                     ),
-                                    // Hidden phone field for existing functionality
-                                    Visibility(
-                                      visible: false,
-                                      child: buildInputField(AppLocalizations.of(context)!.phoneNumber, _phoneController, keyboardType: TextInputType.phone),
-                                    ),
+                                    // (Previously hidden phone/location fields now visible above)
                                   ],
                                 ),
                               );

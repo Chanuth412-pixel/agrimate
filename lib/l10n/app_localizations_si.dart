@@ -72,6 +72,19 @@ class AppLocalizationsSi extends AppLocalizations {
   String get welcomeDriver => 'ආයුබෝවන් රියදුරු!';
 
   @override
+  String get goodMorning => 'සුබ උදෑසනක්';
+
+  @override
+  String get goodAfternoon => 'සුබ දවල්';
+
+  @override
+  String get goodEvening => 'සුබ සන්දැල්ලක්';
+
+  @override
+  @override
+  String get currentPricePerKg => 'වර්තමානය';
+
+  @override
   String get letsGrowTogether => 'අපි එකට වර්ධනය වෙමු';
 
   @override
@@ -179,10 +192,13 @@ class AppLocalizationsSi extends AppLocalizations {
   String get logout => 'ඉවත් වන්න';
 
   @override
-  String get cropDemandTrends => 'බෝග ඉල්ලුම් ප්‍රවණතා';
+  String get cropDemandTrends => 'බෝග ඉල්ලුම ප්‍රවණතා';
 
   @override
-  String get ongoingTransactions => 'විදුරුමස් ගනුදෙනු';
+  String get ongoingTransactions => 'සිදුවෙමින් පවතින ගනුදෙනු';
+
+  @override
+  String get activeTransactionsSubtitle => 'ඔබගේ ක්‍රියාකාරී ගනුදෙනු නැරඹී පාලනය කරන්න';
 
   @override
   String get weekDemandForecast => 'සති 4ක ඉල්ලුම් පුරෝකථනය';
@@ -198,6 +214,87 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get addHarvest => 'අස්වැන්න එකතු කරන්න';
+
+  @override
+  String get cropTomato => 'තක්කාලි';
+
+  @override
+  String get cropOkra => 'බණ්ඩක්කා';
+
+  @override
+  String get cropBeans => 'බෝංචි';
+
+  @override
+  String get cropCarrot => 'කැරට්';
+
+  @override
+  String get cropBrinjal => 'වම්බටු';
+
+  @override
+  String get myHarvestListings => 'මගේ අස්වැන්න ලැයිස්තුගත කිරීම්';
+
+  @override
+  String get qtyLabel => 'ප්‍රමාණය:';
+
+  @override
+  String get badCondition => 'නරකයි';
+
+  @override
+  String get planYourHarvest => 'ඔබගේ අස්වැන්න සැලසුම් කරන්න';
+
+  @override
+  String get harvestInsightsTagline => 'වඩා හොඳ අස්වැන්නක් සහ ලාභයක් සඳහා අවබෝධයක් ලබා ගන්න';
+
+  @override
+  String get plantingDate => 'රෝපණ දිනය';
+
+  @override
+  String get selectCrop => 'බෝග තෝරන්න';
+
+  @override
+  String get plantingArea => 'රෝපණ ප්‍රදේශය (වර්ග මීටර්)';
+
+  @override
+  String get priceLkrPerKg => 'මිල (රු. කිලෝග්‍රෑම්)';
+
+  @override
+  String get enterAreaSqm => 'වර්ග මීටර් වලින් ප්‍රදේශය ඇතුළත් කරන්න';
+
+  @override
+  String get deliveryRadiusKm => 'බෙදා හැරීමේ අරය (කි.මී.)';
+
+  @override
+  String get preview => 'පෙරදසුන';
+
+  @override
+  String get submit => 'ඉදිරිපත් කරන්න';
+
+  @override
+  String get harvestInsights => 'අස්වැන්න පිළිබඳ තීක්ෂ්ණ බුද්ධිය';
+
+  @override
+  String get weatherForecast => 'කාලගුණ අනාවැකිය';
+
+  @override
+  String get previewWeatherInsights => 'කාලගුණ තීක්ෂ්ණ බුද්ධිය බැලීමට පෙරදසුන';
+
+  @override
+  String get marketAnalysis => 'වෙළඳපොළ විශ්ලේෂණය';
+
+  @override
+  String get previewMarketAnalysis => 'වෙළඳපොළ විශ්ලේෂණය බැලීමට පෙරදසුන';
+
+  @override
+  String get priceAnalysis => 'මිල විශ්ලේෂණය';
+
+  @override
+  String get previewPriceAnalysis => 'මිල විශ්ලේෂණය බැලීමට පෙරදසුන';
+
+  @override
+  String get cropCarePrecautions => 'බෝග රැකවරණය සඳහා පූර්වාරක්ෂාවන්';
+
+  @override
+  String get previewCropCareRecommendations => 'බෝග සත්කාර නිර්දේශ බැලීමට පෙරදසුන';
 
   @override
   String get quantity => 'ප්‍රමාණය';
@@ -301,11 +398,6 @@ class AppLocalizationsSi extends AppLocalizations {
   @override
   String get addNewHarvest => 'නව අස්වැන්නක් එක් කරන්න';
 
-  @override
-  String get preview => 'පූර්ව දසුන';
-
-  @override
-  String get submit => 'ඉදිරිපත් කරන්න';
 
   @override
   String get previewCompleted => 'පූර්ව දසුන සම්පූර්ණයි! ඔබට දැන් ඔබේ අස්වැන්න දත්ත ඉදිරිපත් කළ හැක.';
@@ -325,11 +417,6 @@ class AppLocalizationsSi extends AppLocalizations {
   @override
   String get errorSubmittingHarvest => 'අස්වැන්න දත්ත ඉදිරිපත් කිරීමේ දෝෂය';
 
-  @override
-  String get plantingDate => 'වගා කරන දිනය';
-
-  @override
-  String get selectCrop => 'බෝගය තෝරන්න';
 
   @override
   String get signUpFailed => 'ලියාපදිංචි වීම අසාර්ථක විය';
@@ -339,4 +426,35 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get authError => 'සත්‍යාපන දෝෂය';
+
+  // Farmer detail & related screen additions (single canonical implementations)
+  @override
+  String get farmerProfileTitle => 'ගොවියාගේ පැතිකඩ';
+
+  @override
+  String get about => 'ගොවියා ගැන';
+
+  @override
+  String get editDescription => 'විස්තරය සංස්කරණය කරන්න';
+
+  @override
+  String get noDescriptionYet => 'තවදුරටත් විස්තරයක් එකතු කර නැත.';
+
+  @override
+  String get notProvided => 'සපයා නොමැත';
+
+  @override
+  String get descriptionHint => 'ඔබ ගැන අනෙක් අය දැනගැනීමට... (සේවා, අත්දැකීම් ආදිය)';
+
+  @override
+  String get failedToSave => 'සුරැකීමට අසමත් විය';
+
+  @override
+  String get deliveryPrice => 'බෙදාහැරීමේ මිල';
+
+  @override
+  String get ratingsAndReviews => 'ශ්‍රේණිගත කිරීම් සහ සමාලෝචන';
+
+  @override
+  String get logOut => 'පිටවීම';
 }

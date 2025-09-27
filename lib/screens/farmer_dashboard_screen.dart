@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -16,9 +17,26 @@ class FarmerDashboardScreen extends StatefulWidget {
 }
 
 class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
+
   final WeatherService _weatherService = WeatherService();
   final Map<String, List<Map<String, dynamic>>> _weatherData = {};
   String _selectedRange = '1M';
+
+  int _selectedIndex = 0;
+
+  // Placeholder pages for navigation
+  Widget _buildOngoingTransactionsPage() {
+    return Center(child: Text('Ongoing Transactions', style: TextStyle(fontSize: 22)));
+  }
+  Widget _buildHarvestListingPage() {
+    return Center(child: Text('Harvest Listing', style: TextStyle(fontSize: 22)));
+  }
+  Widget _buildAddHarvestPage() {
+    return Center(child: Text('Add Harvest', style: TextStyle(fontSize: 22)));
+  }
+  Widget _buildProfilePage() {
+    return Center(child: Text('Profile', style: TextStyle(fontSize: 22)));
+  }
 
   Future<void> _openFarmerProfile() async {
     try {
@@ -92,48 +110,10 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser?.uid;
 
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        titleSpacing: 16,
-        title: Text(
-          AppLocalizations.of(context)!.farmerDashboard,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-        ),
-        leadingWidth: 72,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16),
-          child: _GlassIconButton(
-            icon: Icons.arrow_back,
-            onTap: () {
-              if (Navigator.canPop(context)) Navigator.pop(context);
-            },
-          ),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: _GlassIconButton(
-              icon: Icons.person_outline,
-              onTap: _openFarmerProfile,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: _GlassIconButton(
-              icon: Icons.notifications_none_rounded,
-              onTap: () {},
-            ),
-          )
-        ],
-      ),
-      floatingActionButton: _GlassFab(
-        label: '+ Add Harvest',
-        onTap: () => Navigator.pushNamed(context, '/addHarvest'),
-      ),
-      body: Stack(
+    // List of pages for navigation
+    final List<Widget> _pages = [
+      // Dashboard (existing content)
+      Stack(
         children: [
           // Full screen background image
           Positioned.fill(
@@ -231,63 +211,102 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
                     ),
 
                     const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Icon(Icons.receipt_long, color: Color(0xFF02C697), size: 24),
-                        const SizedBox(width: 8),
-                        Text(
-                          AppLocalizations.of(context)!.ongoingTransactions,
-                          style: const TextStyle(
-                            color: Color(0xFF02C697),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 20,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    StreamBuilder<DocumentSnapshot>(
-                      stream: FirebaseFirestore.instance
-                          .collection('Ongoing_Trans_Far')
-                          .doc(userId)
-                          .snapshots(),
-                      builder: (context, snapshot) {
-                        if (snapshot.hasError) {
-                          return Center(child: Text(AppLocalizations.of(context)!.somethingWentWrong, style: const TextStyle(color: Colors.white)));
-                        }
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator(color: Colors.white));
-                        }
-                        final data = snapshot.data?.data() as Map<String, dynamic>?;
-                        if (data == null || !data.containsKey('transactions')) {
-                          return _EmptyState();
-                        }
-                        final transactions = List<Map<String, dynamic>>.from(data['transactions']);
-
-                        return Column(
-                          children: [
-                            for (final harvest in transactions)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: _GlassCard(
-                                  child: _TransactionTile(
-                                    harvest: harvest,
-                                    weatherFirst: (_weatherData[harvest['Transaction ID']] ?? const []) .cast<Map<String, dynamic>?>().whereType<Map<String, dynamic>>().cast<Map<String, dynamic>>().isNotEmpty
-                                        ? _weatherData[harvest['Transaction ID']]!.first
-                                        : null,
-                                    getIcon: (cond) => _weatherService.getWeatherIcon(cond),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        );
-                      },
-                    ),
+                    // Quick stats or summary can be added here
+                    // ...existing code...
                   ],
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+      // Ongoing Transactions
+      _buildOngoingTransactionsPage(),
+      // Harvest Listing
+      _buildHarvestListingPage(),
+      // Add Harvest
+      _buildAddHarvestPage(),
+      // Profile
+      _buildProfilePage(),
+    ];
+
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        titleSpacing: 16,
+        title: Text(
+          _selectedIndex == 0
+              ? AppLocalizations.of(context)!.farmerDashboard
+              : _selectedIndex == 1
+                  ? 'Ongoing Transactions'
+                  : _selectedIndex == 2
+                      ? 'Harvest Listing'
+                      : _selectedIndex == 3
+                          ? 'Add Harvest'
+                          : 'Profile',
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        ),
+        leadingWidth: 72,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: _GlassIconButton(
+            icon: Icons.arrow_back,
+            onTap: () {
+              if (Navigator.canPop(context)) Navigator.pop(context);
+            },
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _GlassIconButton(
+              icon: Icons.person_outline,
+              onTap: _openFarmerProfile,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: _GlassIconButton(
+              icon: Icons.notifications_none_rounded,
+              onTap: () {},
+            ),
+          )
+        ],
+      ),
+      body: _pages[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        selectedItemColor: Color(0xFF02C697),
+        unselectedItemColor: Colors.grey,
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: 'Ongoing',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.list_alt),
+            label: 'Harvests',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add_circle_outline),
+            label: 'Add',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            label: 'Profile',
           ),
         ],
       ),

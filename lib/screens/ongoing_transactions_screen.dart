@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'review_customer_screen.dart';
 
 class OngoingTransactionsScreen extends StatefulWidget {
   const OngoingTransactionsScreen({super.key});
@@ -162,7 +163,18 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                         return _buildEmptyState('No transactions found.');
                       }
 
-                      final transactions = List<Map<String, dynamic>>.from(data['transactions']);
+                      var rawList = List<Map<String, dynamic>>.from(data['transactions']);
+                      // Sort newest first by orderPlacedAt fallback Date
+                      rawList.sort((a, b) {
+                        dynamic aKey = a['orderPlacedAt'] ?? a['Date'];
+                        dynamic bKey = b['orderPlacedAt'] ?? b['Date'];
+                        if (aKey is Timestamp && bKey is Timestamp) {
+                          return bKey.compareTo(aKey);
+                        }
+                        return 0;
+                      });
+                      // Filter out archived transactions for farmer view
+                      final transactions = rawList.where((t) => t['archived_farmer'] != true).toList();
                       if (transactions.isEmpty) {
                         return _buildEmptyState('No ongoing transactions.');
                       }
@@ -242,17 +254,33 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
   Widget _buildTransactionCard(Map<String, dynamic> tx, String? userId, List<Map<String, dynamic>> transactions) {
     final crop = tx['Crop'] ?? 'Unknown';
     final quantity = tx['Quantity Sold (1kg)'] ?? 0;
-    final price = tx['Sale Price Per kg'] ?? 0;
+  final price = tx['Sale Price Per kg'] ?? 0;
     final status = tx['Status'] ?? 'Pending';
-    final customerName = tx['Farmer Name'] ?? 'N/A';
-    final phoneNO = tx['Phone_NO'] ?? 'N/A';
+  final initialCustomerName = tx['Customer Name'] ?? tx['customerName'] ?? tx['customer_name'] ?? 'Unknown';
+  final customerPhoneRaw = tx['Customer Phone'] ?? tx['customer_phone'] ?? '';
+  // Prefer per-order shipping location if provided, fallback to stored customer profile location fields
+  final customerLocation = tx['location'] ?? tx['shippingAddress'] ?? tx['Customer Location'] ?? tx['customer_location'] ?? ''; 
     final deliveredOn = (tx['Date'] as Timestamp?)?.toDate() ?? DateTime.now();
     final deliveryMethod = tx['deliveryMethod'];
     final deliveryStatus = tx['Status'] ?? 'pending';
     final deliverStatus = tx['deliver_status'] ?? '';
     final deliveryGuyName = tx['delivery_guy_name'];
     final deliveryGuyPhone = tx['delivery_guy_phone'];
-    final totalValue = (quantity * price).toStringAsFixed(2);
+  // Base item total
+  final double baseAmount = (quantity is num ? quantity.toDouble() : 0) * (price is num ? price.toDouble() : 0);
+  // Delivery enrichment (if not already stored, compute fallback later)
+  final double? storedDeliveryCost = (tx['deliveryCost'] is num) ? (tx['deliveryCost'] as num).toDouble() : null;
+  final double? distanceKm = (tx['deliveryDistanceKm'] is num) ? (tx['deliveryDistanceKm'] as num).toDouble() : null;
+  final double? ratePerKm = (tx['deliveryRatePerKm'] is num) ? (tx['deliveryRatePerKm'] as num).toDouble() : null;
+  final double deliveryCost = storedDeliveryCost ?? ((distanceKm != null && ratePerKm != null) ? distanceKm * ratePerKm : 0);
+  final double totalWithDelivery = (tx['totalAmount'] is num)
+      ? (tx['totalAmount'] as num).toDouble()
+      : baseAmount + deliveryCost;
+  final totalValue = totalWithDelivery.toStringAsFixed(2);
+  final customerId = tx['Customer ID'];
+  final farmerId = tx['Farmer ID'];
+  final orderPlacedAt = tx['orderPlacedAt'];
+  final cropKey = tx['Crop'];
 
     return Container(
       decoration: BoxDecoration(
@@ -319,7 +347,30 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                     ],
                   ),
                 ),
-                _buildStatusChip(status),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildStatusChip(status),
+                    if (status.toLowerCase() == 'delivered') ...[
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        message: 'Remove from your list',
+                        child: InkWell(
+                          onTap: () => _archiveTransactionFarmer(userId, tx, transactions),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.08),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -344,33 +395,84 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Icon(Icons.person, size: 16, color: Color(0xFF64748B)),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          customerName,
-                          style: const TextStyle(fontSize: 14),
-                          overflow: TextOverflow.ellipsis,
+                  // Customer Name with fallback lookup if unknown
+                  if (initialCustomerName != 'Unknown' && initialCustomerName != 'N/A')
+                    Row(
+                      children: [
+                        const Icon(Icons.person, size: 16, color: Color(0xFF64748B)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            initialCustomerName,
+                            style: const TextStyle(fontSize: 14),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    )
+                  else
+                    FutureBuilder<DocumentSnapshot>(
+                      future: FirebaseFirestore.instance.collection('customers').doc(tx['Customer ID']).get(),
+                      builder: (context, snap) {
+                        String name = initialCustomerName;
+                        if (snap.hasData && snap.data!.exists) {
+                          final d = snap.data!.data() as Map<String, dynamic>?;
+                          name = d?['name'] ?? d?['Name'] ?? initialCustomerName;
+                        }
+                        return Row(
+                          children: [
+                            const Icon(Icons.person, size: 16, color: Color(0xFF64748B)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                name,
+                                style: const TextStyle(fontSize: 14),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.phone, size: 16, color: Color(0xFF64748B)),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          phoneNO,
-                          style: const TextStyle(fontSize: 14),
-                          overflow: TextOverflow.ellipsis,
+                  if (customerPhoneRaw.toString().trim().isNotEmpty)
+                    Row(
+                      children: [
+                        const Icon(Icons.phone, size: 16, color: Color(0xFF64748B)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            customerPhoneRaw,
+                            style: const TextStyle(fontSize: 14),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    )
+                  else
+                    FutureBuilder<DocumentSnapshot>(
+                      future: FirebaseFirestore.instance.collection('customers').doc(tx['Customer ID']).get(),
+                      builder: (context, snap) {
+                        String phone = 'Not Provided';
+                        if (snap.hasData && snap.data!.exists) {
+                          final d = snap.data!.data() as Map<String, dynamic>?;
+                          phone = d?['phone'] ?? d?['Phone'] ?? d?['Phone_NO'] ?? phone;
+                        }
+                        return Row(
+                          children: [
+                            const Icon(Icons.phone, size: 16, color: Color(0xFF64748B)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                phone,
+                                style: const TextStyle(fontSize: 14),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -382,6 +484,22 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                       ),
                     ],
                   ),
+                  if (customerLocation.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on, size: 16, color: Color(0xFF64748B)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            customerLocation,
+                            style: const TextStyle(fontSize: 14),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -397,6 +515,10 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                 _buildDetailBox('Total Value', 'LKR $totalValue', Icons.account_balance_wallet),
               ],
             ),
+            if (deliveryCost > 0) ...[
+              const SizedBox(height: 12),
+              _buildDeliveryBreakdown(baseAmount, deliveryCost, distanceKm, ratePerKm, totalWithDelivery),
+            ],
             const SizedBox(height: 16),
 
             // Delivery Information
@@ -485,47 +607,155 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
               ),
             ],
 
-            // Action Buttons
+            // Action Buttons (Three separate controls)
             const SizedBox(height: 16),
-            if (deliveryMethod == null) ...[
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => _showDeliveryMethodDialog(context, tx, userId, transactions),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF02C697),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+            Row(
+              children: [
+                // 1. Select Delivery Method
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: deliveryMethod == null
+                        ? () => _showDeliveryMethodDialog(context, tx, userId, transactions)
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: deliveryMethod == null ? const Color(0xFF02C697) : Colors.grey.shade400,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      disabledBackgroundColor: Colors.grey.shade300,
+                    ),
+                    child: const Text(
+                      'Method',
+                      style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
-                  icon: const Icon(Icons.local_shipping, size: 20),
-                  label: const Text(
-                    'Choose Delivery Method',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
                 ),
-              ),
-            ] else if (deliveryMethod == 'delivery_guy' && status.toLowerCase() == 'pending') ...[
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => _markAsAssignedToDriver(userId, tx, transactions),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                const SizedBox(width: 12),
+                // 2. Approve Order (Farmer confirms & locks in progress)
+                Expanded(
+                  child: ElevatedButton(
+          onPressed: (status.toLowerCase() == 'pending' && deliveryMethod != null)
+            ? () async {
+                final ok = await _showIrreversibleConfirm(context,
+                  title: 'Approve Order?',
+                  message: 'Once you approve this order it will move to In Progress and you cannot revert to Pending. Continue?');
+                if (ok == true) {
+                  await _approveOrder(userId, tx, transactions);
+                }
+              }
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: (status.toLowerCase() == 'pending' && deliveryMethod != null)
+                          ? Colors.blueAccent
+                          : Colors.grey.shade400,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      disabledBackgroundColor: Colors.grey.shade300,
+                    ),
+                    child: const Text(
+                      'Approve',
+                      style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
-                  icon: const Icon(Icons.assignment_turned_in, size: 20),
-                  label: const Text(
-                    'Assign to Driver',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 12),
+                // 3. Mark Farmer Delivered (customer still must confirm)
+                Expanded(
+                  child: ElevatedButton(
+          onPressed: (status.toLowerCase() == 'in progress' || status.toLowerCase() == 'assigned')
+            ? () async {
+                final ok = await _showIrreversibleConfirm(context,
+                  title: 'Mark As Delivered?',
+                  message: 'Once marked, customer will be asked to confirm. Status stays In Progress until customer confirms. Continue?');
+                if (ok == true) {
+                  await _confirmDelivered(userId, tx, transactions);
+                }
+              }
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: (status.toLowerCase() == 'in_transit' || status.toLowerCase() == 'assigned')
+                          ? Colors.green
+                          : Colors.grey.shade400,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      disabledBackgroundColor: Colors.grey.shade300,
+                    ),
+                    child: const Text('Delivered', style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Customer Review (customer -> farmer) display & Farmer Review button
+            FutureBuilder<Map<String, dynamic>?>(
+              future: (status.toLowerCase() == 'delivered') ? _fetchCustomerToFarmerReview(farmerId, customerId, orderPlacedAt, cropKey) : Future.value(null),
+              builder: (context, snapshot) {
+                final customerReview = snapshot.data;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (customerReview != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Customer Feedback', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                ...List.generate(5, (i)=>Icon(i < (customerReview['rating']?.round() ?? 0) ? Icons.star : Icons.star_border, size: 16, color: Colors.amber)),
+                                const SizedBox(width: 6),
+                                Text((customerReview['rating'] ?? 0).toStringAsFixed(1), style: const TextStyle(fontSize: 12,fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                            if ((customerReview['review'] ?? '').toString().isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(customerReview['review'], style: const TextStyle(fontSize: 13)),
+                            ]
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    if (status.toLowerCase() == 'delivered' && tx['farmerReviewedCustomer'] != true)
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.rate_review, size: 18),
+                          label: const Text('Review Customer'),
+                          onPressed: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ReviewCustomerScreen(transaction: tx),
+                              ),
+                            );
+                            if (result == true) {
+                              await _markFarmerReviewedCustomer(tx);
+                              setState(() {});
+                            }
+                          },
+                        ),
+                      ),
+                    if (tx['farmerReviewedCustomer'] == true) ...[
+                      Row(
+                        children: const [
+                          Icon(Icons.check_circle, color: Colors.green, size: 16),
+                          SizedBox(width: 6),
+                          Text('You reviewed this customer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    ]
+                  ],
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -537,6 +767,7 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
     Color textColor;
 
     switch (status.toLowerCase()) {
+      case 'delivered':
       case 'completed':
         backgroundColor = const Color(0xFFE8F5F1);
         textColor = const Color(0xFF02C697);
@@ -544,6 +775,10 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
       case 'assigned':
         backgroundColor = const Color(0xFFE3F2FD);
         textColor = const Color(0xFF1976D2);
+        break;
+      case 'in progress':
+        backgroundColor = const Color(0xFFFFF9C4);
+        textColor = const Color(0xFFF57F17);
         break;
       case 'pending':
       default:
@@ -559,7 +794,7 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        '${status[0].toUpperCase()}${status.substring(1)}',
+        status.split(' ').map((w)=> w.isEmpty? '' : '${w[0].toUpperCase()}${w.substring(1)}').join(' '),
         style: TextStyle(
           color: textColor,
           fontWeight: FontWeight.w600,
@@ -609,6 +844,67 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDeliveryBreakdown(double base, double delivery, double? dist, double? rate, double total) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF02C697).withOpacity(0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF02C697).withOpacity(0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.delivery_dining, size: 18, color: Color(0xFF02C697)),
+              SizedBox(width: 6),
+              Text('Pricing Breakdown', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _line('Items', 'LKR ${base.toStringAsFixed(2)}'),
+          if (delivery > 0)
+            _line(
+              'Delivery${(dist != null && rate != null) ? ' (${dist.toStringAsFixed(1)}km x LKR ${rate.toStringAsFixed(0)})' : ''}',
+              'LKR ${delivery.toStringAsFixed(2)}',
+            ),
+          const Divider(height: 18),
+          _line('Total', 'LKR ${total.toStringAsFixed(2)}', emphasize: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _line(String label, String value, {bool emphasize = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.5),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: emphasize ? const Color(0xFF2D3748) : Colors.grey[700],
+                fontWeight: emphasize ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: emphasize ? FontWeight.w700 : FontWeight.w600,
+              color: emphasize ? const Color(0xFF02C697) : const Color(0xFF2D3748),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -684,7 +980,36 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
         .collection('Ongoing_Trans_Farm')
         .doc(userId)
         .update({'transactions': updatedTransactions});
-    
+    // Mirror delivery method to customer side so customer can view it
+    final customerId = tx['Customer ID'];
+    if (customerId != null) {
+      final cusDoc = await FirebaseFirestore.instance
+          .collection('Ongoing_Trans_Cus')
+          .doc(customerId)
+          .get();
+      if (cusDoc.exists) {
+        final data = cusDoc.data();
+        if (data != null && data.containsKey('transactions')) {
+          List<dynamic> list = List.from(data['transactions']);
+            for (int i = 0; i < list.length; i++) {
+              final item = list[i];
+              if (item is Map<String, dynamic> &&
+                  item['Crop'] == tx['Crop'] &&
+                  item['Farmer ID'] == tx['Farmer ID'] &&
+                  item['orderPlacedAt'] == tx['orderPlacedAt']) {
+                item['deliveryMethod'] = method;
+                list[i] = item;
+                break;
+              }
+            }
+          await FirebaseFirestore.instance
+              .collection('Ongoing_Trans_Cus')
+              .doc(customerId)
+              .update({'transactions': list});
+        }
+      }
+    }
+
     setState(() {});
   }
 
@@ -708,6 +1033,111 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
     setState(() {});
   }
 
+  Future<void> _approveOrder(String? userId, Map<String, dynamic> tx, List<Map<String, dynamic>> transactions) async {
+    if (userId == null) return;
+    final updatedTx = Map<String, dynamic>.from(tx);
+    // Move status forward: pending -> in_transit (or assigned if delivery guy selected earlier)
+    if ((updatedTx['Status'] ?? '').toString().toLowerCase() == 'pending') {
+      updatedTx['Status'] = 'In Progress';
+    }
+    final updatedTransactions = transactions.map((t) => t == tx ? updatedTx : t).toList();
+    await FirebaseFirestore.instance
+        .collection('Ongoing_Trans_Farm')
+        .doc(userId)
+        .update({'transactions': updatedTransactions});
+    // Mirror status for customer side
+    final customerId = updatedTx['Customer ID'];
+    if (customerId != null) {
+  await _updateCustomerSideStatus(customerId, tx, 'In Progress');
+    }
+    setState(() {});
+  }
+
+  Future<void> _confirmDelivered(String? userId, Map<String, dynamic> tx, List<Map<String, dynamic>> transactions) async {
+    if (userId == null) return;
+    final updatedTx = Map<String, dynamic>.from(tx);
+    // Keep status In Progress until customer confirms; just flag internal marker
+    if ((updatedTx['Status'] ?? '').toString().toLowerCase() != 'delivered') {
+      updatedTx['Status'] = 'In Progress';
+    }
+    final updatedTransactions = transactions.map((t) => t == tx ? updatedTx : t).toList();
+    await FirebaseFirestore.instance
+        .collection('Ongoing_Trans_Farm')
+        .doc(userId)
+        .update({'transactions': updatedTransactions});
+    // Instead of marking delivered for customer immediately, flag farmerDelivered
+    final customerId = updatedTx['Customer ID'];
+    if (customerId != null) {
+      await _flagFarmerDeliveredOnCustomer(customerId, tx);
+    }
+    setState(() {});
+  }
+
+  Future<bool?> _showIrreversibleConfirm(BuildContext context, {required String title, required String message}) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(message),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF02C697)),
+            child: const Text('Confirm'),
+          )
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateCustomerSideStatus(String customerId, Map<String, dynamic> tx, String newStatus) async {
+    final cusDoc = await FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(customerId).get();
+    if (!cusDoc.exists) return;
+    final data = cusDoc.data();
+    if (data == null || !data.containsKey('transactions')) return;
+    List<dynamic> list = List.from(data['transactions']);
+    for (int i = 0; i < list.length; i++) {
+      final item = list[i];
+      if (item is Map<String, dynamic> &&
+          item['Crop'] == tx['Crop'] &&
+          item['Farmer ID'] == tx['Farmer ID'] &&
+          item['orderPlacedAt'] == tx['orderPlacedAt']) {
+        item['Status'] = newStatus;
+        list[i] = item;
+        break;
+      }
+    }
+    await FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(customerId).update({'transactions': list});
+  }
+
+  Future<void> _flagFarmerDeliveredOnCustomer(String customerId, Map<String, dynamic> tx) async {
+    final cusDoc = await FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(customerId).get();
+    if (!cusDoc.exists) return;
+    final data = cusDoc.data();
+    if (data == null || !data.containsKey('transactions')) return;
+    List<dynamic> list = List.from(data['transactions']);
+    for (int i = 0; i < list.length; i++) {
+      final item = list[i];
+      if (item is Map<String, dynamic> &&
+          item['Crop'] == tx['Crop'] &&
+          item['Farmer ID'] == tx['Farmer ID'] &&
+          item['orderPlacedAt'] == tx['orderPlacedAt']) {
+        // Keep status as In Progress if already set, otherwise set to In Progress
+        final currentStatus = (item['Status'] ?? '').toString();
+        if (currentStatus.toLowerCase() != 'delivered') {
+          item['Status'] = 'In Progress';
+        }
+        item['farmerDelivered'] = true;
+        item['farmerDeliveredAt'] = Timestamp.now();
+        list[i] = item;
+        break;
+      }
+    }
+    await FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(customerId).update({'transactions': list});
+  }
+
   Future<double?> _fetchDriverRating(String driverId) async {
     try {
       final doc = await FirebaseFirestore.instance.collection('DriverReviews').doc(driverId).get();
@@ -720,6 +1150,95 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
       return avg;
     } catch (e) {
       return null;
+    }
+  }
+
+  Future<void> _archiveTransactionFarmer(String? userId, Map<String, dynamic> tx, List<Map<String, dynamic>> transactions) async {
+    if (userId == null) return;
+    final updated = transactions.map((item) {
+      if (item['Crop'] == tx['Crop'] &&
+          item['Customer ID'] == tx['Customer ID'] &&
+          item['orderPlacedAt'] == tx['orderPlacedAt']) {
+        final copy = Map<String, dynamic>.from(item);
+        copy['archived_farmer'] = true;
+        return copy;
+      }
+      return item;
+    }).toList();
+    await FirebaseFirestore.instance
+        .collection('Ongoing_Trans_Farm')
+        .doc(userId)
+        .update({'transactions': updated});
+    setState(() {});
+  }
+
+  Future<Map<String, dynamic>?> _fetchCustomerToFarmerReview(String? farmerId, String? customerId, dynamic orderPlacedAt, String crop) async {
+    try {
+      if (farmerId == null || customerId == null || orderPlacedAt == null) return null;
+      final doc = await FirebaseFirestore.instance.collection('FarmerReviews').doc(farmerId).get();
+      if (!doc.exists) return null;
+      final data = doc.data();
+      if (data == null || !data.containsKey('ratings')) return null;
+      final List<dynamic> ratings = data['ratings'] ?? [];
+      for (final r in ratings) {
+        if (r is Map<String, dynamic> &&
+            r['customerId'] == customerId &&
+            r['orderPlacedAt'] == orderPlacedAt &&
+            r['crop'] == crop) {
+          return r;
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _markFarmerReviewedCustomer(Map<String, dynamic> tx) async {
+    final farmerId = FirebaseAuth.instance.currentUser?.uid;
+    if (farmerId == null) return;
+    // Update farmer side
+    final farmDoc = await FirebaseFirestore.instance.collection('Ongoing_Trans_Farm').doc(farmerId).get();
+    if (farmDoc.exists) {
+      final fData = farmDoc.data();
+      if (fData != null && fData.containsKey('transactions')) {
+        List<dynamic> list = List.from(fData['transactions']);
+        for (int i = 0; i < list.length; i++) {
+          final item = list[i];
+          if (item is Map<String, dynamic> &&
+              item['Crop'] == tx['Crop'] &&
+              item['Customer ID'] == tx['Customer ID'] &&
+              item['orderPlacedAt'] == tx['orderPlacedAt']) {
+            item['farmerReviewedCustomer'] = true;
+            list[i] = item;
+            break;
+          }
+        }
+        await FirebaseFirestore.instance.collection('Ongoing_Trans_Farm').doc(farmerId).update({'transactions': list});
+      }
+    }
+    // Update customer side flag
+    final customerId = tx['Customer ID'];
+    if (customerId != null) {
+      final cusDoc = await FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(customerId).get();
+      if (cusDoc.exists) {
+        final cData = cusDoc.data();
+        if (cData != null && cData.containsKey('transactions')) {
+          List<dynamic> list = List.from(cData['transactions']);
+          for (int i = 0; i < list.length; i++) {
+            final item = list[i];
+            if (item is Map<String, dynamic> &&
+                item['Crop'] == tx['Crop'] &&
+                item['Farmer ID'] == tx['Farmer ID'] &&
+                item['orderPlacedAt'] == tx['orderPlacedAt']) {
+              item['farmerReviewedCustomer'] = true;
+              list[i] = item;
+              break;
+            }
+          }
+          await FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(customerId).update({'transactions': list});
+        }
+      }
     }
   }
 }

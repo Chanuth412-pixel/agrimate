@@ -9,7 +9,6 @@ import 'farmer_detail_screen.dart';
 import 'ongoing_transactions_screen.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class FarmerProfileScreen extends StatefulWidget {
@@ -25,6 +24,15 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   final ScrollController _trendsScrollController = ScrollController();
   final ScrollController _transactionsScrollController = ScrollController();
 
+  // Advertisement carousel
+  final PageController _adPageController = PageController(viewportFraction: 0.9);
+  int _currentAdPage = 0;
+
+  // Weather fetched for the current farmer position
+  Map<String, dynamic>? _currentWeather;
+  double? _lastWeatherLat;
+  double? _lastWeatherLon;
+
   // Chart navigation state
   int _currentChartIndex = 0;
   final List<List<int>> _cropData = [
@@ -32,7 +40,8 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     [50, 55, 60, 58], // Carrot
     [45, 48, 52, 49], // Brinjal
   ];
-  final List<String> _cropNames = ['Tomato', 'Carrot', 'Brinjal'];
+  // Display crop names localized where rendered; raw identifiers remain for logic
+  final List<String> _cropNames = ['tomato', 'carrot', 'brinjal'];
 
   static const double _trendScrollDistance = 300.0;
   static const double _transactionScrollDistance = 500.0;
@@ -41,6 +50,13 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   void initState() {
     super.initState();
     // _loadWeatherData(); // Commented out for now - will implement later with OpenWeatherMap API
+    // no content scroll listener; using overlay-style header like customer_profile_screen
+    _adPageController.addListener(() {
+      final newPage = _adPageController.page?.round() ?? 0;
+      if (newPage != _currentAdPage && mounted) {
+        setState(() => _currentAdPage = newPage);
+      }
+    });
     _loadFarmerPositionAndWeather();
   }
 
@@ -48,7 +64,19 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   void dispose() {
     _trendsScrollController.dispose();
     _transactionsScrollController.dispose();
+    _adPageController.dispose();
+    // removed content scroll controller cleanup
     super.dispose();
+  }
+
+  // header overlay behavior is implemented by using a fixed background and scrolling content
+
+  // Returns a greeting based on the current local time
+  String _greetingForNow() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning!';
+    if (hour < 17) return 'Good Afternoon!';
+    return 'Good Evening!';
   }
 
   void _scrollTrends(bool forward) {
@@ -106,51 +134,327 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     }
   }
 
+  // Fetch current weather from OpenWeatherMap for given coords and store in state
+  Future<void> _fetchWeatherForCoords(double lat, double lon) async {
+    try {
+      // Avoid refetching for same coords
+      if (_lastWeatherLat == lat && _lastWeatherLon == lon && _currentWeather != null) return;
+
+      final url = 'https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&appid=$apiKey&units=metric';
+      final res = await http.get(Uri.parse(url));
+      if (res.statusCode == 200) {
+        final Map<String, dynamic> jsonData = json.decode(res.body) as Map<String, dynamic>;
+        if (!mounted) return;
+        setState(() {
+          _currentWeather = jsonData;
+          _lastWeatherLat = lat;
+          _lastWeatherLon = lon;
+        });
+      }
+    } catch (e) {
+      // ignore errors silently for now; optionally log
+      // print('Weather fetch error: $e');
+    }
+  }
+
+  // Build a small weather widget for header (icon + optional temp)
+  Widget _buildWeatherIconWidget() {
+    if (_currentWeather == null) {
+      return const Icon(
+        Icons.wb_sunny_outlined,
+        color: Colors.white,
+        size: 24,
+      );
+    }
+
+    final weatherList = _currentWeather!['weather'] as List<dynamic>?;
+    final iconCode = (weatherList != null && weatherList.isNotEmpty) ? (weatherList[0]['icon'] as String?) : null;
+    final tempNum = _currentWeather!['main']?['temp'] as num?;
+
+    final iconUrl = iconCode != null ? 'https://openweathermap.org/img/wn/$iconCode@2x.png' : null;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (iconUrl != null)
+          Image.network(iconUrl, width: 36, height: 36, errorBuilder: (_, __, ___) => const Icon(Icons.wb_sunny_outlined, color: Colors.white, size: 24)),
+        if (tempNum != null)
+          Text(
+            '${tempNum.toDouble().round()}°C',
+            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.pushNamed(context, '/addHarvest');
-        },
+        onPressed: () { Navigator.pushNamed(context, '/addHarvest'); },
         backgroundColor: const Color(0xFF02C697),
         elevation: 4,
         icon: const Icon(Icons.add),
-        label: const Text(
-          "Add Harvest",
-          style: TextStyle(fontWeight: FontWeight.w600),
+        label: Text(
+          (AppLocalizations.of(context)?.addHarvest ?? 'Add Harvest'),
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Top section with background image and greeting
+          // Background image (fixed)
           Container(
-            width: double.infinity,
-            height: 220, // Fixed height for the header section
-            decoration: BoxDecoration(
+            height: 220,
+            decoration: const BoxDecoration(
               image: DecorationImage(
                 image: AssetImage('assets/images/Background.jpg'),
                 fit: BoxFit.cover,
               ),
             ),
-            child: SafeArea(
-                bottom: false,
+          ),
+
+          // Main content overlaying the background
+          SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Header section (sits on top of background)
+                  Container(
+                    height: 180,
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+                    child: StreamBuilder<DocumentSnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('farmers')
+                          .doc(FirebaseAuth.instance.currentUser?.uid)
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(child: CircularProgressIndicator(color: Colors.white));
+                        }
+
+                        final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+                        final farmerName = data['name'] ?? 'Farmer';
+
+                        // If farmer document contains a position field, try to fetch weather for it
+                        try {
+                          final pos = data['position'];
+                          double? lat;
+                          double? lon;
+                          if (pos != null) {
+                            if (pos is GeoPoint) {
+                              lat = pos.latitude;
+                              lon = pos.longitude;
+                            } else if (pos is Map) {
+                              if (pos['latitude'] != null && pos['longitude'] != null) {
+                                lat = (pos['latitude'] as num).toDouble();
+                                lon = (pos['longitude'] as num).toDouble();
+                              } else if (pos['lat'] != null && pos['lon'] != null) {
+                                lat = (pos['lat'] as num).toDouble();
+                                lon = (pos['lon'] as num).toDouble();
+                              }
+                            }
+
+                            if (lat != null && lon != null) {
+                              _fetchWeatherForCoords(lat, lon);
+                            }
+                          }
+                        } catch (_) {}
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.3),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+                                    boxShadow: [
+                                      BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 3)),
+                                    ],
+                                  ),
+                                  child: _buildWeatherIconWidget(),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _greetingForNow(),
+                                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500, shadows: [
+                                          Shadow(color: Colors.black.withOpacity(0.5), offset: const Offset(1, 1), blurRadius: 4),
+                                          Shadow(color: Colors.black.withOpacity(0.3), offset: const Offset(2, 2), blurRadius: 8),
+                                        ]),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        farmerName,
+                                        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, shadows: [
+                                          Shadow(color: Colors.black54, offset: Offset(1, 1), blurRadius: 5),
+                                          Shadow(color: Colors.black26, offset: Offset(2, 2), blurRadius: 10),
+                                        ]),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                InkWell(
+                                  onTap: _openFarmerProfile,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.5), width: 2), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3))]),
+                                    child: const Icon(Icons.person_outline, color: Colors.white, size: 22),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+
+                  // Content section
+                  Container(
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF8F9FA),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(24),
+                        topRight: Radius.circular(24),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 16),
+                        // Advertisements carousel
+                        _buildAdvertisementsSection(),
+                        const SizedBox(height: 16),
+                        _buildCropDemandTrendsCard(),
+                        _buildOngoingTransactionsCard(),
+                        _buildHarvestListingsCard(),
+                        const SizedBox(height: 100),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ================= Advertisement Carousel =================
+  Widget _buildAdvertisementsSection() {
+    // Replace the asset names below with your actual advertisement image asset paths
+    final ads = [
+      'assets/images/ad_1.png',
+      'assets/images/ad_2.png',
+    ];
+
+    final width = MediaQuery.of(context).size.width;
+    final bannerHeight = width < 380 ? 60.0 : (width < 480 ? 110.0 : (width < 720 ? 125.0 : 150.0));
+
+    return Column(
+      children: [
+        SizedBox(
+          height: bannerHeight,
+          child: PageView.builder(
+            controller: _adPageController,
+            itemCount: ads.length,
+            itemBuilder: (context, index) {
+              final img = ads[index];
+              return AnimatedBuilder(
+                animation: _adPageController,
+                builder: (context, child) {
+                  double scale = 1.0;
+                  if (_adPageController.position.haveDimensions) {
+                    final page = _adPageController.page ?? _adPageController.initialPage.toDouble();
+                    final diff = (page - index).abs();
+                    scale = (1 - (diff * 0.08)).clamp(0.9, 1.0);
+                  }
+                  return Center(
+                    child: Transform.scale(
+                      scale: scale,
+                      child: child,
+                    ),
+                  );
+                },
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
-                  child: StreamBuilder<DocumentSnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('farmers')
-                        .doc(FirebaseAuth.instance.currentUser?.uid)
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator(color: Colors.white));
-                      }
-
-                      final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-                      final farmerName = data['name'] ?? 'Farmer';
-
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.asset(
+                            img,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Center(
+                              child: Icon(
+                                Icons.image_not_supported,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                          // Optional dark gradient overlay for readability
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.black.withOpacity(0.15),
+                                    Colors.black.withOpacity(0.05),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(ads.length, (i) {
+            final selected = i == _currentAdPage;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              height: 8,
+              width: selected ? 20 : 8,
+              decoration: BoxDecoration(
+                color: selected ? const Color(0xFF02C697) : const Color(0xFF02C697).withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+            );
+          }),
+        )
+      ],
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -392,7 +696,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Crop Demand Trends',
+                        (AppLocalizations.of(context)?.cropDemandTrends ?? 'Crop Demand Trends'),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                           color: const Color(0xFF2D3748),
@@ -455,7 +759,13 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                   }
 
                   final crops = ['tomato', 'carrot', 'brinjal'];
-                  final cropNames = ['Tomato', 'Carrot', 'Brinjal'];
+                  final loc = AppLocalizations.of(context);
+                  // Localized crop names for navigation header
+                  final cropNames = [
+                    loc?.cropTomato ?? 'Tomato',
+                    loc?.cropCarrot ?? 'Carrot',
+                    loc?.cropBrinjal ?? 'Brinjal',
+                  ];
                   
                   return Column(
                     children: [
@@ -534,7 +844,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                       Expanded(
                         child: Container(
                           margin: const EdgeInsets.symmetric(horizontal: 12.0),
-                          child: _buildTrendCard('Tomato', [65, 70, 75, 80]),
+                          child: _buildTrendCard(AppLocalizations.of(context)?.cropTomato ?? 'Tomato', [65, 70, 75, 80]), // Already localized; other crops can be added similarly
                         ),
                       ),
                     ],
@@ -573,7 +883,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                 Flexible(
                   flex: 2,
                   child: Text(
-                    'Crop Demand Trends',
+                    (AppLocalizations.of(context)?.cropDemandTrends ?? 'Crop Demand Trends'),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -651,7 +961,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Current: ₹${_cropData[_currentChartIndex][_cropData[_currentChartIndex].length - 1]} per kg',
+                    '${(AppLocalizations.of(context)?.currentPricePerKg ?? 'Current')}: ₹${_cropData[_currentChartIndex][_cropData[_currentChartIndex].length - 1]} per kg',
                     style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFF02C697),
@@ -793,7 +1103,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ongoing Transactions',
+                      (AppLocalizations.of(context)?.ongoingTransactions ?? 'Ongoing Transactions'),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF2D3748),
@@ -802,7 +1112,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'View and manage your active transactions',
+                      (AppLocalizations.of(context)?.activeTransactionsSubtitle ?? 'View and manage your active transactions'),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.grey[600],
                         fontWeight: FontWeight.w500,
@@ -872,7 +1182,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'My Harvest Listings',
+                        (AppLocalizations.of(context)?.myHarvestListings ?? 'My Harvest Listings'),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                           color: const Color(0xFF2D3748),
@@ -983,7 +1293,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          item['crop'] ?? 'Unknown Crop',
+                                          _localizedCropName(context, item['crop']),
                                           style: const TextStyle(
                                             fontWeight: FontWeight.w700,
                                             fontSize: 14,
@@ -995,7 +1305,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                     ],
                                   ),
                                   Text(
-                                    'Qty: ${item['quantity']} kg • LKR ${item['price']}/kg',
+                                    '${AppLocalizations.of(context)?.qtyLabel ?? 'Qty:'} ${item['quantity']} kg • LKR ${item['price']}/kg',
                                     style: TextStyle(
                                       color: Colors.grey[600],
                                       fontSize: 12,
@@ -1408,7 +1718,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     } else if (crop.contains('brinjal') && price > 90) {
       return 'Good';
     } else {
-      return 'Bad';
+      return AppLocalizations.of(context)?.badCondition ?? 'Bad';
     }
   }
 
@@ -1468,7 +1778,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
       }
     }
     
-    // If more than 2 days have bad weather conditions, mark as 'Bad'
+  // If more than 2 days have bad weather conditions, mark as localized 'Bad'
     return badWeatherDays <= 2;
   }
 
@@ -2043,4 +2353,27 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   }
 
   
+}
+
+String _localizedCropName(BuildContext context, dynamic raw) {
+  final code = (raw ?? '').toString().toLowerCase();
+  final loc = AppLocalizations.of(context);
+  switch (code) {
+    case 'tomato':
+      return loc?.cropTomato ?? 'Tomato';
+    case 'carrot':
+      return loc?.cropCarrot ?? 'Carrot';
+    case 'brinjal':
+    case 'eggplant':
+      return loc?.cropBrinjal ?? 'Brinjal';
+    case 'okra':
+      return loc?.cropOkra ?? 'Okra';
+    case 'bean':
+    case 'beans':
+      return loc?.cropBeans ?? 'Beans';
+    default:
+      // If already localized (contains Sinhala characters) just return as-is
+      if (RegExp(r'[අ-ෆ]').hasMatch(code)) return raw.toString();
+      return raw?.toString().isNotEmpty == true ? raw.toString() : (loc?.notProvided ?? 'N/A');
+  }
 }

@@ -20,6 +20,8 @@ class _DriverLogInScreenState extends State<DriverLogInScreen>
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoggingIn = false; // overlay state
+  bool _showDomainSuggestion = false; // gmail suggestion
 
   // Animation controllers
   late AnimationController _logoController;
@@ -66,6 +68,7 @@ class _DriverLogInScreenState extends State<DriverLogInScreen>
     final password = _passwordController.text.trim();
 
     try {
+      setState(() => _isLoggingIn = true);
       // 1. Authenticate with Firebase
       final userCredential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(email: email, password: password);
@@ -111,6 +114,9 @@ class _DriverLogInScreenState extends State<DriverLogInScreen>
         SnackBar(content: Text('${AppLocalizations.of(context)!.errorOccurred}: $e')),
       );
     }
+    finally {
+      if (mounted) setState(() => _isLoggingIn = false);
+    }
   }
 
   Future<Position?> _getCurrentLocation() async {
@@ -147,40 +153,94 @@ class _DriverLogInScreenState extends State<DriverLogInScreen>
             ),
           ],
         ),
-        child: TextFormField(
-          controller: controller,
-          obscureText: obscure,
-          style: const TextStyle(
-            fontFamily: 'Roboto',
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: Colors.black,
-          ),
-          decoration: InputDecoration(
-            prefixIcon: icon != null 
-              ? Icon(icon, color: Colors.grey[600], size: 20)
-              : null,
-            suffixIcon: suffixIcon,
-            hintText: label,
-            hintStyle: TextStyle(
-              color: Colors.grey[500],
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
+        child: Stack(
+          children: [
+            TextFormField(
+              controller: controller,
+              obscureText: obscure,
+              style: const TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.black,
+              ),
+              decoration: InputDecoration(
+                prefixIcon: icon != null
+                    ? Icon(icon, color: Colors.grey[600], size: 20)
+                    : null,
+                suffixIcon: suffixIcon,
+                hintText: label,
+                hintStyle: TextStyle(
+                  color: Colors.grey[500],
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                filled: true,
+                fillColor: Colors.white,
+              ),
+              onChanged: controller == _emailController
+                  ? (val) {
+                      if (val.isNotEmpty && !val.contains('@') && !val.contains(' ')) {
+                        setState(() => _showDomainSuggestion = true);
+                      } else if (val.contains('@') || val.isEmpty) {
+                        if (_showDomainSuggestion) setState(() => _showDomainSuggestion = false);
+                      }
+                    }
+                  : null,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter $label';
+                }
+                return null;
+              },
             ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            filled: true,
-            fillColor: Colors.white,
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please enter $label';
-            }
-            return null;
-          },
+            if (controller == _emailController && _showDomainSuggestion)
+              Positioned(
+                right: 10,
+                top: 10,
+                child: GestureDetector(
+                  onTap: () {
+                    final current = _emailController.text.trim();
+                    if (current.isNotEmpty && !current.contains('@')) {
+                      setState(() {
+                        _emailController.text = '$current@gmail.com';
+                        _emailController.selection = TextSelection.fromPosition(
+                          TextPosition(offset: _emailController.text.length),
+                        );
+                        _showDomainSuggestion = false;
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2E7D32).withOpacity(.08),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFF2E7D32).withOpacity(.35), width: 1),
+                    ),
+                    child: Row(
+                      children: const [
+                        Icon(Icons.auto_fix_high, size: 14, color: Color(0xFF2E7D32)),
+                        SizedBox(width: 4),
+                        Text(
+                          '+ @gmail.com',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2E7D32),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -374,8 +434,73 @@ class _DriverLogInScreenState extends State<DriverLogInScreen>
               ),
             ),
           ),
+
+          if (_isLoggingIn)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.35),
+                child: Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                      child: Container(
+                        width: 240,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(.85),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: const Color(0xFF2E7D32).withOpacity(.25), width: 1),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(.2),
+                              blurRadius: 24,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            SizedBox(
+                              width: 58,
+                              height: 58,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 5,
+                                valueColor: AlwaysStoppedAnimation(Color(0xFF2E7D32)),
+                              ),
+                            ),
+                            SizedBox(height: 22),
+                            Text(
+                              'Log In',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF2E7D32),
+                                letterSpacing: .4,
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Authenticating...',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                color: Colors.black87,
+                                letterSpacing: .3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 }
+
+// Add overlay after main Stack children (before class end)
