@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../utils/currency_util.dart';
+import '../constants/app_constants.dart';
 
 class FarmerDetailScreen extends StatelessWidget {
   final Map<String, dynamic> farmerData;
@@ -1133,13 +1134,13 @@ class _DeliveryPriceSectionState extends State<_DeliveryPriceSection> {
     try {
       final snap = await FirebaseFirestore.instance.collection('farmers').doc(widget.farmerId).get();
       if (mounted) {
-        final val = (snap.data()?["deliveryPricePerKm"] ?? 100);
-        _currentValue = (val is int) ? val : (val is num ? val.toInt() : 100);
+        final val = (snap.data()?['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm);
+        _currentValue = (val is int) ? val : (val is num ? val.toInt() : AppConstants.defaultDeliveryPricePerKm);
         _controller.text = _currentValue.toString();
         setState(() {});
       }
     } catch (_) {
-      // silent fail; fallback remains 100
+      // silent fail; fallback remains AppConstants.defaultDeliveryPricePerKm
     }
   }
 

@@ -118,7 +118,7 @@ class _CreateFarmerProfileScreenState extends State<CreateFarmerProfileScreen>
         'createdAt': FieldValue.serverTimestamp(),
         'position': GeoPoint(position.latitude, position.longitude), // Save GPS location
   'proximity': 2, // ✅ Added default delivery radius
-  'deliveryPricePerKm': AppConstants.defaultDeliveryPricePerKm, // ✅ Default delivery price per km (LKR 100)
+  'deliveryPricePerKm': AppConstants.defaultDeliveryPricePerKm, // ✅ Default delivery price per km (LKR 25)
       });
 
       // Show success message

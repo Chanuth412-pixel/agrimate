@@ -164,6 +164,21 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                       }
 
                       var rawList = List<Map<String, dynamic>>.from(data['transactions']);
+                      // Mark any unseen transactions as seen (batch in-memory update then push once)
+                      bool needUpdate = false;
+                      for (final tx in rawList) {
+                        if (tx['seen_farmer'] != true) {
+                          tx['seen_farmer'] = true;
+                          needUpdate = true;
+                        }
+                      }
+                      if (needUpdate && userId != null) {
+                        FirebaseFirestore.instance
+                            .collection('Ongoing_Trans_Farm')
+                            .doc(userId)
+                            .update({'transactions': rawList})
+                            .catchError((e){ debugPrint('Failed to mark seen: $e'); });
+                      }
                       // Sort newest first by orderPlacedAt fallback Date
                       rawList.sort((a, b) {
                         dynamic aKey = a['orderPlacedAt'] ?? a['Date'];

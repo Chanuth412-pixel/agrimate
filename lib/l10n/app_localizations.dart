@@ -225,6 +225,7 @@ abstract class AppLocalizations {
   String get goodMorning; // e.g., Good Morning / සුබ උදෑසනක්
   String get goodAfternoon; // e.g., Good Afternoon / සුබ දවල්
   String get goodEvening; // e.g., Good Evening / සුබ සැන්දෑවක්
+  String get viewDeliveryRoute; // View Delivery Route / බෙදාහැරීමේ මාර්ගය බලන්න
 
   // Farmer profile specific additions (current price label)
   String get currentPricePerKg; // Current
@@ -534,6 +535,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Bad'**
   String get badCondition;
+
+  /// No description provided for @goodCondition.
+  ///
+  /// In en, this message translates to:
+  /// **'Good'**
+  String get goodCondition;
+
+  /// No description provided for @storageAndHandlingTips.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage & Handling Tips'**
+  String get storageAndHandlingTips;
+
+  /// No description provided for @qualityImprovementTips.
+  ///
+  /// In en, this message translates to:
+  /// **'Quality Improvement Tips'**
+  String get qualityImprovementTips;
 
   /// No description provided for @planYourHarvest.
   ///

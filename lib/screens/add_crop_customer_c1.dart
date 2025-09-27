@@ -211,6 +211,19 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
   }
 
   Future<void> _showQuantityDialog(Map<String, dynamic> farmer) async {
+    // Always pull the most recent delivery price per km before showing dialog
+    var currentFarmer = Map<String, dynamic>.from(farmer);
+    try {
+      final doc = await FirebaseFirestore.instance.collection('farmers').doc(farmer['farmerId']).get();
+      if (doc.exists) {
+        final data = doc.data();
+        if (data != null && data['deliveryPricePerKm'] != null) {
+          currentFarmer['deliveryPricePerKm'] = data['deliveryPricePerKm'];
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to refresh deliveryPricePerKm: $e');
+    }
     final TextEditingController quantityController = TextEditingController();
     final TextEditingController locationController = TextEditingController();
     int? quantityVal; // for dynamic pricing display
@@ -239,7 +252,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setStateDialog) => AlertDialog(
-            title: Text('Order Details (max ${farmer['quantity']} kg)'),
+            title: Text('Order Details (max ${currentFarmer['quantity']} kg)'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -269,9 +282,9 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
                   const SizedBox(height: 20),
                   _CostPreview(
                     quantity: quantityVal,
-                    unitPrice: (farmer['price'] ?? 0).toDouble(),
-                    distanceKm: (farmer['distance'] as num).toDouble(),
-                    ratePerKm: (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
+                    unitPrice: (currentFarmer['price'] ?? 0).toDouble(),
+                    distanceKm: (currentFarmer['distance'] as num).toDouble(),
+                    ratePerKm: (currentFarmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
                   ),
                 ],
               ),
@@ -292,7 +305,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
                     return;
                   }
 
-                  if (quantity > (farmer['quantity'] ?? 0)) {
+                  if (quantity > (currentFarmer['quantity'] ?? 0)) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                           content: Text('Requested quantity exceeds available stock')),
@@ -331,13 +344,13 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
 
                   if (schedule == true) {
                     await _createScheduledOrder(
-                      farmer,
+                      currentFarmer,
                       quantity,
                       location: location,
                     );
                   } else {
                     await _createTransaction(
-                      farmer,
+                      currentFarmer,
                       quantity,
                       location: location,
                     );
@@ -357,7 +370,13 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final now = Timestamp.now();
+    final nowDate = DateTime.now();
+    // Compute next nearest Sunday (always future Sunday, not today if today is Sunday)
+    int daysToAdd = DateTime.sunday - nowDate.weekday;
+    if (daysToAdd <= 0) daysToAdd += 7;
+    final deliveryDate = nowDate.add(Duration(days: daysToAdd));
+    final now = Timestamp.fromDate(nowDate);
+    final deliveryTs = Timestamp.fromDate(deliveryDate);
 
     // Fetch Customer Name
     final customerDoc = await FirebaseFirestore.instance
@@ -369,16 +388,47 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
   final customerPhone = customerDoc.data()?['phone'] ?? customerDoc.data()?['Phone'] ?? 'Not Provided';
   final customerLocation = customerDoc.data()?['location'] ?? 'Not specified';
 
+    // Always fetch the latest farmer doc to reflect updated delivery price per km changes
+    double latestRatePerKm = (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble();
+    try {
+      final latestFarmerDoc = await FirebaseFirestore.instance.collection('farmers').doc(farmer['farmerId']).get();
+      if (latestFarmerDoc.exists) {
+        final latestData = latestFarmerDoc.data();
+        if (latestData != null && latestData['deliveryPricePerKm'] != null) {
+          latestRatePerKm = (latestData['deliveryPricePerKm'] as num).toDouble();
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch latest farmer delivery price per km: $e');
+    }
+
+    // Delivery / pricing enrichment (same structure as scheduled orders for consistent UI)
+    final double unitPrice = (farmer['price'] as num).toDouble();
+    final double distanceKm = (farmer['distance'] as num?)?.toDouble() ?? 0.0;
+    final double ratePerKm = latestRatePerKm;
+    final double baseAmount = unitPrice * quantity;
+    final double deliveryCost = distanceKm > 0 ? distanceKm * ratePerKm : 0.0;
+    final double totalAmount = baseAmount + deliveryCost;
+
     final transaction = {
-  'Crop': widget.cropName, // store canonical code
+      'Crop': widget.cropName, // store canonical code
       'Quantity Sold (1kg)': quantity,
-      'Sale Price Per kg': farmer['price'],
+      'Sale Price Per kg': unitPrice,
       'Status': 'Pending',
       'Farmer ID': farmer['farmerId'],
       'Farmer Name': farmer['farmerName'],
       'Phone_NO': farmer['phone'] ?? 'Unknown',
       'Harvest Date': farmer['harvestDate'],
-      'Date': now,
+      'Date': deliveryTs, // expected delivery date is next Sunday
+      'orderPlacedAt': now, // used for sorting newest first
+      'seen_farmer': false, // notification flag for farmer
+      // Pricing breakdown fields
+      'deliveryDistanceKm': distanceKm,
+      'deliveryRatePerKm': ratePerKm,
+      'baseAmount': baseAmount,
+      'deliveryCost': deliveryCost,
+      'totalAmount': totalAmount,
+      'location': location,
     };
 
     // Transaction data for farmer (add customer info)
@@ -469,6 +519,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       'Customer Location': customerLocation,
       'scheduled': true,
       'location': location,
+      'seen_farmer': false,
       // Pricing breakdown same as immediate
       'deliveryDistanceKm': (farmer['distance'] as num).toDouble(),
   'deliveryRatePerKm': (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),

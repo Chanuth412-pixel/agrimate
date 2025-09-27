@@ -338,9 +338,9 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text(
-                        'View Delivery Route',
-                        style: TextStyle(
+                      child: Text(
+                        AppLocalizations.of(context)?.viewDeliveryRoute ?? 'View Delivery Route',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
@@ -940,87 +940,131 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   }
 
   Widget _buildOngoingTransactionsCard() {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const OngoingTransactionsScreen(),
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    return StreamBuilder<DocumentSnapshot>(
+      stream: uid == null
+          ? null
+          : FirebaseFirestore.instance
+              .collection('Ongoing_Trans_Farm')
+              .doc(uid)
+              .snapshots(),
+      builder: (context, snapshot) {
+        int unseen = 0;
+        if (snapshot.hasData && snapshot.data?.data() != null) {
+          final m = snapshot.data!.data() as Map<String, dynamic>;
+          if (m.containsKey('transactions')) {
+            final list = List<Map<String, dynamic>>.from(m['transactions']);
+            unseen = list
+                .where((t) => t['seen_farmer'] != true && t['archived_farmer'] != true)
+                .length;
+          }
+        }
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const OngoingTransactionsScreen(),
+              ),
+            );
+          },
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF02C697).withOpacity(0.2),
+                          const Color(0xFF02C697).withOpacity(0.1),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFF02C697).withOpacity(0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.receipt_long_rounded,
+                      color: Color(0xFF02C697),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppLocalizations.of(context)?.ongoingTransactions ?? 'Ongoing Transactions',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF2D3748),
+                                fontSize: 20,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          AppLocalizations.of(context)?.activeTransactionsSubtitle ?? 'View and manage your active transactions',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (unseen > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFff7043),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(.1),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        unseen > 99 ? '99+' : unseen.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  const Icon(
+                    Icons.arrow_forward_ios,
+                    color: Color(0xFF02C697),
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
           ),
         );
       },
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF02C697).withOpacity(0.2),
-                      const Color(0xFF02C697).withOpacity(0.1),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFF02C697).withOpacity(0.3),
-                    width: 1.5,
-                  ),
-                ),
-                child: const Icon(
-                  Icons.receipt_long_rounded,
-                  color: Color(0xFF02C697),
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      (AppLocalizations.of(context)?.ongoingTransactions ?? 'Ongoing Transactions'),
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF2D3748),
-                        fontSize: 20,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      (AppLocalizations.of(context)?.activeTransactionsSubtitle ?? 'View and manage your active transactions'),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.arrow_forward_ios,
-                color: Color(0xFF02C697),
-                size: 18,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -1161,8 +1205,9 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                     children: [
                                       Builder(
                                         builder: (context) {
-                                          final stage = _computeCurrentStage(item);
-                                          final stageColor = _getStageColor(stage);
+                                          final raw = _computeCurrentStage(item);
+                                          final localized = _localizeStage(context, raw);
+                                          final stageColor = _getStageColor(raw);
                                           return Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                             decoration: BoxDecoration(
@@ -1170,7 +1215,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                             child: Text(
-                                              stage,
+                                              localized,
                                               style: TextStyle(
                                                 color: stageColor,
                                                 fontWeight: FontWeight.w700,
@@ -1599,14 +1644,15 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     final quantity = double.tryParse(item['quantity'].toString()) ?? 0;
     final price = double.tryParse(item['price'].toString()) ?? 0;
     
+    final good = AppLocalizations.of(context)?.goodCondition ?? 'Good';
     if (price > 150 && quantity > 50) {
-      return 'Good';
+      return good;
     } else if (crop.contains('tomato') && price > 100) {
-      return 'Good';
+      return good;
     } else if (crop.contains('carrot') && price > 80) {
-      return 'Good';
+      return good;
     } else if (crop.contains('brinjal') && price > 90) {
-      return 'Good';
+      return good;
     } else {
       return AppLocalizations.of(context)?.badCondition ?? 'Bad';
     }
@@ -1673,7 +1719,8 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   }
 
   Color _getHarvestStatusColor(Map<String, dynamic> item) {
-    return _getHarvestStatus(item) == 'Good' ? Colors.green : Colors.red;
+    final localizedGood = AppLocalizations.of(context)?.goodCondition ?? 'Good';
+    return _getHarvestStatus(item) == localizedGood ? Colors.green : Colors.red;
   }
 
   String _getHarvestPrecautions(Map<String, dynamic> item) {
@@ -1897,6 +1944,30 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     }
   }
 
+  String _localizeStage(BuildContext context, String stage) {
+    final locale = Localizations.localeOf(context).languageCode;
+    if (locale != 'si') return stage;
+    switch (stage.toLowerCase()) {
+      case 'germination':
+        return 'පැළ වෙනවා';
+      case 'pod development':
+        return 'කරල් සංවර්ධනය';
+      case 'fruit set':
+      case 'fruit development':
+        return 'ඵල වර්ධනය (මුල් අවධිය)';
+      case 'maturity':
+        return 'සම්පූර්ණ සංවර්ධනය';
+      case 'seedling':
+        return 'පැළ අවධිය';
+      case 'vegetative':
+        return 'පත්‍ර සංවර්ධනය';
+      case 'flowering':
+        return 'පුෂ්පිතය';
+      default:
+        return stage;
+    }
+  }
+
   Future<void> _confirmDeleteHarvest(BuildContext context, int index, Map<String, dynamic> item) async {
     final crop = (item['crop']?.toString() ?? 'this harvest');
     final planting = (item['plantingDate']?.toString() ?? '');
@@ -2008,7 +2079,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        status == 'Good' ? Icons.check_circle : Icons.warning,
+                        status == (AppLocalizations.of(context)?.goodCondition ?? 'Good') ? Icons.check_circle : Icons.warning,
                         color: statusColor,
                         size: 24,
                       ),
@@ -2182,7 +2253,9 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    status == 'Good' ? 'Storage & Handling Tips' : 'Quality Improvement Tips',
+                                    status == (AppLocalizations.of(context)?.goodCondition ?? 'Good')
+                                        ? (AppLocalizations.of(context)?.storageAndHandlingTips ?? 'Storage & Handling Tips')
+                                        : (AppLocalizations.of(context)?.qualityImprovementTips ?? 'Quality Improvement Tips'),
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w700,

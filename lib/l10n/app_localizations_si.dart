@@ -72,13 +72,15 @@ class AppLocalizationsSi extends AppLocalizations {
   String get welcomeDriver => 'ආයුබෝවන් රියදුරු!';
 
   @override
-  String get goodMorning => 'සුබ උදෑසනක්';
+  String get goodMorning => 'සුභ උදෑසනක්';
 
   @override
-  String get goodAfternoon => 'සුබ දවල්';
+  String get goodAfternoon => 'සුභ දහවලක්';
 
   @override
-  String get goodEvening => 'සුබ සන්දැල්ලක්';
+  String get goodEvening => 'සුභ සන්ධ්‍යාවක්';
+  @override
+  String get viewDeliveryRoute => 'බෙදාහැරීමේ මාර්ගය බලන්න';
 
   @override
   @override
@@ -238,6 +240,15 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get badCondition => 'නරකයි';
+
+  @override
+  String get goodCondition => 'හොඳයි';
+
+  @override
+  String get storageAndHandlingTips => 'ගබඩා සහ കൈകാര്യം කිරීමේ උපදෙස්';
+
+  @override
+  String get qualityImprovementTips => 'ගුණාත්මක වර්ධන උපදෙස්';
 
   @override
   String get planYourHarvest => 'ඔබගේ අස්වැන්න සැලසුම් කරන්න';

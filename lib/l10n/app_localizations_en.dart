@@ -81,6 +81,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get goodEvening => 'Good Evening';
 
   @override
+  String get viewDeliveryRoute => 'View Delivery Route';
+
+  @override
   @override
   String get currentPricePerKg => 'Current';
 
@@ -238,6 +241,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get badCondition => 'Bad';
+
+  @override
+  String get goodCondition => 'Good';
+
+  @override
+  String get storageAndHandlingTips => 'Storage & Handling Tips';
+
+  @override
+  String get qualityImprovementTips => 'Quality Improvement Tips';
 
   @override
   String get planYourHarvest => 'Plan Your Harvest';
