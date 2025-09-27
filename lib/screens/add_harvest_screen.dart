@@ -102,6 +102,13 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> {
     super.dispose();
   }
 
+  // Week number helper (aligned with customer screen logic)
+  int _getWeekNumber(DateTime date) {
+    final beginningOfYear = DateTime(date.year, 1, 1);
+    final daysDifference = date.difference(beginningOfYear).inDays;
+    return ((daysDifference + beginningOfYear.weekday) / 7).ceil();
+  }
+
   void _onInputChanged() {
     // Check if any input has changed since last preview
     if (_hasPreviewed) {
@@ -616,7 +623,8 @@ Current Month Analysis: $advice
       double calculatedQty = await _calculateQuantityFromArea(crop, areaSqM);
       int deliveryRadiusValue = int.tryParse(_deliveryRadius.text) ?? 2;
 
-      final harvestData = {
+      // Build new harvest entry (available will be calculated below)
+      final Map<String, dynamic> harvestData = {
         'crop': _selectedCrop,
         'plantingDate': _planting.text,
         'harvestDate': _harvest.text,
@@ -629,16 +637,91 @@ Current Month Analysis: $advice
         },
         'precautions': _actualPrecautions,
         'farmerId': user.uid,
-        // No deliveryRadius field here
       };
 
-      // Add to Firestore
-      await FirebaseFirestore.instance
-          .collection('Harvests')
-          .doc(user.uid)
-          .set({
-            'harvests': FieldValue.arrayUnion([harvestData])
-          }, SetOptions(merge: true));
+      // Aggregate 'available' per crop and week: read-modify-write
+      final harvestRef = FirebaseFirestore.instance.collection('Harvests').doc(user.uid);
+      final harvestSnap = await harvestRef.get();
+      final List<dynamic> existing = List<dynamic>.from(harvestSnap.data()?["harvests"] ?? []);
+
+      // Compute week number for the new harvest
+      DateTime newHarvestDate;
+      try {
+        newHarvestDate = DateTime.parse(_harvest.text);
+      } catch (_) {
+        // If parsing fails, fallback to today to avoid crash
+        newHarvestDate = DateTime.now();
+      }
+      final int newWeek = _getWeekNumber(newHarvestDate);
+
+      // Sum quantities for same crop and same week among existing entries
+      int existingWeekSum = 0;
+      for (final e in existing) {
+        try {
+          if (e is! Map) continue;
+          if (e['crop'] != _selectedCrop) continue;
+          final dynamic rawDate = e['harvestDate'];
+          DateTime d;
+          if (rawDate is Timestamp) {
+            d = rawDate.toDate();
+          } else if (rawDate is String) {
+            d = DateTime.parse(rawDate);
+          } else {
+            continue;
+          }
+          if (_getWeekNumber(d) == newWeek) {
+            final int q = (e['quantity'] ?? 0) is int
+                ? (e['quantity'] ?? 0) as int
+                : ((e['quantity'] ?? 0) as num).round();
+            existingWeekSum += q;
+          }
+        } catch (_) {
+          // ignore malformed entries
+        }
+      }
+
+      final int newQty = calculatedQty.round();
+      final int newAvailable = existingWeekSum + newQty;
+      harvestData['available'] = newAvailable;
+
+      // Update 'available' for existing entries in the same crop/week group
+      final List<dynamic> updated = [];
+      for (final e in existing) {
+        if (e is! Map) {
+          updated.add(e);
+          continue;
+        }
+        try {
+          if (e['crop'] == _selectedCrop) {
+            final dynamic rawDate = e['harvestDate'];
+            DateTime d;
+            if (rawDate is Timestamp) {
+              d = rawDate.toDate();
+            } else if (rawDate is String) {
+              d = DateTime.parse(rawDate);
+            } else {
+              updated.add(e);
+              continue;
+            }
+            if (_getWeekNumber(d) == newWeek) {
+              // Clone map to avoid modifying Firestore cached map directly
+              final Map<String, dynamic> clone = Map<String, dynamic>.from(e);
+              clone['available'] = newAvailable;
+              updated.add(clone);
+              continue;
+            }
+          }
+          updated.add(e);
+        } catch (_) {
+          updated.add(e);
+        }
+      }
+
+      // Append the new entry
+      updated.add(harvestData);
+
+      // Write back full array
+      await harvestRef.set({'harvests': updated}, SetOptions(merge: true));
 
       // Update proximity in farmer profile if changed
       await FirebaseFirestore.instance

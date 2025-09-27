@@ -1,8 +1,9 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:ui';
 import '../constants/app_constants.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/currency_util.dart';
@@ -40,21 +41,36 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
     }
   }
 
+  /// -------------------------------------------------------------------------
+  /// FETCHING LOGIC (Merged: batched farmer query + rating caching)
+  /// -------------------------------------------------------------------------
   Future<void> _fetchMatchingFarmers() async {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) {
+        debugPrint('[FarmerFetch] User not authenticated');
         setState(() => _loading = false);
         return;
       }
 
+      debugPrint('[FarmerFetch] User ID: $uid');
       final customerDoc =
           await FirebaseFirestore.instance.collection('customers').doc(uid).get();
 
-      if (!customerDoc.exists ||
-          !customerDoc.data()!.containsKey('lastLoginLocation') ||
-          !customerDoc.data()!.containsKey('lastLoginAt')) {
+      if (!customerDoc.exists) {
+        debugPrint('[FarmerFetch] Customer document does not exist');
         setState(() => _loading = false);
+        return;
+      }
+
+      final customerData = customerDoc.data()!;
+      debugPrint('[FarmerFetch] Customer data: $customerData');
+
+      if (!customerData.containsKey('lastLoginLocation') ||
+          !customerData.containsKey('lastLoginAt')) {
+        debugPrint('[FarmerFetch] Missing location or login time data');
+        // Try to use current location as fallback
+        await _useCurrentLocationFallback(uid);
         return;
       }
 
@@ -63,14 +79,20 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       final int customerWeek = _getWeekNumber(loginAt);
       final String selectedCrop = widget.cropName;
 
+      debugPrint('[FarmerFetch] Customer position: (${customerPos.latitude}, ${customerPos.longitude})');
+      debugPrint('[FarmerFetch] Customer week: $customerWeek');
+      debugPrint('[FarmerFetch] Selected crop: $selectedCrop');
+
       // Load all harvests once
       final harvestsSnapshot =
           await FirebaseFirestore.instance.collection('Harvests').get();
 
+      debugPrint('[FarmerFetch] Found ${harvestsSnapshot.docs.length} harvest documents');
+
       // Step 1: find candidate farmer IDs based on crop + week
       final Set<String> candidateFarmerIds = {};
       for (var harvestDoc in harvestsSnapshot.docs) {
-        final List<dynamic> farmerHarvests = List.from(harvestDoc['harvests']);
+        final List<dynamic> farmerHarvests = List.from(harvestDoc['harvests'] ?? []);
         for (final entry in farmerHarvests) {
           if (entry['crop'] != selectedCrop) continue;
 
@@ -95,7 +117,11 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
         }
       }
 
+      debugPrint('[FarmerFetch] Found ${candidateFarmerIds.length} candidate farmers: $candidateFarmerIds');
+      
       if (candidateFarmerIds.isEmpty) {
+        debugPrint('[FarmerFetch] No candidate farmers found - checking specific filtering conditions...');
+        await _debugFilteringConditions(harvestsSnapshot.docs, selectedCrop, customerWeek);
         setState(() {
           _matchingFarmers = [];
           _loading = false;
@@ -106,25 +132,36 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       // Step 2: fetch farmer data in batches (max 10 per whereIn)
       final Map<String, Map<String, dynamic>> farmersById = {};
       final ids = candidateFarmerIds.toList();
+      debugPrint('[FarmerFetch] Fetching farmer data for ${ids.length} candidates');
+      
       for (int i = 0; i < ids.length; i += 10) {
         final batchIds = ids.sublist(i, i + 10 > ids.length ? ids.length : i + 10);
+        debugPrint('[FarmerFetch] Batch ${i ~/ 10 + 1}: $batchIds');
+        
         final farmersSnapshot = await FirebaseFirestore.instance
             .collection('farmers')
             .where(FieldPath.documentId, whereIn: batchIds)
             .get();
 
+        debugPrint('[FarmerFetch] Found ${farmersSnapshot.docs.length} farmers in this batch');
+
         for (final d in farmersSnapshot.docs) {
           final data = d.data();
+          debugPrint('[FarmerFetch] Farmer ${d.id}: $data');
+          
           farmersById[d.id] = {
             'name': data['name'],
             'phone': data['phone'],
             'position': data['position'],
             'proximity': data['proximity'] ?? 10,
+            'deliveryPricePerKm': data['deliveryPricePerKm'],
           };
         }
       }
+      
+      debugPrint('[FarmerFetch] Total farmers loaded: ${farmersById.length}');
 
-      // Step 3: collect final results with distance + rating check
+      // Step 3: collect final results with distance + rating cache
       final List<Map<String, dynamic>> results = [];
       final Set<String> addedFarmerIds = {};
 
@@ -133,66 +170,82 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
         if (!candidateFarmerIds.contains(farmerId)) continue;
 
         final farmerData = farmersById[farmerId];
-        if (farmerData == null || !farmerData.containsKey('position')) continue;
+        if (farmerData == null) {
+          debugPrint('[FarmerFetch] ❌ No farmer data found for $farmerId');
+          continue;
+        }
+        if (!farmerData.containsKey('position')) {
+          debugPrint('[FarmerFetch] ❌ Farmer $farmerId missing position data');
+          continue;
+        }
 
-        final List<dynamic> farmerHarvests = List.from(harvestDoc['harvests']);
-        for (final entry in farmerHarvests) {
+        final List<dynamic> farmerHarvests = List.from(harvestDoc['harvests'] ?? []);
+
+        // Find the last entry matching the selected crop and customer week
+        Map<String, dynamic>? lastMatchEntry;
+        for (int i = 0; i < farmerHarvests.length; i++) {
+          final entry = farmerHarvests[i];
           if (entry['crop'] != selectedCrop) continue;
-
-          // Parse harvest date
-          late DateTime harvestDate;
           try {
             final raw = entry['harvestDate'];
-            if (raw is Timestamp) {
-              harvestDate = raw.toDate();
-            } else if (raw is String) {
-              harvestDate = DateTime.parse(raw);
-            } else {
-              continue;
+            final DateTime hd = raw is Timestamp
+                ? raw.toDate()
+                : raw is String
+                    ? DateTime.parse(raw)
+                    : raw is DateTime
+                        ? raw
+                        : (() => DateTime.now())();
+            if (_getWeekNumber(hd) == customerWeek) {
+              lastMatchEntry = Map<String, dynamic>.from(entry as Map);
             }
           } catch (_) {
             continue;
           }
+        }
 
-          if (_getWeekNumber(harvestDate) != customerWeek) continue;
+        if (lastMatchEntry == null) continue; // no matching entry for crop+week
+        if (addedFarmerIds.contains(farmerId)) continue;
 
-          if (addedFarmerIds.contains(farmerId)) break;
+        final GeoPoint farmerPos = farmerData['position'];
+        final double proximityKm = (farmerData['proximity'] ?? 10).toDouble();
+        final double distanceKm = Geolocator.distanceBetween(
+              customerPos.latitude,
+              customerPos.longitude,
+              farmerPos.latitude,
+              farmerPos.longitude,
+            ) /
+            1000.0;
 
-          final GeoPoint farmerPos = farmerData['position'];
-          final double proximityKm = (farmerData['proximity'] ?? 10).toDouble();
+        debugPrint('[FarmerFetch] Farmer $farmerId distance: ${distanceKm.toStringAsFixed(2)}km, max: ${proximityKm}km');
 
-          final double distanceKm = Geolocator.distanceBetween(
-                customerPos.latitude,
-                customerPos.longitude,
-                farmerPos.latitude,
-                farmerPos.longitude,
-              ) /
-              1000.0;
+        if (distanceKm <= proximityKm) {
+          debugPrint('[FarmerFetch] ✅ Farmer $farmerId within range');
+          double avgRating = await _fetchFarmerRating(farmerId) ?? 0.0;
 
-          if (distanceKm <= proximityKm) {
-            // Fetch average rating
-            double avgRating = await _fetchFarmerRating(farmerId) ?? 0.0;
-
-            results.add({
-              'farmerId': farmerId,
-              'farmerName': farmerData['name'] ?? 'Unknown',
-              'price': entry['expectedPrice'] ?? entry['price'] ?? 0,
-              'distance': distanceKm,
-              'quantity': entry['available'] ?? entry['quantity'],
-              'phone': farmerData['phone'] ?? 'Unknown',
-              'harvestDate': entry['harvestDate'],
-              'deliveryPricePerKm': (farmerData['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm),
-              'avgRating': avgRating, // store rating for sorting
-              '_originalEntry': entry,
-            });
-            addedFarmerIds.add(farmerId);
-            break;
-          }
+          results.add({
+            'farmerId': farmerId,
+            'farmerName': farmerData['name'] ?? 'Unknown',
+            'price': lastMatchEntry['expectedPrice'] ?? lastMatchEntry['price'] ?? 0,
+            'distance': distanceKm,
+            'quantity': lastMatchEntry['available'] ?? lastMatchEntry['quantity'],
+            'phone': farmerData['phone'] ?? 'Unknown',
+            'harvestDate': lastMatchEntry['harvestDate'],
+            'deliveryPricePerKm': (farmerData['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm),
+            'avgRating': avgRating,
+            '_originalEntry': lastMatchEntry,
+          });
+          addedFarmerIds.add(farmerId);
         }
       }
 
       // Step 4: sort results by rating (descending)
       results.sort((a, b) => (b['avgRating'] as double).compareTo(a['avgRating'] as double));
+
+      debugPrint('[FarmerFetch] Final results: ${results.length} farmers found');
+      for (int i = 0; i < results.length; i++) {
+        final farmer = results[i];
+        debugPrint('[FarmerFetch] Result ${i + 1}: ${farmer['farmerName']} (${farmer['distance'].toStringAsFixed(1)}km, ${farmer['quantity']}kg, rating: ${farmer['avgRating']})');
+      }
 
       setState(() {
         _matchingFarmers = results;
@@ -204,26 +257,33 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
     }
   }
 
+  /// -------------------------------------------------------------------------
+  /// Helpers & UI logic from Code 1 (preserved)
+  /// -------------------------------------------------------------------------
   int _getWeekNumber(DateTime date) {
     final beginningOfYear = DateTime(date.year, 1, 1);
     final daysDifference = date.difference(beginningOfYear).inDays;
     return ((daysDifference + beginningOfYear.weekday) / 7).ceil();
   }
 
-  Future<void> _showQuantityDialog(Map<String, dynamic> farmer) async {
-    // Always pull the most recent delivery price per km before showing dialog
-    var currentFarmer = Map<String, dynamic>.from(farmer);
-    try {
-      final doc = await FirebaseFirestore.instance.collection('farmers').doc(farmer['farmerId']).get();
-      if (doc.exists) {
-        final data = doc.data();
-        if (data != null && data['deliveryPricePerKm'] != null) {
-          currentFarmer['deliveryPricePerKm'] = data['deliveryPricePerKm'];
-        }
-      }
-    } catch (e) {
-      debugPrint('Failed to refresh deliveryPricePerKm: $e');
+  Future<double?> _fetchFarmerRating(String farmerId) async {
+    final doc = await FirebaseFirestore.instance
+        .collection('FarmerReviews')
+        .doc(farmerId)
+        .get();
+    if (!doc.exists || doc.data() == null || !doc.data()!.containsKey('ratings')) {
+      return null;
     }
+    final List<dynamic> ratings = doc['ratings'] ?? [];
+    if (ratings.isEmpty) return null;
+    double avg = ratings
+            .map((r) => (r['rating'] ?? 0).toDouble())
+            .fold<double>(0.0, (a, b) => a + b) /
+        ratings.length;
+    return avg;
+  }
+
+  Future<void> _showQuantityDialog(Map<String, dynamic> farmer) async {
     final TextEditingController quantityController = TextEditingController();
     final TextEditingController locationController = TextEditingController();
     int? quantityVal; // for dynamic pricing display
@@ -252,7 +312,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setStateDialog) => AlertDialog(
-            title: Text('Order Details (max ${currentFarmer['quantity']} kg)'),
+            title: Text('Order Details (max ${farmer['quantity']} kg)'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -282,9 +342,9 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
                   const SizedBox(height: 20),
                   _CostPreview(
                     quantity: quantityVal,
-                    unitPrice: (currentFarmer['price'] ?? 0).toDouble(),
-                    distanceKm: (currentFarmer['distance'] as num).toDouble(),
-                    ratePerKm: (currentFarmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
+                    unitPrice: (farmer['price'] ?? 0).toDouble(),
+                    distanceKm: (farmer['distance'] as num).toDouble(),
+                    ratePerKm: (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
                   ),
                 ],
               ),
@@ -305,7 +365,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
                     return;
                   }
 
-                  if (quantity > (currentFarmer['quantity'] ?? 0)) {
+                  if (quantity > (farmer['quantity'] ?? 0)) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                           content: Text('Requested quantity exceeds available stock')),
@@ -344,13 +404,13 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
 
                   if (schedule == true) {
                     await _createScheduledOrder(
-                      currentFarmer,
+                      farmer,
                       quantity,
                       location: location,
                     );
                   } else {
                     await _createTransaction(
-                      currentFarmer,
+                      farmer,
                       quantity,
                       location: location,
                     );
@@ -370,13 +430,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final nowDate = DateTime.now();
-    // Compute next nearest Sunday (always future Sunday, not today if today is Sunday)
-    int daysToAdd = DateTime.sunday - nowDate.weekday;
-    if (daysToAdd <= 0) daysToAdd += 7;
-    final deliveryDate = nowDate.add(Duration(days: daysToAdd));
-    final now = Timestamp.fromDate(nowDate);
-    final deliveryTs = Timestamp.fromDate(deliveryDate);
+    final now = Timestamp.now();
 
     // Fetch Customer Name
     final customerDoc = await FirebaseFirestore.instance
@@ -384,51 +438,20 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
         .doc(user.uid)
         .get();
 
-  final customerName = customerDoc.data()?['Name'] ?? customerDoc.data()?['name'] ?? 'Unknown';
-  final customerPhone = customerDoc.data()?['phone'] ?? customerDoc.data()?['Phone'] ?? 'Not Provided';
-  final customerLocation = customerDoc.data()?['location'] ?? 'Not specified';
-
-    // Always fetch the latest farmer doc to reflect updated delivery price per km changes
-    double latestRatePerKm = (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble();
-    try {
-      final latestFarmerDoc = await FirebaseFirestore.instance.collection('farmers').doc(farmer['farmerId']).get();
-      if (latestFarmerDoc.exists) {
-        final latestData = latestFarmerDoc.data();
-        if (latestData != null && latestData['deliveryPricePerKm'] != null) {
-          latestRatePerKm = (latestData['deliveryPricePerKm'] as num).toDouble();
-        }
-      }
-    } catch (e) {
-      debugPrint('Failed to fetch latest farmer delivery price per km: $e');
-    }
-
-    // Delivery / pricing enrichment (same structure as scheduled orders for consistent UI)
-    final double unitPrice = (farmer['price'] as num).toDouble();
-    final double distanceKm = (farmer['distance'] as num?)?.toDouble() ?? 0.0;
-    final double ratePerKm = latestRatePerKm;
-    final double baseAmount = unitPrice * quantity;
-    final double deliveryCost = distanceKm > 0 ? distanceKm * ratePerKm : 0.0;
-    final double totalAmount = baseAmount + deliveryCost;
+    final customerName = customerDoc.data()?['Name'] ?? customerDoc.data()?['name'] ?? 'Unknown';
+    final customerPhone = customerDoc.data()?['phone'] ?? customerDoc.data()?['Phone'] ?? 'Not Provided';
+    final customerLocation = customerDoc.data()?['location'] ?? 'Not specified';
 
     final transaction = {
       'Crop': widget.cropName, // store canonical code
       'Quantity Sold (1kg)': quantity,
-      'Sale Price Per kg': unitPrice,
+      'Sale Price Per kg': farmer['price'],
       'Status': 'Pending',
       'Farmer ID': farmer['farmerId'],
       'Farmer Name': farmer['farmerName'],
       'Phone_NO': farmer['phone'] ?? 'Unknown',
       'Harvest Date': farmer['harvestDate'],
-      'Date': deliveryTs, // expected delivery date is next Sunday
-      'orderPlacedAt': now, // used for sorting newest first
-      'seen_farmer': false, // notification flag for farmer
-      // Pricing breakdown fields
-      'deliveryDistanceKm': distanceKm,
-      'deliveryRatePerKm': ratePerKm,
-      'baseAmount': baseAmount,
-      'deliveryCost': deliveryCost,
-      'totalAmount': totalAmount,
-      'location': location,
+      'Date': now,
     };
 
     // Transaction data for farmer (add customer info)
@@ -458,9 +481,9 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       }, SetOptions(merge: true));
 
       // Update Harvest quantity
-  await _decrementHarvestQuantity(
-    farmerId: farmer['farmerId'],
-  crop: widget.cropName,
+      await _decrementHarvestQuantity(
+        farmerId: farmer['farmerId'],
+        crop: widget.cropName,
         price: farmer['price'],
         originalQuantity: farmer['quantity'],
         harvestDate: farmer['harvestDate'],
@@ -486,8 +509,8 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
     if (user == null) return;
 
     final DateTime nowDate = DateTime.now();
-  int daysToAdd = DateTime.sunday - nowDate.weekday;
-  if (daysToAdd <= 0) daysToAdd += 7; // always pick a future Sunday
+    int daysToAdd = DateTime.sunday - nowDate.weekday;
+    if (daysToAdd <= 0) daysToAdd += 7; // always pick a future Sunday
     final DateTime deliveryDate = nowDate.add(Duration(days: daysToAdd));
     final Timestamp now = Timestamp.fromDate(nowDate);
     final Timestamp deliveryTs = Timestamp.fromDate(deliveryDate);
@@ -496,12 +519,12 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
         .collection('customers')
         .doc(user.uid)
         .get();
-  final customerName = customerDoc.data()?['Name'] ?? customerDoc.data()?['name'] ?? 'Unknown';
-  final customerPhone = customerDoc.data()?['phone'] ?? customerDoc.data()?['Phone'] ?? 'Not Provided';
-  final customerLocation = customerDoc.data()?['location'] ?? 'Not specified';
+    final customerName = customerDoc.data()?['Name'] ?? customerDoc.data()?['name'] ?? 'Unknown';
+    final customerPhone = customerDoc.data()?['phone'] ?? customerDoc.data()?['Phone'] ?? 'Not Provided';
+    final customerLocation = customerDoc.data()?['location'] ?? 'Not specified';
 
     final scheduledOrder = {
-  'Crop': widget.cropName,
+      'Crop': widget.cropName,
       'Quantity Sold (1kg)': quantity,
       'Sale Price Per kg': farmer['price'],
       'Status': 'Pending',
@@ -519,13 +542,12 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       'Customer Location': customerLocation,
       'scheduled': true,
       'location': location,
-      'seen_farmer': false,
       // Pricing breakdown same as immediate
       'deliveryDistanceKm': (farmer['distance'] as num).toDouble(),
-  'deliveryRatePerKm': (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
+      'deliveryRatePerKm': (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
       'baseAmount': quantity * (farmer['price'] as num).toDouble(),
-  'deliveryCost': (farmer['distance'] as num).toDouble() * (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
-  'totalAmount': quantity * (farmer['price'] as num).toDouble() + (farmer['distance'] as num).toDouble() * (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
+      'deliveryCost': (farmer['distance'] as num).toDouble() * (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
+      'totalAmount': quantity * (farmer['price'] as num).toDouble() + (farmer['distance'] as num).toDouble() * (farmer['deliveryPricePerKm'] ?? AppConstants.defaultDeliveryPricePerKm).toDouble(),
     };
 
     try {
@@ -545,9 +567,9 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       }, SetOptions(merge: true));
 
       // Reserve (subtract) quantity immediately for scheduled orders too
-  await _decrementHarvestQuantity(
-    farmerId: farmer['farmerId'],
-  crop: widget.cropName,
+      await _decrementHarvestQuantity(
+        farmerId: farmer['farmerId'],
+        crop: widget.cropName,
         price: farmer['price'],
         originalQuantity: farmer['quantity'],
         harvestDate: farmer['harvestDate'],
@@ -575,88 +597,192 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
     required dynamic harvestDate,
     required int decrementBy,
   }) async {
-    final harvestDocRef =
-        FirebaseFirestore.instance.collection('Harvests').doc(farmerId);
+    final harvestDocRef = FirebaseFirestore.instance.collection('Harvests').doc(farmerId);
 
-    final harvestDoc = await harvestDocRef.get();
-    if (!harvestDoc.exists) return;
+    // Use a transaction to avoid race conditions when multiple orders happen concurrently
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final harvestDoc = await transaction.get(harvestDocRef);
+      if (!harvestDoc.exists) {
+        debugPrint('[Harvest Decrement] Harvest doc not found for $farmerId');
+        return;
+      }
 
-    List<dynamic> harvests = List.from(harvestDoc.data()!['harvests']);
+      List<dynamic> harvests = List.from(harvestDoc.data()?['harvests'] ?? []);
 
-    bool updated = false;
-    for (int i = 0; i < harvests.length; i++) {
-      final entry = harvests[i];
-
-      final bool cropMatch = entry['crop'] == crop;
-      final bool priceMatch = entry['expectedPrice'] == price;
-
-      bool dateMatch = false;
+      // Determine target week from the provided harvestDate
+      DateTime? targetDate;
       try {
-        if (entry['harvestDate'] is Timestamp && harvestDate is Timestamp) {
-          dateMatch = (entry['harvestDate'] as Timestamp)
-              .toDate()
-              .isAtSameMomentAs((harvestDate as Timestamp).toDate());
-        } else if (entry['harvestDate'] is String && harvestDate is String) {
-          dateMatch = DateTime.parse(entry['harvestDate']) == DateTime.parse(harvestDate);
+        if (harvestDate is Timestamp) {
+          targetDate = harvestDate.toDate();
+        } else if (harvestDate is String) {
+          targetDate = DateTime.parse(harvestDate);
+        } else if (harvestDate is DateTime) {
+          targetDate = harvestDate;
         } else {
-          final DateTime left = entry['harvestDate'] is Timestamp
-              ? (entry['harvestDate'] as Timestamp).toDate()
-              : DateTime.parse(entry['harvestDate'].toString());
-          final DateTime right = harvestDate is Timestamp
-              ? (harvestDate as Timestamp).toDate()
-              : DateTime.parse(harvestDate.toString());
-          dateMatch = left == right;
+          targetDate = null;
         }
-      } catch (_) {
-        dateMatch = false;
+      } catch (e) {
+        debugPrint('[Harvest Decrement] Failed to parse harvestDate: $e');
+        targetDate = null;
       }
 
-      if (cropMatch && priceMatch && dateMatch) {
-        final int currentAvailable = (entry['available'] ?? entry['quantity'] ?? 0) as int;
-        int newAvailable = currentAvailable - decrementBy;
-        if (newAvailable < 0) newAvailable = 0;
-        harvests[i]['available'] = newAvailable;
-        updated = true;
-        break;
-      }
-    }
+      int? targetWeek = targetDate != null ? _getWeekNumber(targetDate) : null;
 
-    // Fallback pass: if not updated (maybe price changed type), attempt loose crop/date match only
-    if (!updated) {
+  // Collect indices for the crop+week group
+  final List<int> groupIndices = [];
+  int? groupAvailable; // aggregated available for the group based on last entry
+  int sumQuantityIfNoAvailable = 0;
+
       for (int i = 0; i < harvests.length; i++) {
         final entry = harvests[i];
         if (entry['crop'] != crop) continue;
-        int currentAvailable = (entry['available'] ?? entry['quantity'] ?? 0) as int;
-        int newAvailable = currentAvailable - decrementBy;
-        if (newAvailable < 0) newAvailable = 0;
-        harvests[i]['available'] = newAvailable;
-        updated = true;
-        break;
+
+        // Determine entry week
+        int? entryWeek;
+        try {
+          final raw = entry['harvestDate'];
+          if (raw is Timestamp) {
+            entryWeek = _getWeekNumber(raw.toDate());
+          } else if (raw is String) {
+            entryWeek = _getWeekNumber(DateTime.parse(raw));
+          } else if (raw is DateTime) {
+            entryWeek = _getWeekNumber(raw);
+          }
+        } catch (_) {
+          entryWeek = null;
+        }
+
+        // If we couldn't parse targetWeek, fall back to exact harvestDate equality check
+        final bool sameGroup = targetWeek != null
+            ? (entryWeek == targetWeek)
+            : (() {
+                try {
+                  final left = entry['harvestDate'] is Timestamp
+                      ? (entry['harvestDate'] as Timestamp).toDate()
+                      : DateTime.parse(entry['harvestDate'].toString());
+          final right = harvestDate is Timestamp
+            ? harvestDate.toDate()
+                      : DateTime.parse(harvestDate.toString());
+                  return left == right;
+                } catch (_) {
+                  return false;
+                }
+              })();
+
+        if (!sameGroup) continue;
+
+  groupIndices.add(i);
+
+        // We want to base from the last added entry's available when present
+        final val = entry['available'];
+        if (val is num) {
+          groupAvailable = val.toInt();
+        }
+
+        // For backfill scenarios where available isn't set at all, we prepare a sum
+        final q = entry['quantity'];
+        if (q is num) sumQuantityIfNoAvailable += q.toInt();
       }
-    }
 
-    if (!updated) {
-      debugPrint('[Harvest Decrement] No matching harvest entry found for farmer=$farmerId crop=$crop');
-    }
+      if (groupIndices.isEmpty) {
+        debugPrint('[Harvest Decrement] No matching crop+week group found for farmer=$farmerId crop=$crop');
+        return;
+      }
 
-    await harvestDocRef.update({'harvests': harvests});
+  // If no 'available' seen across the group, assume sum of quantities (legacy)
+  final int currentGroupAvailable = (groupAvailable ?? sumQuantityIfNoAvailable);
+      int newAvailable = currentGroupAvailable - decrementBy;
+      if (newAvailable < 0) newAvailable = 0;
+
+      // Update the aggregated available across all entries in the group
+      for (final idx in groupIndices) {
+        final mutable = Map<String, dynamic>.from(harvests[idx] as Map);
+        mutable['available'] = newAvailable;
+        harvests[idx] = mutable;
+      }
+
+      transaction.update(harvestDocRef, {'harvests': harvests});
+    });
   }
 
-  Future<double?> _fetchFarmerRating(String farmerId) async {
-    final doc = await FirebaseFirestore.instance
-        .collection('FarmerReviews')
-        .doc(farmerId)
-        .get();
-    if (!doc.exists || doc.data() == null || !doc.data()!.containsKey('ratings')) {
-      return null;
+  /// Helper method to use current location if login location is not available
+  Future<void> _useCurrentLocationFallback(String uid) async {
+    try {
+      debugPrint('[FarmerFetch] Attempting to get current location as fallback');
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      
+      // Update customer document with current location
+      await FirebaseFirestore.instance.collection('customers').doc(uid).update({
+        'lastLoginLocation': GeoPoint(position.latitude, position.longitude),
+        'lastLoginAt': FieldValue.serverTimestamp(),
+      });
+      
+      debugPrint('[FarmerFetch] Updated customer location, retrying fetch...');
+      // Retry fetching farmers
+      _fetchMatchingFarmers();
+    } catch (e) {
+      debugPrint('[FarmerFetch] Failed to get current location: $e');
+      setState(() => _loading = false);
     }
-    final List<dynamic> ratings = doc['ratings'] ?? [];
-    if (ratings.isEmpty) return null;
-    double avg = ratings
-            .map((r) => (r['rating'] ?? 0).toDouble())
-            .fold<double>(0.0, (a, b) => a + b) /
-        ratings.length;
-    return avg;
+  }
+
+  /// Debug method to understand why filtering conditions fail
+  Future<void> _debugFilteringConditions(
+      List<QueryDocumentSnapshot> harvestDocs, String selectedCrop, int customerWeek) async {
+    debugPrint('[FarmerFetch] === DEBUGGING FILTERING CONDITIONS ===');
+    debugPrint('[FarmerFetch] Looking for crop: $selectedCrop, week: $customerWeek');
+    
+    int totalHarvests = 0;
+    int cropMatches = 0;
+    int weekMatches = 0;
+    
+    for (var harvestDoc in harvestDocs) {
+      debugPrint('[FarmerFetch] Checking farmer ${harvestDoc.id}');
+      final List<dynamic> farmerHarvests = List.from(harvestDoc['harvests'] ?? []);
+      debugPrint('[FarmerFetch] Farmer has ${farmerHarvests.length} harvests');
+      
+      for (final entry in farmerHarvests) {
+        totalHarvests++;
+        debugPrint('[FarmerFetch] Harvest entry: ${entry}');
+        
+        final entryCrop = entry['crop'];
+        final bool cropMatch = entryCrop == selectedCrop;
+        if (cropMatch) cropMatches++;
+        
+        debugPrint('[FarmerFetch] Crop match ($entryCrop == $selectedCrop): $cropMatch');
+        
+        if (cropMatch) {
+          try {
+            late DateTime harvestDate;
+            final raw = entry['harvestDate'];
+            if (raw is Timestamp) {
+              harvestDate = raw.toDate();
+            } else if (raw is String) {
+              harvestDate = DateTime.parse(raw);
+            } else {
+              debugPrint('[FarmerFetch] Unknown date format: ${raw.runtimeType}');
+              continue;
+            }
+            
+            final harvestWeek = _getWeekNumber(harvestDate);
+            final bool weekMatch = harvestWeek == customerWeek;
+            if (weekMatch) weekMatches++;
+            
+            debugPrint('[FarmerFetch] Week match ($harvestWeek == $customerWeek): $weekMatch');
+            
+          } catch (e) {
+            debugPrint('[FarmerFetch] Error parsing date: $e');
+          }
+        }
+      }
+    }
+    
+    debugPrint('[FarmerFetch] === SUMMARY ===');
+    debugPrint('[FarmerFetch] Total harvests checked: $totalHarvests');
+    debugPrint('[FarmerFetch] Crop matches: $cropMatches');
+    debugPrint('[FarmerFetch] Week matches: $weekMatches');
   }
 
   @override
@@ -708,7 +834,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
                           final farmer = _matchingFarmers[index];
                           return _GlassFarmerCard(
                             farmer: farmer,
-                            fetchRating: () => _fetchFarmerRating(farmer['farmerId']),
+                            fetchRating: () async => farmer['avgRating'] as double?,
                             onTap: () => _showQuantityDialog(farmer),
                           );
                         },
@@ -720,7 +846,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
   }
 }
 
-// ---------- Glass Components & Helpers ----------
+// ---------- Glass Components & Helpers (from Code 1) ----------
 
 class _GlassFarmerCard extends StatelessWidget {
   final Map<String, dynamic> farmer;
@@ -902,11 +1028,11 @@ Widget _buildEmptyState() {
       children: [
         Container(
           padding: const EdgeInsets.all(26),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withOpacity(.18),
-              border: Border.all(color: Colors.white.withOpacity(.35)),
-            ),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withOpacity(.18),
+            border: Border.all(color: Colors.white.withOpacity(.35)),
+          ),
           child: const Icon(Icons.nature_outlined, size: 46, color: Colors.white),
         ),
         const SizedBox(height: 24),

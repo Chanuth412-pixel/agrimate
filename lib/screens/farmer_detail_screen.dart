@@ -1301,66 +1301,197 @@ class _DeliveryPriceSectionState extends State<_DeliveryPriceSection> {
 
 // Top-level function for showing change location dialog
 Future<void> showChangeLocationDialog(BuildContext context, String farmerId) async {
-    final TextEditingController locationController = TextEditingController();
-    final loc = AppLocalizations.of(context)!;
+  // Read current position to center the map
+  final doc = await FirebaseFirestore.instance.collection('farmers').doc(farmerId).get();
+  final data = doc.data();
+  GeoPoint? currentGeo = data != null && data['position'] is GeoPoint ? data['position'] as GeoPoint : null;
+  double lat = currentGeo?.latitude ?? 7.8731;
+  double lng = currentGeo?.longitude ?? 80.7718;
+  LatLng selected = LatLng(lat, lng);
 
-    // Get current location
-    try {
-      final doc = await FirebaseFirestore.instance.collection('farmers').doc(farmerId).get();
-      final currentLocation = doc.data()?['location'] ?? '';
-      locationController.text = currentLocation;
-    } catch (e) {
-      // Handle error silently or show a message
+  await showDialog(
+    context: context,
+    builder: (ctx) {
+      LatLng tempSelected = selected;
+      bool saving = false;
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            child: Container(
+              width: 420,
+              height: 520,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20)],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F5DC),
+                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+                      border: Border(bottom: BorderSide(color: const Color(0xFF8FBC8F).withOpacity(0.3))),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.map, color: Color(0xFF556B2F)),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text('Change Location', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF556B2F))),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Color(0xFF556B2F)),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Map area
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: FlutterMap(
+                        options: MapOptions(
+                          initialCenter: tempSelected,
+                          initialZoom: 8,
+                          onTap: (tapPos, point) {
+                            setState(() {
+                              tempSelected = point;
+                            });
+                          },
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'agrimate-app',
+                          ),
+                          MarkerLayer(markers: [
+                            Marker(
+                              point: tempSelected,
+                              width: 40,
+                              height: 40,
+                              child: const Icon(Icons.location_pin, color: Color(0xFFe63946), size: 40),
+                            ),
+                          ]),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Coordinates display
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.my_location, size: 16, color: Color(0xFF556B2F)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Lat: ${tempSelected.latitude.toStringAsFixed(5)}, Lng: ${tempSelected.longitude.toStringAsFixed(5)}',
+                            style: TextStyle(color: const Color(0xFF556B2F).withOpacity(0.8), fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Actions
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: saving ? null : () => Navigator.of(context).pop(),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: const Color(0xFF8FBC8F).withOpacity(0.6)),
+                            ),
+                            child: const Text('Cancel', style: TextStyle(color: Color(0xFF556B2F))),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: saving
+                                ? null
+                                : () async {
+                                    setState(() => saving = true);
+                                    try {
+                                      String name = await _getLocationName(tempSelected.latitude, tempSelected.longitude);
+                                      if (name.isEmpty) {
+                                        name = await _getNearestLocationName(tempSelected.latitude, tempSelected.longitude);
+                                      }
+                                      await FirebaseFirestore.instance.collection('farmers').doc(farmerId).update({
+                                        'position': GeoPoint(tempSelected.latitude, tempSelected.longitude),
+                                        'location': name,
+                                      });
+                                      if (context.mounted) Navigator.of(context).pop();
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update location: $e')));
+                                      }
+                                    } finally {
+                                      if (context.mounted) setState(() => saving = false);
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF8FBC8F),
+                              foregroundColor: Colors.white,
+                            ),
+                            child: saving
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                                  )
+                                : const Text('Use This Location'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+// Reverse geocode helpers (mirrors CustomerDetailPage)
+Future<String> _getLocationName(double lat, double lng) async {
+  try {
+    final url = Uri.parse('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$lat&lon=$lng');
+    final response = await http.get(url, headers: {'User-Agent': 'agrimate-app'});
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['display_name']?.toString() ?? '';
     }
+  } catch (_) {}
+  return '';
+}
 
-    await showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Change Location'),
-          content: TextField(
-            controller: locationController,
-            decoration: InputDecoration(
-              labelText: loc.location,
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.location_on),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(loc.cancel),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final newLocation = locationController.text.trim();
-                if (newLocation.isEmpty) return;
-                
-                try {
-                  await FirebaseFirestore.instance
-                      .collection('farmers')
-                      .doc(farmerId)
-                      .update({'location': newLocation});
-                  
-                  if (context.mounted) {
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Location updated successfully')),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${loc.failedToSave}: $e')),
-                    );
-                  }
-                }
-              },
-              child: Text(loc.save),
-            ),
-          ],
-        );
-      },
-    );
-  }
+Future<String> _getNearestLocationName(double lat, double lng) async {
+  try {
+    final url = Uri.parse('https://nominatim.openstreetmap.org/search?format=jsonv2&q=$lat,$lng&limit=1');
+    final response = await http.get(url, headers: {'User-Agent': 'agrimate-app'});
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data is List && data.isNotEmpty) {
+        return data[0]['display_name']?.toString() ?? '';
+      }
+    }
+  } catch (_) {}
+  return '';
+}
 
