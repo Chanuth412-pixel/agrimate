@@ -455,147 +455,6 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
           }),
         )
       ],
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.3), // Increased from 0.25
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.5), // Increased from 0.4
-                                    width: 2,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.3), // Increased shadow
-                                      blurRadius: 10, // Increased blur
-                                      offset: const Offset(0, 3), // Increased offset
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.wb_sunny_outlined,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Good Morning!',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black.withOpacity(0.5), // Stronger shadow
-                                            offset: const Offset(1, 1),
-                                            blurRadius: 4, // Increased blur
-                                          ),
-                                          Shadow(
-                                            color: Colors.black.withOpacity(0.3), // Additional shadow
-                                            offset: const Offset(2, 2),
-                                            blurRadius: 8,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      farmerName,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black54, // Stronger shadow
-                                            offset: Offset(1, 1),
-                                            blurRadius: 5, // Increased blur
-                                          ),
-                                          Shadow(
-                                            color: Colors.black26, // Additional shadow
-                                            offset: Offset(2, 2),
-                                            blurRadius: 10,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Profile button (top-right)
-                              InkWell(
-                                onTap: _openFarmerProfile,
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.3),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.5),
-                                      width: 2,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.25),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Icon(
-                                    Icons.person_outline,
-                                    color: Colors.white,
-                                    size: 22,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-          
-          // Main content area with white background
-          Expanded(
-            child: Container(
-              color: const Color(0xFFF8F9FA),
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 16),
-                    
-                    // Crop Demand Trends Card (with navigation)
-                    _buildCropDemandTrendsCard(),
-                    
-                    // Ongoing Transactions Card
-                    _buildOngoingTransactionsCard(),
-                    
-                    // My Harvest Listings Card
-                    _buildHarvestListingsCard(),
-                    
-                    const SizedBox(height: 100), // Space for floating action button
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1828,7 +1687,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   Future<void> _fetchWeatherFor(double lat, double lon) async {
     try {
       final envKey = dotenv.env['OPENWEATHER_API_KEY'];
-      final apiKey = (envKey != null && envKey.isNotEmpty) ? envKey : apiKeyFallback;
+      final apiKey = (envKey != null && envKey.isNotEmpty) ? envKey : _apiKeyFallback;
       final uri = Uri.parse('https://api.openweathermap.org/data/2.5/forecast?lat=$lat&lon=$lon&appid=$apiKey&units=metric');
       final res = await http.get(uri);
       if (res.statusCode != 200) {
@@ -1874,7 +1733,8 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   }
 
   // API key fallback if .env is not loaded
-  static const String apiKeyFallback = '9fb4df22ed842a6a5b04febf271c4b1c';
+  // API key fallback if .env is not loaded
+  static const String _apiKeyFallback = '9fb4df22ed842a6a5b04febf271c4b1c';
 
   String _computeAdjustedStage(Map<String, dynamic> item) {
     // If weather not yet loaded, fall back to static rules

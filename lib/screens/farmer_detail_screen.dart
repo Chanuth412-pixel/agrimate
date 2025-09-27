@@ -213,7 +213,7 @@ class FarmerDetailScreen extends StatelessWidget {
                                     // Owner-only change location button
                                     if (FirebaseAuth.instance.currentUser?.uid == farmerId && farmerId.isNotEmpty)
                                       GestureDetector(
-                                        onTap: () => _showChangeLocationDialog(context, farmerId),
+                                        onTap: () => showChangeLocationDialog(context, farmerId),
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
@@ -1295,5 +1295,71 @@ class _DeliveryPriceSectionState extends State<_DeliveryPriceSection> {
       ),
     );
   }
+
 }
+
+// Top-level function for showing change location dialog
+Future<void> showChangeLocationDialog(BuildContext context, String farmerId) async {
+    final TextEditingController locationController = TextEditingController();
+    final loc = AppLocalizations.of(context)!;
+
+    // Get current location
+    try {
+      final doc = await FirebaseFirestore.instance.collection('farmers').doc(farmerId).get();
+      final currentLocation = doc.data()?['location'] ?? '';
+      locationController.text = currentLocation;
+    } catch (e) {
+      // Handle error silently or show a message
+    }
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Change Location'),
+          content: TextField(
+            controller: locationController,
+            decoration: InputDecoration(
+              labelText: loc.location,
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.location_on),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(loc.cancel),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final newLocation = locationController.text.trim();
+                if (newLocation.isEmpty) return;
+                
+                try {
+                  await FirebaseFirestore.instance
+                      .collection('farmers')
+                      .doc(farmerId)
+                      .update({'location': newLocation});
+                  
+                  if (context.mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Location updated successfully')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${loc.failedToSave}: $e')),
+                    );
+                  }
+                }
+              },
+              child: Text(loc.save),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
