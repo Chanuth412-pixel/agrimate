@@ -33,6 +33,7 @@ dependencies:
   slide_to_act: ^2.0.1
   getwidget: ^6.0.0
   url_launcher: ^6.2.4
+  lottie: ^2.7.0
 
 dev_dependencies:
   flutter_test:
