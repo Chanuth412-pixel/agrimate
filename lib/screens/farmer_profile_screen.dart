@@ -7,6 +7,7 @@ import 'package:weather_icons/weather_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'farmer_detail_screen.dart';
 import 'ongoing_transactions_screen.dart';
+import 'farmer_route_screen.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -314,6 +315,36 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                           ],
                         );
                       },
+                    ),
+                  ),
+
+                  // Simple Route Button
+                  Container(
+                    margin: const EdgeInsets.all(16),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const FarmerRouteScreen(),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF02C697),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'View Delivery Route',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
 
