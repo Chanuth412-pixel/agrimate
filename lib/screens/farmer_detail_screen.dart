@@ -2,7 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../constants/app_constants.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../utils/currency_util.dart';
 
@@ -191,9 +194,44 @@ class FarmerDetailScreen extends StatelessWidget {
                           children: [
                             const Icon(Icons.location_on, size: 16, color: Colors.white),
                             const SizedBox(width: 6),
-                            Text(
-                              location,
-                              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                            // Make location reactive by listening to the farmer document
+                            StreamBuilder<DocumentSnapshot>(
+                              stream: farmerId.isEmpty
+                                  ? const Stream.empty()
+                                  : FirebaseFirestore.instance.collection('farmers').doc(farmerId).snapshots(),
+                              builder: (context, snap) {
+                                final data = snap.data?.data() as Map<String, dynamic>?;
+                                final liveLocation = data?['location'] ?? location;
+                                return Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      liveLocation.toString(),
+                                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // Owner-only change location button
+                                    if (FirebaseAuth.instance.currentUser?.uid == farmerId && farmerId.isNotEmpty)
+                                      GestureDetector(
+                                        onTap: () => showChangeLocationDialog(context, farmerId),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.18),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Row(
+                                            children: const [
+                                              Icon(Icons.edit_location, size: 14, color: Colors.white),
+                                              SizedBox(width: 6),
+                                              Text('Change', style: TextStyle(color: Colors.white, fontSize: 12)),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -1257,5 +1295,71 @@ class _DeliveryPriceSectionState extends State<_DeliveryPriceSection> {
       ),
     );
   }
+
 }
+
+// Top-level function for showing change location dialog
+Future<void> showChangeLocationDialog(BuildContext context, String farmerId) async {
+    final TextEditingController locationController = TextEditingController();
+    final loc = AppLocalizations.of(context)!;
+
+    // Get current location
+    try {
+      final doc = await FirebaseFirestore.instance.collection('farmers').doc(farmerId).get();
+      final currentLocation = doc.data()?['location'] ?? '';
+      locationController.text = currentLocation;
+    } catch (e) {
+      // Handle error silently or show a message
+    }
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Change Location'),
+          content: TextField(
+            controller: locationController,
+            decoration: InputDecoration(
+              labelText: loc.location,
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.location_on),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(loc.cancel),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final newLocation = locationController.text.trim();
+                if (newLocation.isEmpty) return;
+                
+                try {
+                  await FirebaseFirestore.instance
+                      .collection('farmers')
+                      .doc(farmerId)
+                      .update({'location': newLocation});
+                  
+                  if (context.mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Location updated successfully')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${loc.failedToSave}: $e')),
+                    );
+                  }
+                }
+              },
+              child: Text(loc.save),
+            ),
+          ],
+        );
+      },
+    );
+  }
 

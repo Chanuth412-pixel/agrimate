@@ -9,6 +9,7 @@ import 'farmer_detail_screen.dart';
 import 'ongoing_transactions_screen.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class FarmerProfileScreen extends StatefulWidget {
   const FarmerProfileScreen({super.key});
@@ -56,6 +57,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
         setState(() => _currentAdPage = newPage);
       }
     });
+    _loadFarmerPositionAndWeather();
   }
 
   @override
@@ -456,222 +458,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     );
   }
 
-  /*
-  Widget _buildTodayWeatherWidget() {
-    // TODO: Replace hardcoded values with OpenWeatherMap API data
-    // API endpoint: https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric
-    // For current weather: current temperature, condition, humidity, wind speed
-    // For daily summary: min/max temp, rainfall amount, average conditions
-    
-    // HARDCODED VALUES - Replace with API data
-    final double currentTemp = 28.5; // API: data.main.temp
-    final double minTemp = 22.0;     // API: data.main.temp_min  
-    final double maxTemp = 32.0;     // API: data.main.temp_max
-    final double rainfall = 2.3;     // API: data.rain['1h'] or data.rain['3h'] 
-    final int humidity = 68;         // API: data.main.humidity
-    final double windSpeed = 12.5;   // API: data.wind.speed
-    final String condition = "Partly Cloudy"; // API: data.weather[0].description
-    final String weatherIcon = "🌤️"; // API: Map weather icon code to emoji
-    
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            const Color(0xFF02C697).withOpacity(0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFF02C697).withOpacity(0.1),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF02C697).withOpacity(0.1),
-            spreadRadius: 2,
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF02C697).withOpacity(0.2),
-                      const Color(0xFF02C697).withOpacity(0.1),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.wb_sunny,
-                  color: Color(0xFF02C697),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Today's Weather",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF2D3748),
-                      ),
-                    ),
-                    Text(
-                      'Colombo, Sri Lanka • ${_getCurrentDate()}',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          
-          // Main Weather Display
-          Row(
-            children: [
-              // Current Temperature and Condition
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          weatherIcon,
-                          style: const TextStyle(fontSize: 32),
-                        ),
-                        const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${currentTemp.toInt()}°C',
-                              style: const TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF2D3748),
-                              ),
-                            ),
-                            Text(
-                              condition,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF02C697).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'H: ${maxTemp.toInt()}° L: ${minTemp.toInt()}°',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF02C697),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Weather Stats
-              Expanded(
-                flex: 1,
-                child: Column(
-                  children: [
-                    _buildWeatherStat('💧', 'Rainfall', '${rainfall}mm'),
-                    const SizedBox(height: 12),
-                    _buildWeatherStat('💨', 'Humidity', '$humidity%'),
-                    const SizedBox(height: 12),
-                    _buildWeatherStat('🌪️', 'Wind', '${windSpeed}km/h'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Weather Summary Banner
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.green.withOpacity(0.1),
-                  Colors.green.withOpacity(0.05),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.green.withOpacity(0.2),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.agriculture,
-                  color: Colors.green,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    // TODO: Generate dynamic message based on weather conditions and crops
-                    'Good conditions for farming activities today',
-                    style: TextStyle(
-                      color: Colors.green[700],
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  */
+  
 
   Widget _buildWeatherStat(String emoji, String label, String value) {
     return Container(
@@ -1304,7 +1091,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                 return ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: harvests.length > 3 ? 3 : harvests.length,
+                  itemCount: harvests.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final item = harvests[index];
@@ -1339,13 +1126,42 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    _localizedCropName(context, item['crop']),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                      color: Color(0xFF2D3748),
-                                    ),
+                                  Row(
+                                    children: [
+                                      Builder(
+                                        builder: (context) {
+                                          final stage = _computeCurrentStage(item);
+                                          final stageColor = _getStageColor(stage);
+                                          return Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: stageColor.withOpacity(0.12),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              stage,
+                                              style: TextStyle(
+                                                color: stageColor,
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 10,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          _localizedCropName(context, item['crop']),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                            color: Color(0xFF2D3748),
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   Text(
                                     '${AppLocalizations.of(context)?.qtyLabel ?? 'Qty:'} ${item['quantity']} kg • LKR ${item['price']}/kg',
@@ -1375,6 +1191,16 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                       fontSize: 10,
                                     ),
                                   ),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  tooltip: 'Delete',
+                                  icon: const Icon(Icons.delete_outline),
+                                  color: Colors.redAccent,
+                                  iconSize: 20,
+                                  onPressed: () async {
+                                    await _confirmDeleteHarvest(context, index, item);
+                                  },
                                 ),
                                 const SizedBox(width: 8),
                                 Icon(
@@ -1820,116 +1646,287 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   }
 
   String _getHarvestPrecautions(Map<String, dynamic> item) {
-    final status = _getHarvestStatus(item);
-    final crop = item['crop']?.toString().toLowerCase() ?? '';
-    
-    if (status == 'Good') {
-      return _getGoodWeatherPrecautions(crop);
+    // Prefer the stored precautions from the Harvests document
+    final p = item['precautions'];
+    if (p is String && p.trim().isNotEmpty) {
+      return p;
+    }
+    // Fallback to any alternative field that may carry the same info
+    final ap = item['actualPrecautions'];
+    if (ap is String && ap.trim().isNotEmpty) {
+      return ap;
+    }
+    return 'No precautions provided for this harvest.';
+  }
+
+  // ===== Crop Stage Computation =====
+  GeoPoint? _farmerPosition;
+  double? _avgTempC; // average forecast temp (°C)
+  double? _avgRainPerDayMm; // average daily rainfall (mm/day)
+  bool _weatherLoaded = false;
+  String? _weatherError;
+
+  Future<void> _loadFarmerPositionAndWeather() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      final farmerSnap = await FirebaseFirestore.instance.collection('farmers').doc(uid).get();
+      final data = farmerSnap.data() as Map<String, dynamic>?;
+      GeoPoint? pos = data != null && data['position'] is GeoPoint ? data['position'] as GeoPoint : null;
+      _farmerPosition = pos;
+      // Fallback to Colombo if no position yet
+      final lat = pos?.latitude ?? 6.9271;
+      final lon = pos?.longitude ?? 79.8612;
+      await _fetchWeatherFor(lat, lon);
+    } catch (e) {
+      _weatherError = 'Weather load failed: $e';
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _fetchWeatherFor(double lat, double lon) async {
+    try {
+      final envKey = dotenv.env['OPENWEATHER_API_KEY'];
+      final apiKey = (envKey != null && envKey.isNotEmpty) ? envKey : _apiKeyFallback;
+      final uri = Uri.parse('https://api.openweathermap.org/data/2.5/forecast?lat=$lat&lon=$lon&appid=$apiKey&units=metric');
+      final res = await http.get(uri);
+      if (res.statusCode != 200) {
+        throw Exception('HTTP ${res.statusCode}');
+      }
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final List list = (body['list'] as List?) ?? [];
+      if (list.isEmpty) {
+        _avgTempC = null;
+        _avgRainPerDayMm = null;
+      } else {
+        double tempSum = 0;
+        double rainSum = 0;
+        int count = 0;
+        // Count unique days to compute per-day rainfall
+        final Set<String> days = {};
+        for (final item in list) {
+          final main = (item as Map)['main'] as Map?;
+          final temp = (main?['temp'] as num?)?.toDouble();
+          if (temp != null) {
+            tempSum += temp;
+            count++;
+          }
+          final rain = (item['rain'] as Map?)?['3h'];
+          if (rain is num) rainSum += rain.toDouble();
+          final dt = item['dt'] as num?;
+          if (dt != null) {
+            final d = DateTime.fromMillisecondsSinceEpoch(dt.toInt() * 1000);
+            days.add('${d.year}-${d.month}-${d.day}');
+          }
+        }
+        _avgTempC = count > 0 ? tempSum / count : null;
+        final dayCount = days.isNotEmpty ? days.length : 1;
+        _avgRainPerDayMm = rainSum / dayCount; // average mm/day over forecast horizon
+      }
+      _weatherLoaded = true;
+      if (mounted) setState(() {});
+    } catch (e) {
+      _weatherError = 'Weather fetch failed: $e';
+      _weatherLoaded = true; // loaded with error
+      if (mounted) setState(() {});
+    }
+  }
+
+  // API key fallback if .env is not loaded
+  // API key fallback if .env is not loaded
+  static const String _apiKeyFallback = '9fb4df22ed842a6a5b04febf271c4b1c';
+
+  String _computeAdjustedStage(Map<String, dynamic> item) {
+    // If weather not yet loaded, fall back to static rules
+    if (_avgTempC == null || _avgRainPerDayMm == null) {
+      return _computeCurrentStage(item);
+    }
+    try {
+      final plantingStr = item['plantingDate']?.toString();
+      if (plantingStr == null || plantingStr.isEmpty) return 'Stage N/A';
+      final planting = DateTime.parse(plantingStr);
+      final days = DateTime.now().difference(DateTime(planting.year, planting.month, planting.day)).inDays;
+      final crop = (item['crop']?.toString() ?? '').toLowerCase();
+      final factor = _calcStageAdjustmentFactor(crop, _avgTempC!, _avgRainPerDayMm!);
+      final effectiveDays = (days * factor).round();
+      return _getStageForCrop(crop, effectiveDays);
+    } catch (_) {
+      return _computeCurrentStage(item);
+    }
+  }
+
+  double _calcStageAdjustmentFactor(String crop, double avgTempC, double avgRainPerDay) {
+    // Baseline factor
+    double factor = 1.0;
+    // Crop-specific optimal ranges (heuristic)
+    double tMin, tMax, rainMax;
+    switch (crop) {
+      case 'tomato':
+        tMin = 20; tMax = 30; rainMax = 10; break;
+      case 'okra':
+        tMin = 25; tMax = 35; rainMax = 12; break;
+      case 'bean':
+      case 'beans':
+        tMin = 18; tMax = 25; rainMax = 15; break;
+      default:
+        tMin = 18; tMax = 30; rainMax = 15; break;
+    }
+
+    // Temperature adjustment
+    if (avgTempC < tMin) {
+      final gap = tMin - avgTempC;
+      if (gap >= 5) factor *= 0.8; else factor *= 0.9;
+    } else if (avgTempC > tMax) {
+      final gap = avgTempC - tMax;
+      if (gap >= 5) factor *= 0.85; else factor *= 0.9;
     } else {
-      return _getBadWeatherPrecautions(crop);
+      // Within optimal -> slight boost
+      factor *= 1.05;
+    }
+
+    // Rainfall adjustment (excess moisture can slow growth)
+    if (avgRainPerDay > rainMax) {
+      final ratio = avgRainPerDay / rainMax; // >1 if too wet
+      if (ratio >= 1.5) factor *= 0.85; else factor *= 0.92;
+    } else {
+      // Moderate/low rainfall -> slight boost
+      factor *= 1.03;
+    }
+
+    // Clamp factor to reasonable bounds
+    if (factor < 0.6) factor = 0.6;
+    if (factor > 1.2) factor = 1.2;
+    return factor;
+  }
+  String _computeCurrentStage(Map<String, dynamic> item) {
+    try {
+      final plantingStr = item['plantingDate']?.toString();
+      if (plantingStr == null || plantingStr.isEmpty) return 'Stage N/A';
+      final planting = DateTime.parse(plantingStr); // expects yyyy-MM-dd
+      final days = DateTime.now().difference(DateTime(planting.year, planting.month, planting.day)).inDays;
+      final crop = (item['crop']?.toString() ?? '').toLowerCase();
+      return _getStageForCrop(crop, days);
+    } catch (_) {
+      return 'Stage N/A';
     }
   }
 
-  String _getGoodWeatherPrecautions(String crop) {
-    String weatherInfo = _getWeatherSummary();
-    
+  String _getStageForCrop(String crop, int days) {
+    // Normalize negative days
+    final d = days < 0 ? 0 : days;
     switch (crop) {
       case 'tomato':
-        return '''$weatherInfo
-
-🍅 TOMATO STORAGE - FAVORABLE CONDITIONS:
-• Store in cool, dry place (55-70°F)
-• Keep away from direct sunlight
-• Good weather ahead - extend shelf life
-• Separate ripe from unripe tomatoes
-• Check regularly for overripening
-• Handle gently to avoid bruising''';
-      case 'carrot':
-        return '''$weatherInfo
-
-🥕 CARROT STORAGE - OPTIMAL CONDITIONS:
-• Remove green tops before storage
-• Cool weather helps preserve quality
-• Store in refrigerator crisper drawer
-• Keep in perforated plastic bags
-• Can last 3-4 weeks in good conditions
-• Wash only before consumption''';
-      case 'brinjal':
-        return '''$weatherInfo
-
-🍆 BRINJAL STORAGE - SUITABLE CONDITIONS:
-• Moderate weather supports quality
-• Store at room temperature if using within 2 days
-• For longer storage, keep in refrigerator
-• Avoid storing below 50°F
-• Use within 5-7 days for best quality
-• Handle carefully as they bruise easily''';
+        if (d <= 7) return 'Germination';
+        if (d <= 21) return 'Seedling';
+        if (d <= 35) return 'Vegetative';
+        if (d <= 50) return 'Flowering';
+        if (d <= 65) return 'Fruit set';
+        return 'Maturity';
+      case 'okra':
+        if (d <= 7) return 'Germination';
+        if (d <= 21) return 'Seedling';
+        if (d <= 35) return 'Vegetative';
+        if (d <= 50) return 'Flowering';
+        return 'Pod development';
+      case 'bean':
+      case 'beans':
+        if (d <= 7) return 'Germination';
+        if (d <= 20) return 'Vegetative';
+        if (d <= 30) return 'Flowering';
+        if (d <= 45) return 'Pod development';
+        return 'Maturity';
       default:
-        return '''$weatherInfo
-
-🌱 GENERAL STORAGE - GOOD CONDITIONS:
-• Favorable weather for crop preservation
-• Store in appropriate temperature conditions
-• Maintain proper humidity levels
-• Regular quality checks recommended
-• Handle with care during transport''';
+        // Generic fallback schedule
+        if (d <= 7) return 'Germination';
+        if (d <= 20) return 'Vegetative';
+        if (d <= 35) return 'Flowering';
+        if (d <= 55) return 'Fruit development';
+        return 'Maturity';
     }
   }
 
-  String _getBadWeatherPrecautions(String crop) {
-    String weatherWarning = _getWeatherWarning();
-    
-    switch (crop) {
-      case 'tomato':
-        return '''$weatherWarning
-
-⚠️ TOMATO URGENT ACTION NEEDED:
-• Unfavorable weather detected ahead
-• Move to covered, dry storage immediately
-• Separate any damaged fruits NOW
-• Consider processing into sauces/pastes
-• Increase ventilation to prevent moisture
-• Sell quickly before weather worsens''';
-      case 'carrot':
-        return '''$weatherWarning
-
-⚠️ CARROT PROTECTION REQUIRED:
-• Poor weather conditions forecast
-• Ensure completely dry before storage
-• Extra protection from moisture needed
-• Consider immediate local market sales
-• Store in well-ventilated, dry area
-• Monitor closely for quality changes''';
-      case 'brinjal':
-        return '''$weatherWarning
-
-⚠️ BRINJAL IMMEDIATE ACTION:
-• Weather unsuitable for crop storage
-• Move to controlled environment quickly
-• Check for any existing damage
-• Consider processing/cooking options
-• Avoid exposure to excess humidity
-• Implement emergency preservation methods''';
+  Color _getStageColor(String stage) {
+    switch (stage.toLowerCase()) {
+      case 'germination':
+        return const Color(0xFF6B7280); // gray
+      case 'seedling':
+        return const Color(0xFF10B981); // green
+      case 'vegetative':
+        return const Color(0xFF059669); // darker green
+      case 'flowering':
+        return const Color(0xFFF59E0B); // amber
+      case 'fruit set':
+      case 'fruit development':
+      case 'pod development':
+        return const Color(0xFF8B5CF6); // violet
+      case 'maturity':
+        return const Color(0xFFEF4444); // red
       default:
-        return '''$weatherWarning
-
-⚠️ GENERAL CROP PROTECTION:
-• Adverse weather conditions ahead
-• Implement immediate protective measures
-• Review and upgrade storage facilities
-• Consider alternative preservation methods
-• Monitor crop quality frequently''';
+        return const Color(0xFF64748B); // slate
     }
   }
 
-  String _getWeatherSummary() {
-    // Hardcoded weather info: 28°C, 2.3mm rainfall
-    return "🌤️ WEATHER STATUS: 28°C, 2.3mm rainfall - Good conditions for storage";
+  Future<void> _confirmDeleteHarvest(BuildContext context, int index, Map<String, dynamic> item) async {
+    final crop = (item['crop']?.toString() ?? 'this harvest');
+    final planting = (item['plantingDate']?.toString() ?? '');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Delete harvest?'),
+          content: Text('This will permanently remove "$crop"${planting.isNotEmpty ? ' (planted $planting)' : ''} from your listings.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed == true) {
+      await _deleteHarvestAt(index);
+    }
   }
 
-  String _getWeatherWarning() {
-    // Hardcoded weather warning
-    return "🌧️ WEATHER ALERT: Poor conditions - Take immediate protective action";
+  Future<void> _deleteHarvestAt(int index) async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Not signed in'), backgroundColor: Colors.red),
+        );
+        return;
+      }
+
+      final docRef = FirebaseFirestore.instance.collection('Harvests').doc(uid);
+      await FirebaseFirestore.instance.runTransaction((tx) async {
+        final snap = await tx.get(docRef);
+        final data = snap.data() as Map<String, dynamic>?;
+        final List<dynamic> list = List<dynamic>.from((data?['harvests'] ?? []) as List);
+        if (index < 0 || index >= list.length) {
+          throw Exception('Harvest entry not found');
+        }
+        list.removeAt(index);
+        tx.update(docRef, {'harvests': list});
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Harvest deleted'), backgroundColor: Colors.green),
+      );
+      setState(() {}); // trigger FutureBuilder to refetch
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Delete failed: $e')), // default color
+      );
+    }
   }
   void _showHarvestDetails(BuildContext context, Map<String, dynamic> item) {
     final status = _getHarvestStatus(item);
@@ -1943,24 +1940,29 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white,
-                  statusColor.withOpacity(0.02),
-                ],
-              ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+              // Optional width constraint for nicer layout on large screens
+              // maxWidth: MediaQuery.of(context).size.width * 0.9,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white,
+                    statusColor.withOpacity(0.02),
+                  ],
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.max,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 Row(
                   children: [
                     Container(
@@ -1985,13 +1987,36 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            item['crop'] ?? 'Unknown Crop',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF2D3748),
-                            ),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: _getStageColor(_computeAdjustedStage(item)).withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _computeAdjustedStage(item),
+                                  style: TextStyle(
+                                    color: _getStageColor(_computeAdjustedStage(item)),
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  item['crop'] ?? 'Unknown Crop',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF2D3748),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 4),
                           Container(
@@ -2091,56 +2116,65 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Precautions Section
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        statusColor.withOpacity(0.05),
-                        statusColor.withOpacity(0.02),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: statusColor.withOpacity(0.2),
-                      width: 1,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.lightbulb_outline,
-                            color: statusColor,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            status == 'Good' ? 'Storage & Handling Tips' : 'Quality Improvement Tips',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: statusColor,
+                // Precautions Section (scrollable)
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                statusColor.withOpacity(0.05),
+                                statusColor.withOpacity(0.02),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: statusColor.withOpacity(0.2),
+                              width: 1,
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        precautions,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          height: 1.5,
-                          color: Color(0xFF2D3748),
-                          fontWeight: FontWeight.w500,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.lightbulb_outline,
+                                    color: statusColor,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    status == 'Good' ? 'Storage & Handling Tips' : 'Quality Improvement Tips',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: statusColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                precautions,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  height: 1.5,
+                                  color: Color(0xFF2D3748),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -2169,7 +2203,8 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                     ),
                   ),
                 ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -2177,52 +2212,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     );
   }
 
-  /*
-  Widget _buildHarvestListingsCard() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Harvest Listings',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2D3748),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            height: 200,
-            child: const Center(
-              child: Text(
-                'Harvest listings will be displayed here',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  */
+  
 }
 
 String _localizedCropName(BuildContext context, dynamic raw) {

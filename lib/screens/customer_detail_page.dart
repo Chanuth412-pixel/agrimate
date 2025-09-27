@@ -3,6 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class CustomerDetailPage extends StatelessWidget {
   final Map<String, dynamic> customerData;
@@ -12,11 +16,17 @@ class CustomerDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String name = customerData['name'] ?? 'Not Provided';
-    final String location = customerData['location'] ?? 'Not Provided';
   final loc = AppLocalizations.of(context)!;
   final String phone = customerData['phone'] ?? loc.notProvided;
   final String email = customerData['email'] ?? loc.notProvided;
     final String customerId = customerData['uid'] ?? customerData['id'] ?? '';
+
+    // Location string is read from passed data; it will update when Firestore stream updates
+    final String location = customerData['location'] ?? 'Not Provided';
+
+    // Get current user
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final bool isCurrentCustomer = currentUser?.uid == customerId && customerId.isNotEmpty;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5DC),
@@ -119,41 +129,44 @@ class CustomerDetailPage extends StatelessWidget {
                             ],
                           ),
                           child: StreamBuilder<DocumentSnapshot>(
-                            stream: FirebaseFirestore.instance
-                                .collection('customers')
-                                .doc(customerId)
-                                .snapshots(),
+                            stream: customerId.isEmpty
+                                ? const Stream.empty()
+                                : FirebaseFirestore.instance.collection('customers').doc(customerId).snapshots(),
                             builder: (context, snapshot) {
                               final snapData = snapshot.data?.data() as Map<String, dynamic>?;
                               final latestUrl = snapData?['profileImageUrl'] ?? customerData['profileImageUrl'];
                               final updatedAt = (snapData?['profileImageUpdatedAt'] as Timestamp?)?.millisecondsSinceEpoch;
                               final hasUrl = latestUrl != null && latestUrl.toString().isNotEmpty;
-                              return ClipOval(
-                                child: hasUrl
-                                    ? Image.network(
-                                        updatedAt != null ? '$latestUrl?v=$updatedAt' : latestUrl,
-                                        key: ValueKey(updatedAt ?? latestUrl),
-                                        fit: BoxFit.cover,
-                                        loadingBuilder: (context, child, loadingProgress) {
-                                          if (loadingProgress == null) return child;
-                                          return Container(
-                                            color: const Color(0xFF8FBC8F),
-                                            child: const Center(
-                                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                            ),
-                                          );
-                                        },
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return Container(
-                                            color: const Color(0xFF8FBC8F),
-                                            child: const Icon(Icons.person, size: 60, color: Colors.white),
-                                          );
-                                        },
-                                      )
-                                    : Container(
+                              if (hasUrl) {
+                                return ClipOval(
+                                  child: Image.network(
+                                    updatedAt != null ? '$latestUrl?v=$updatedAt' : latestUrl,
+                                    key: ValueKey(updatedAt ?? latestUrl),
+                                    fit: BoxFit.cover,
+                                    loadingBuilder: (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Container(
+                                        color: const Color(0xFF8FBC8F),
+                                        child: const Center(
+                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                        ),
+                                      );
+                                    },
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
                                         color: const Color(0xFF8FBC8F),
                                         child: const Icon(Icons.person, size: 60, color: Colors.white),
-                                      ),
+                                      );
+                                    },
+                                  ),
+                                );
+                              }
+
+                              return ClipOval(
+                                child: Container(
+                                  color: const Color(0xFF8FBC8F),
+                                  child: const Icon(Icons.person, size: 60, color: Colors.white),
+                                ),
                               );
                             },
                           ),
@@ -167,29 +180,56 @@ class CustomerDetailPage extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
                           letterSpacing: 0.2,
-                          shadows: [Shadow(color: Colors.black45, offset: Offset(0,1), blurRadius: 4)],
+                          shadows: [Shadow(color: Colors.black45, offset: Offset(0, 1), blurRadius: 4)],
                         ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.white.withOpacity(0.4)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.location_on, size: 16, color: Colors.white),
-                            const SizedBox(width: 6),
-                            Text(
-                              location,
-                              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                      StreamBuilder<DocumentSnapshot>(
+                        stream: customerId.isEmpty
+                            ? const Stream.empty()
+                            : FirebaseFirestore.instance.collection('customers').doc(customerId).snapshots(),
+                        builder: (context, snapshot) {
+                          final snapData = snapshot.data?.data() as Map<String, dynamic>?;
+                          final currentLocation = snapData?['location'] ?? location;
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.white.withOpacity(0.4)),
                             ),
-                          ],
-                        ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.location_on, size: 16, color: Colors.white),
+                                const SizedBox(width: 6),
+                                Text(
+                                  currentLocation,
+                                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                                ),
+                                if (isCurrentCustomer)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 10),
+                                    child: ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.white.withOpacity(0.3),
+                                        foregroundColor: Colors.green.shade900,
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      ),
+                                      icon: const Icon(Icons.edit_location_alt, size: 16),
+                                      label: const Text('Change Location', style: TextStyle(fontSize: 12)),
+                                      onPressed: () async {
+                                        await _showChangeLocationDialog(context, customerId);
+                                      },
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -355,6 +395,136 @@ class CustomerDetailPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // Show map dialog for changing location
+  Future<void> _showChangeLocationDialog(BuildContext context, String customerId) async {
+    final doc = await FirebaseFirestore.instance.collection('customers').doc(customerId).get();
+    final data = doc.data();
+    GeoPoint? currentGeo = data?['lastLoginLocation'] as GeoPoint?;
+    double lat = currentGeo?.latitude ?? 7.8731;
+    double lng = currentGeo?.longitude ?? 80.7718;
+    LatLng selected = LatLng(lat, lng);
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        LatLng tempSelected = selected;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              child: Container(
+                width: 420,
+                height: 520,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20)],
+                ),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Text('Select your new location', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green.shade900)),
+                    ),
+                    Expanded(
+                      child: FlutterMap(
+                        options: MapOptions(
+                          center: tempSelected,
+                          zoom: 8.5,
+                          onTap: (tapPos, latlng) {
+                            setState(() {
+                              tempSelected = latlng;
+                            });
+                          },
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            subdomains: ['a', 'b', 'c'],
+                          ),
+                          MarkerLayer(
+                            markers: [
+                              Marker(
+                                width: 60.0,
+                                height: 60.0,
+                                point: tempSelected,
+                                child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Lat: ${tempSelected.latitude.toStringAsFixed(5)}, Lng: ${tempSelected.longitude.toStringAsFixed(5)}', style: const TextStyle(fontSize: 13)),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green.shade700,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () async {
+                              String newLocationName = await _getLocationName(tempSelected.latitude, tempSelected.longitude);
+                              if (newLocationName.isEmpty) {
+                                newLocationName = await _getNearestLocationName(tempSelected.latitude, tempSelected.longitude);
+                              }
+                              // Keep only the first segment (before the first comma) to make it user friendly
+                              final shortName = newLocationName.split(',').map((s) => s.trim()).firstWhere((s) => s.isNotEmpty, orElse: () => newLocationName);
+                              await FirebaseFirestore.instance.collection('customers').doc(customerId).update({
+                                'lastLoginLocation': GeoPoint(tempSelected.latitude, tempSelected.longitude),
+                                'location': shortName,
+                              });
+                              if (context.mounted) Navigator.pop(ctx);
+                            },
+                            child: const Text('Confirm'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<String> _getLocationName(double lat, double lng) async {
+    try {
+      final url = Uri.parse('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$lat&lon=$lng');
+      final response = await http.get(url, headers: {'User-Agent': 'agrimate-app'});
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['display_name'] ?? '';
+      }
+    } catch (e) {
+      // ignore
+    }
+    return '';
+  }
+
+  Future<String> _getNearestLocationName(double lat, double lng) async {
+    try {
+      final url = Uri.parse('https://nominatim.openstreetmap.org/search?format=jsonv2&q=$lat,$lng&limit=1');
+      final response = await http.get(url, headers: {'User-Agent': 'agrimate-app'});
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List && data.isNotEmpty) {
+          return data[0]['display_name'] ?? '';
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    return '';
   }
 
   // Earthy themed card
