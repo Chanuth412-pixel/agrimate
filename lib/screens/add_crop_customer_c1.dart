@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
@@ -46,24 +45,79 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       final int customerWeek = _getWeekNumber(loginAt);
       final String selectedCrop = widget.cropName;
 
-      // Efficient: load all farmers once and index by id
-      final farmersSnapshot =
-          await FirebaseFirestore.instance.collection('farmers').get();
-      final Map<String, Map<String, dynamic>> farmersById = {
-        for (final d in farmersSnapshot.docs) d.id: d.data()
-      };
-
       // Load all harvests once
       final harvestsSnapshot =
           await FirebaseFirestore.instance.collection('Harvests').get();
 
+      // Step 1: find candidate farmer IDs based on crop + week
+      final Set<String> candidateFarmerIds = {};
+      for (var harvestDoc in harvestsSnapshot.docs) {
+        final List<dynamic> farmerHarvests = List.from(harvestDoc['harvests']);
+        for (final entry in farmerHarvests) {
+          if (entry['crop'] != selectedCrop) continue;
+
+          late DateTime harvestDate;
+          try {
+            final raw = entry['harvestDate'];
+            if (raw is Timestamp) {
+              harvestDate = raw.toDate();
+            } else if (raw is String) {
+              harvestDate = DateTime.parse(raw);
+            } else {
+              continue;
+            }
+          } catch (_) {
+            continue;
+          }
+
+          if (_getWeekNumber(harvestDate) != customerWeek) continue;
+
+          candidateFarmerIds.add(harvestDoc.id);
+          break; // only need one match per farmer for candidate list
+        }
+      }
+
+      if (candidateFarmerIds.isEmpty) {
+        setState(() {
+          _matchingFarmers = [];
+          _loading = false;
+        });
+        return;
+      }
+
+      // Step 2: fetch farmer data in batches (max 10 per whereIn)
+      final Map<String, Map<String, dynamic>> farmersById = {};
+      final ids = candidateFarmerIds.toList();
+      for (int i = 0; i < ids.length; i += 10) {
+        final batchIds = ids.sublist(i, i + 10 > ids.length ? ids.length : i + 10);
+        final farmersSnapshot = await FirebaseFirestore.instance
+            .collection('farmers')
+            .where(FieldPath.documentId, whereIn: batchIds)
+            .get();
+
+        for (final d in farmersSnapshot.docs) {
+          final data = d.data();
+          farmersById[d.id] = {
+            'name': data['name'],
+            'phone': data['phone'],
+            'position': data['position'],
+            'proximity': data['proximity'] ?? 10,
+          };
+        }
+      }
+
+      // Step 3: collect final results with distance + rating check
       final List<Map<String, dynamic>> results = [];
       final Set<String> addedFarmerIds = {};
 
       for (var harvestDoc in harvestsSnapshot.docs) {
         final farmerId = harvestDoc.id;
-        final List<dynamic> farmerHarvests = List.from(harvestDoc['harvests']);
+        if (!candidateFarmerIds.contains(farmerId)) continue;
 
+        final farmerData = farmersById[farmerId];
+        if (farmerData == null || !farmerData.containsKey('position')) continue;
+
+        final List<dynamic> farmerHarvests = List.from(harvestDoc['harvests']);
         for (final entry in farmerHarvests) {
           if (entry['crop'] != selectedCrop) continue;
 
@@ -82,21 +136,13 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
             continue;
           }
 
-          // Match by week number with customer's login week
           if (_getWeekNumber(harvestDate) != customerWeek) continue;
 
-          // Only one card per farmer
           if (addedFarmerIds.contains(farmerId)) break;
 
-          // Find farmer data efficiently from cache
-          final farmerData = farmersById[farmerId];
-          if (farmerData == null || !farmerData.containsKey('position')) continue;
-
           final GeoPoint farmerPos = farmerData['position'];
-          final double proximityKm =
-              (farmerData['proximity'] ?? 10).toDouble(); // delivery radius in km
+          final double proximityKm = (farmerData['proximity'] ?? 10).toDouble();
 
-          // Compute distance (km)
           final double distanceKm = Geolocator.distanceBetween(
                 customerPos.latitude,
                 customerPos.longitude,
@@ -106,6 +152,9 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
               1000.0;
 
           if (distanceKm <= proximityKm) {
+            // Fetch average rating
+            double avgRating = await _fetchFarmerRating(farmerId) ?? 0.0;
+
             results.add({
               'farmerId': farmerId,
               'farmerName': farmerData['name'] ?? 'Unknown',
@@ -114,14 +163,17 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
               'quantity': entry['available'] ?? entry['quantity'],
               'phone': farmerData['phone'] ?? 'Unknown',
               'harvestDate': entry['harvestDate'],
-              // keep original entry refs if needed later
+              'avgRating': avgRating, // store rating for sorting
               '_originalEntry': entry,
             });
             addedFarmerIds.add(farmerId);
-            break; // stop scanning more harvests for this farmer
+            break;
           }
         }
       }
+
+      // Step 4: sort results by rating (descending)
+      results.sort((a, b) => (b['avgRating'] as double).compareTo(a['avgRating'] as double));
 
       setState(() {
         _matchingFarmers = results;
@@ -136,7 +188,6 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
   int _getWeekNumber(DateTime date) {
     final beginningOfYear = DateTime(date.year, 1, 1);
     final daysDifference = date.difference(beginningOfYear).inDays;
-    // Simple week-of-year approximation used in your code
     return ((daysDifference + beginningOfYear.weekday) / 7).ceil();
   }
 
@@ -183,13 +234,11 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
 
                 Navigator.pop(context); // Close quantity dialog
 
-                // Ask if the user wants to schedule the order
                 final schedule = await showDialog<bool>(
                   context: context,
                   builder: (context) => AlertDialog(
                     title: const Text('Schedule Order'),
-                    content:
-                        const Text('Do you want to schedule this order?'),
+                    content: const Text('Do you want to schedule this order?'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context, false),
@@ -224,7 +273,6 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
 
     final now = Timestamp.now();
 
-    // Fetch Customer Name
     final customerDoc = await FirebaseFirestore.instance
         .collection('customers')
         .doc(user.uid)
@@ -232,7 +280,6 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
 
     final customerName = customerDoc.data()?['Name'] ?? 'Unknown';
 
-    // Transaction data for customer
     final transaction = {
       'Crop': widget.cropName,
       'Quantity Sold (1kg)': quantity,
@@ -245,7 +292,6 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       'Date': now,
     };
 
-    // Transaction data for farmer (add customer info)
     final transactionForFarmer = {
       ...transaction,
       'Customer ID': user.uid,
@@ -254,7 +300,6 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
     };
 
     try {
-      // Update Customer's Ongoing Transactions
       await FirebaseFirestore.instance
           .collection('Ongoing_Trans_Cus')
           .doc(user.uid)
@@ -262,7 +307,6 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
         'transactions': FieldValue.arrayUnion([transaction]),
       }, SetOptions(merge: true));
 
-      // Update Farmer's Ongoing Transactions
       await FirebaseFirestore.instance
           .collection('Ongoing_Trans_Farm')
           .doc(farmer['farmerId'])
@@ -270,7 +314,6 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
         'transactions': FieldValue.arrayUnion([transactionForFarmer]),
       }, SetOptions(merge: true));
 
-      // Update Harvest quantity
       await _decrementHarvestQuantity(
         farmerId: farmer['farmerId'],
         crop: widget.cropName,
@@ -365,7 +408,6 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       final bool priceMatch = entry['expectedPrice'] == price;
       final bool qtyMatch = entry['quantity'] == originalQuantity;
 
-      // match harvestDate regardless of stored type
       bool dateMatch = false;
       try {
         if (entry['harvestDate'] is Timestamp && harvestDate is Timestamp) {
@@ -376,7 +418,6 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
           dateMatch =
               DateTime.parse(entry['harvestDate']) == DateTime.parse(harvestDate);
         } else {
-          // try normalized parsing
           final DateTime left = entry['harvestDate'] is Timestamp
               ? (entry['harvestDate'] as Timestamp).toDate()
               : DateTime.parse(entry['harvestDate'].toString());
@@ -489,4 +530,3 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
     );
   }
 }
-

@@ -1,6 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class FarmerDetailScreen extends StatelessWidget {
@@ -187,9 +191,44 @@ class FarmerDetailScreen extends StatelessWidget {
                           children: [
                             const Icon(Icons.location_on, size: 16, color: Colors.white),
                             const SizedBox(width: 6),
-                            Text(
-                              location,
-                              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                            // Make location reactive by listening to the farmer document
+                            StreamBuilder<DocumentSnapshot>(
+                              stream: farmerId.isEmpty
+                                  ? const Stream.empty()
+                                  : FirebaseFirestore.instance.collection('farmers').doc(farmerId).snapshots(),
+                              builder: (context, snap) {
+                                final data = snap.data?.data() as Map<String, dynamic>?;
+                                final liveLocation = data?['location'] ?? location;
+                                return Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      liveLocation.toString(),
+                                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // Owner-only change location button
+                                    if (FirebaseAuth.instance.currentUser?.uid == farmerId && farmerId.isNotEmpty)
+                                      GestureDetector(
+                                        onTap: () => _showChangeLocationDialog(context, farmerId),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.18),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Row(
+                                            children: const [
+                                              Icon(Icons.edit_location, size: 14, color: Colors.white),
+                                              SizedBox(width: 6),
+                                              Text('Change', style: TextStyle(color: Colors.white, fontSize: 12)),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -1044,4 +1083,126 @@ class FarmerDetailScreen extends StatelessWidget {
       await launchUrl(emailUri);
     }
   }
+
+  // --- Change location helpers (copied/adapted from customer detail) ---
+  Future<void> _showChangeLocationDialog(BuildContext context, String farmerId) async {
+    final doc = await FirebaseFirestore.instance.collection('farmers').doc(farmerId).get();
+    final data = doc.data();
+    GeoPoint? currentGeo = data?['position'] as GeoPoint?;
+    double lat = currentGeo?.latitude ?? 7.8731;
+    double lng = currentGeo?.longitude ?? 80.7718;
+    LatLng selected = LatLng(lat, lng);
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        LatLng tempSelected = selected;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              child: SizedBox(
+                width: 600,
+                height: 480,
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: FlutterMap(
+                        options: MapOptions(
+                          center: selected,
+                          zoom: 13.0,
+                          onTap: (tapPos, point) {
+                            setState(() {
+                              tempSelected = LatLng(point.latitude, point.longitude);
+                            });
+                          },
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            subdomains: const ['a', 'b', 'c'],
+                          ),
+                          MarkerLayer(
+                            markers: [
+                              Marker(
+                                point: tempSelected,
+                                width: 40,
+                                height: 40,
+                                child: const Icon(Icons.location_on, size: 36, color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Row(
+                        children: [
+                          ElevatedButton(
+                            onPressed: () async {
+                              // reverse geocode to get a display name
+                              final fullName = await _getLocationName(tempSelected.latitude, tempSelected.longitude);
+                              final fallback = await _getNearestLocationName(tempSelected.latitude, tempSelected.longitude);
+                              final display = (fullName.isNotEmpty ? fullName : fallback);
+                              final short = display.split(',').first.trim();
+                              try {
+                                await FirebaseFirestore.instance.collection('farmers').doc(farmerId).update({
+                                  'position': GeoPoint(tempSelected.latitude, tempSelected.longitude),
+                                  'location': short,
+                                  'locationUpdatedAt': FieldValue.serverTimestamp(),
+                                });
+                                if (context.mounted) Navigator.pop(ctx);
+                              } catch (e) {
+                                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save location: $e')));
+                              }
+                            },
+                            child: const Text('Save'),
+                          ),
+                          const SizedBox(width: 12),
+                          OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                          const Spacer(),
+                          Text('Lat: ${tempSelected.latitude.toStringAsFixed(4)}, Lng: ${tempSelected.longitude.toStringAsFixed(4)}'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<String> _getLocationName(double lat, double lng) async {
+    try {
+      final url = Uri.parse('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$lat&lon=$lng');
+      final response = await http.get(url, headers: {'User-Agent': 'agrimate-app'});
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['display_name'] ?? '';
+      }
+    } catch (e) {
+      // ignore
+    }
+    return '';
+  }
+
+  Future<String> _getNearestLocationName(double lat, double lng) async {
+    try {
+      final url = Uri.parse('https://nominatim.openstreetmap.org/search?format=jsonv2&q=$lat,$lng&limit=1');
+      final response = await http.get(url, headers: {'User-Agent': 'agrimate-app'});
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List && data.isNotEmpty) {
+          return data[0]['display_name'] ?? '';
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    return '';
+  }
+
 }

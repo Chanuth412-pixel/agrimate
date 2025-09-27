@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:agrimate/screens/role_selection_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -30,17 +33,93 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     _titleOpacity = Tween<double>(begin: 0.85, end: 1.0).animate(
       CurvedAnimation(parent: _titleController, curve: Curves.easeInOut),
     );
-    // Keep navigation/auth logic intact: navigate after ~3 seconds
+    // Navigate after splash based on auth + profile role
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(_splashDuration, () {
+      _navigateNext();
+    });
+  }
+
+  Future<void> _navigateNext() async {
+    // Show splash for configured duration
+    await Future.delayed(_splashDuration);
+    if (!mounted) return;
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        // Not signed in -> go to role selection
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (context) => const RoleSelectionScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
         );
-      });
-    });
+        return;
+      }
+
+  final uid = user.uid;
+  final prefs = await SharedPreferences.getInstance();
+  final lastRoute = prefs.getString('last_route');
+      // Determine role from Firestore by checking which profile exists
+      final farmersDoc = await FirebaseFirestore.instance.collection('farmers').doc(uid).get();
+      if (farmersDoc.exists) {
+        if (!mounted) return;
+        // Allow only farmer-safe routes to restore
+        const farmerAllowed = <String>{
+          '/farmerProfile',
+          '/addHarvest',
+          '/scheduledOrders',
+          '/ongoingTransactions',
+        };
+        if (lastRoute != null && farmerAllowed.contains(lastRoute)) {
+          Navigator.pushReplacementNamed(context, lastRoute);
+        } else {
+          Navigator.pushReplacementNamed(context, '/farmerProfile');
+        }
+        return;
+      }
+
+      final customersDoc = await FirebaseFirestore.instance.collection('customers').doc(uid).get();
+      if (customersDoc.exists) {
+        if (!mounted) return;
+        const customerAllowed = <String>{
+          '/customerProfile',
+          // Add more customer routes here when they become named routes
+        };
+        if (lastRoute != null && customerAllowed.contains(lastRoute)) {
+          Navigator.pushReplacementNamed(context, lastRoute);
+        } else {
+          Navigator.pushReplacementNamed(context, '/customerProfile');
+        }
+        return;
+      }
+
+      final driversDoc = await FirebaseFirestore.instance.collection('drivers').doc(uid).get();
+      if (driversDoc.exists) {
+        if (!mounted) return;
+        const driverAllowed = <String>{
+          '/driverProfile',
+        };
+        if (lastRoute != null && driverAllowed.contains(lastRoute)) {
+          Navigator.pushReplacementNamed(context, lastRoute);
+        } else {
+          Navigator.pushReplacementNamed(context, '/driverProfile');
+        }
+        return;
+      }
+
+      // Signed in but no profile found -> let user pick role
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
+      );
+    } catch (_) {
+      // On any error, fall back to role selection to avoid blocking
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
+      );
+    }
   }
 
   @override
