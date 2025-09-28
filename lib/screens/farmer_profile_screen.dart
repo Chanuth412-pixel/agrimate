@@ -42,7 +42,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     [45, 48, 52, 49], // Brinjal
   ];
   // Display crop names localized where rendered; raw identifiers remain for logic
-  final List<String> _cropNames = ['tomato', 'carrot', 'brinjal'];
+  final List<String> _cropNames = ['Tomato', 'Beans', 'Okra'];
 
   static const double _trendScrollDistance = 300.0;
   static const double _transactionScrollDistance = 500.0;
@@ -840,101 +840,180 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            Container(
-              height: 180,
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${(AppLocalizations.of(context)?.currentPricePerKg ?? 'Current')}: ₹${_cropData[_currentChartIndex][_cropData[_currentChartIndex].length - 1]} per kg',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF02C697),
-                      fontWeight: FontWeight.w600,
+            // New smooth gradient line chart replacing static block bars
+            _buildCropLineChart(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Build a smooth gradient line chart with soft area fill for the current crop
+  Widget _buildCropLineChart() {
+    // Raw absolute price values
+    final rawValues = _cropData[_currentChartIndex].map((e) => e.toDouble()).toList();
+    final latest = rawValues.last;
+    // Convert to percentage change relative to first value (baseline)
+    final baseline = rawValues.first == 0 ? 1.0 : rawValues.first; // avoid divide-by-zero
+    final percentValues = [
+      for (final v in rawValues) ((v - baseline) / baseline) * 100.0,
+    ];
+    final minPct = percentValues.reduce((a, b) => a < b ? a : b);
+    final maxPct = percentValues.reduce((a, b) => a > b ? a : b);
+    final padding = (maxPct - minPct).abs() * 0.18; // breathing room
+
+    final spots = <FlSpot>[
+      for (int i = 0; i < percentValues.length; i++) FlSpot(i.toDouble(), percentValues[i])
+    ];
+
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            // Show both latest absolute and its % delta from first
+            '${AppLocalizations.of(context)?.currentPricePerKg ?? 'Current'}: ${latest.toInt()} %  (${percentValues.last >= 0 ? '+' : ''}${percentValues.last.toStringAsFixed(1)}%)',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF02C697),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: LineChart(
+              LineChartData(
+                minX: 0,
+                maxX: (percentValues.length - 1).toDouble(),
+                minY: (minPct - padding),
+                maxY: (maxPct + padding),
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    tooltipBgColor: const Color(0xFF1F2A20).withOpacity(0.9),
+                    tooltipRoundedRadius: 10,
+                    getTooltipItems: (touched) => touched.map((t) {
+                      final idx = t.spotIndex;
+                      final absVal = rawValues[idx].toInt();
+                      final pctVal = percentValues[idx];
+                      final prevPct = idx > 0 ? percentValues[idx - 1] : percentValues[idx];
+                      final deltaPct = pctVal - prevPct;
+            final deltaTxt = deltaPct == 0
+                          ? '• 0%'
+                          : deltaPct > 0
+                              ? '▲ +${deltaPct.toStringAsFixed(1)}%'
+                              : '▼ ${deltaPct.abs().toStringAsFixed(1)}%';
+                      return LineTooltipItem(
+                        'Week ${idx + 1}\nLKR$absVal\n${pctVal >= 0 ? '+' : ''}${pctVal.toStringAsFixed(1)}%\n$deltaTxt',
+                        const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          height: 1.3,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: ((maxPct - minPct).abs() / 4).clamp(2, 50),
+                  getDrawingHorizontalLine: (v) => FlLine(
+                    color: Colors.grey.withOpacity(0.18),
+                    strokeWidth: 1,
+                    dashArray: [4, 4],
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 40,
+                      getTitlesWidget: (value, meta) => Text(
+                        '${value.toStringAsFixed(0)}%',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: List.generate(
-                        _cropData[_currentChartIndex].length,
-                        (index) {
-                          double maxValue = _cropData[_currentChartIndex]
-                              .reduce((a, b) => a > b ? a : b)
-                              .toDouble();
-                          double minValue = _cropData[_currentChartIndex]
-                              .reduce((a, b) => a < b ? a : b)
-                              .toDouble();
-                          double normalizedHeight = maxValue > minValue
-                              ? ((_cropData[_currentChartIndex][index] - minValue) / 
-                                 (maxValue - minValue)) * 60 + 20
-                              : 40;
-                          
-                          bool isLatest = index == _cropData[_currentChartIndex].length - 1;
-                          
-                          return Expanded(
-                            child: Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 2),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    '₹${_cropData[_currentChartIndex][index]}',
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Container(
-                                    width: 16,
-                                    height: normalizedHeight,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      gradient: LinearGradient(
-                                        begin: Alignment.bottomCenter,
-                                        end: Alignment.topCenter,
-                                        colors: isLatest
-                                            ? [
-                                                const Color(0xFF02C697),
-                                                const Color(0xFF02C697).withOpacity(0.8),
-                                              ]
-                                            : [
-                                                const Color(0xFF02C697).withOpacity(0.6),
-                                                const Color(0xFF02C697).withOpacity(0.4),
-                                              ],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'W${index + 1}',
-                                    style: TextStyle(
-                                      fontSize: 8,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: 1,
+                      getTitlesWidget: (value, meta) {
+                        if (value % 1 != 0) return const SizedBox.shrink();
+                        final i = value.toInt();
+                        if (i < 0 || i >= percentValues.length) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            'W${i + 1}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[700],
                             ),
-                          );
-                        },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    curveSmoothness: 0.32,
+                    preventCurveOverShooting: true,
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF02C697),
+                        Color(0xFF02C697),
+                      ],
+                    ),
+                    barWidth: 4,
+                    isStrokeCapRound: true,
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, percent, barData, index) {
+                        final isLast = index == spots.length - 1;
+                        return FlDotCirclePainter(
+                          radius: isLast ? 5.5 : 4,
+                          color: isLast ? Colors.white : const Color(0xFF02C697),
+                          strokeWidth: isLast ? 4 : 2,
+                          strokeColor: const Color(0xFF02C697),
+                        );
+                      },
+                    ),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          const Color(0xFF02C697).withOpacity(0.35),
+                          const Color(0xFF02C697).withOpacity(0.04),
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

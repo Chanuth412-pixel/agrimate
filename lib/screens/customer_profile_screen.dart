@@ -223,7 +223,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         },
         backgroundColor: const Color(0xFF02C697),
         icon: const Icon(Icons.shopping_cart, color: Colors.white),
-        label: const Text('Quick Order', style: TextStyle(color: Colors.white)),
+        label: const Text('Schedule Order', style: TextStyle(color: Colors.white)),
       ),
     );
   }
@@ -297,36 +297,19 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                     ],
                   ),
                 ),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.schedule, size: 16),
-                  label: const Text('Scheduled'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF02C697),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    textStyle: const TextStyle(fontSize: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const ScheduledOrdersScreen()),
-                    );
-                  },
-                ),
+                // Removed inline 'Scheduled' button per new design directive.
               ],
             ),
             const SizedBox(height: 16),
+            // Height matches new square-image CropCard (1:1 image + meta)
             SizedBox(
-              height: 160,
+              height: 228,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 children: [
                   CropCard(
                     name: AppLocalizations.of(context)?.cropTomato ?? 'Tomato',
-                    imagePath: 'assets/images/tomato.png',
+                    imagePath: 'assets/images/tomato1.png',
                     color: const Color(0xFFE53935),
                     description: cropDescriptions['tomato'] ?? 'High demand',
                     onTap: () async {
@@ -344,7 +327,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   const SizedBox(width: 16),
                   CropCard(
                     name: AppLocalizations.of(context)?.cropBeans ?? 'Beans',
-                    imagePath: 'assets/images/bean.png',
+                    imagePath: 'assets/images/beans1.png',
                     color: const Color(0xFF4CAF50),
                     description: cropDescriptions['bean'] ?? 'Best season',
                     onTap: () async {
@@ -362,7 +345,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   const SizedBox(width: 16),
                   CropCard(
                     name: AppLocalizations.of(context)?.cropOkra ?? 'Okra',
-                    imagePath: 'assets/images/okra.png',
+                    imagePath: 'assets/images/okra1.png',
                     color: const Color(0xFF7CB342),
                     description: cropDescriptions['okra'] ?? 'Good price',
                     onTap: () async {
@@ -1228,44 +1211,31 @@ class CropCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 140,
-        height: 160,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.1),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+      child: SizedBox(
+        width: 168,
+        height: 228,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              width: 60,
-              height: 60,
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Image.asset(
-                imagePath,
-                fit: BoxFit.contain,
+            // Full 1:1 image (square)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: Image.asset(
+                  imagePath,
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.low,
+                ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(
               name,
               style: const TextStyle(
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
+                letterSpacing: .2,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1274,13 +1244,24 @@ class CropCard extends StatelessWidget {
             Text(
               description,
               style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
+                fontSize: 11.5,
+                height: 1.2,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
+            const Spacer(),
+            Container(
+              width: 32,
+              height: 3,
+              decoration: BoxDecoration(
+                color: color.withOpacity(.55),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            )
           ],
         ),
       ),

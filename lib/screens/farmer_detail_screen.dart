@@ -63,199 +63,196 @@ class FarmerDetailScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: Column(
-        children: [
-          // Top section redesigned with Background.jpg and centered avatar + quick actions
-          Container(
-            height: 280,
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(30),
-                bottomRight: Radius.circular(30),
-              ),
-            ),
-            child: Stack(
-              children: [
-                // Background image
-                Positioned.fill(
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(30),
-                      bottomRight: Radius.circular(30),
-                    ),
-                    child: Image.asset(
-                      'assets/images/Background.jpg',
-                      fit: BoxFit.cover,
-                    ),
-                  ),
+      body: SingleChildScrollView(
+        // Entire page (header + content) scrolls, matching FarmerProfileScreen motion
+        child: Column(
+          children: [
+            // Header (kept visually identical)
+            Container(
+              height: 280,
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
                 ),
-                // Dark overlay for contrast
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
+              ),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: ClipRRect(
                       borderRadius: const BorderRadius.only(
                         bottomLeft: Radius.circular(30),
                         bottomRight: Radius.circular(30),
                       ),
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.25),
-                          Colors.black.withOpacity(0.55),
-                        ],
+                      child: Image.asset(
+                        'assets/images/Background.jpg',
+                        fit: BoxFit.cover,
                       ),
                     ),
                   ),
-                ),
-                // Centered avatar, name and location
-                Align(
-                  alignment: Alignment.center,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Hero(
-                        tag: 'farmer_${farmerId}',
-                        child: Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0xFF8FBC8F),
-                            border: Border.all(color: Colors.white, width: 4),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                blurRadius: 15,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: StreamBuilder<DocumentSnapshot>(
-                            stream: FirebaseFirestore.instance
-                                .collection('farmers')
-                                .doc(farmerId)
-                                .snapshots(),
-                            builder: (context, snapshot) {
-                              final snapData = snapshot.data?.data() as Map<String, dynamic>?;
-                              final latestUrl = snapData?['profileImageUrl'] ?? farmerData['profileImageUrl'];
-                              final updatedAt = (snapData?['profileImageUpdatedAt'] as Timestamp?)?.millisecondsSinceEpoch;
-                              final hasUrl = latestUrl != null && latestUrl.toString().isNotEmpty;
-                              return ClipOval(
-                                child: hasUrl
-                                    ? Image.network(
-                                        updatedAt != null ? '$latestUrl?v=$updatedAt' : latestUrl,
-                                        key: ValueKey(updatedAt ?? latestUrl),
-                                        fit: BoxFit.cover,
-                                        loadingBuilder: (context, child, loadingProgress) {
-                                          if (loadingProgress == null) return child;
-                                          return Container(
-                                            color: const Color(0xFF8FBC8F),
-                                            child: const Center(
-                                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                            ),
-                                          );
-                                        },
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return Container(
-                                            color: const Color(0xFF8FBC8F),
-                                            child: const Icon(Icons.person, size: 60, color: Colors.white),
-                                          );
-                                        },
-                                      )
-                                    : Container(
-                                        color: const Color(0xFF8FBC8F),
-                                        child: const Icon(Icons.person, size: 60, color: Colors.white),
-                                      ),
-                              );
-                            },
-                          ),
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(30),
+                          bottomRight: Radius.circular(30),
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          letterSpacing: 0.2,
-                          shadows: [Shadow(color: Colors.black45, offset: Offset(0,1), blurRadius: 4)],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.white.withOpacity(0.4)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.location_on, size: 16, color: Colors.white),
-                            const SizedBox(width: 6),
-                            // Make location reactive by listening to the farmer document
-                            StreamBuilder<DocumentSnapshot>(
-                              stream: farmerId.isEmpty
-                                  ? const Stream.empty()
-                                  : FirebaseFirestore.instance.collection('farmers').doc(farmerId).snapshots(),
-                              builder: (context, snap) {
-                                final data = snap.data?.data() as Map<String, dynamic>?;
-                                final liveLocation = data?['location'] ?? location;
-                                final displayLoc = liveLocation == null
-                                    ? ''
-                                    : _shortenLocationString(liveLocation.toString());
-                                return Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      displayLoc,
-                                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    // Owner-only change location button
-                                    if (FirebaseAuth.instance.currentUser?.uid == farmerId && farmerId.isNotEmpty)
-                                      GestureDetector(
-                                        onTap: () => showChangeLocationDialog(context, farmerId),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(0.18),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Row(
-                                            children: const [
-                                              Icon(Icons.edit_location, size: 14, color: Colors.white),
-                                              SizedBox(width: 6),
-                                              Text('Change', style: TextStyle(color: Colors.white, fontSize: 12)),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                );
-                              },
-                            ),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withOpacity(0.25),
+                            Colors.black.withOpacity(0.55),
                           ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-                // Quick actions removed as per request
-              ],
+                  Align(
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Transform.translate(
+                          offset: const Offset(0, 18), // push avatar slightly lower
+                          child: Hero(
+                            tag: 'farmer_${farmerId}',
+                            child: Container(
+                              width: 120,
+                              height: 120,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: const Color(0xFF8FBC8F),
+                                border: Border.all(color: Colors.white, width: 4),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    blurRadius: 15,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: StreamBuilder<DocumentSnapshot>(
+                                stream: FirebaseFirestore.instance
+                                    .collection('farmers')
+                                    .doc(farmerId)
+                                    .snapshots(),
+                                builder: (context, snapshot) {
+                                  final snapData = snapshot.data?.data() as Map<String, dynamic>?;
+                                  final latestUrl = snapData?['profileImageUrl'] ?? farmerData['profileImageUrl'];
+                                  final updatedAt = (snapData?['profileImageUpdatedAt'] as Timestamp?)?.millisecondsSinceEpoch;
+                                  final hasUrl = latestUrl != null && latestUrl.toString().isNotEmpty;
+                                  return ClipOval(
+                                    child: hasUrl
+                                        ? Image.network(
+                                            updatedAt != null ? '$latestUrl?v=$updatedAt' : latestUrl,
+                                            key: ValueKey(updatedAt ?? latestUrl),
+                                            fit: BoxFit.cover,
+                                            loadingBuilder: (context, child, loadingProgress) {
+                                              if (loadingProgress == null) return child;
+                                              return Container(
+                                                color: const Color(0xFF8FBC8F),
+                                                child: const Center(
+                                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                                ),
+                                              );
+                                            },
+                                            errorBuilder: (context, error, stackTrace) {
+                                              return Container(
+                                                color: const Color(0xFF8FBC8F),
+                                                child: const Icon(Icons.person, size: 60, color: Colors.white),
+                                              );
+                                            },
+                                          )
+                                        : Container(
+                                            color: const Color(0xFF8FBC8F),
+                                            child: const Icon(Icons.person, size: 60, color: Colors.white),
+                                          ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: 0.2,
+                            shadows: [Shadow(color: Colors.black45, offset: Offset(0,1), blurRadius: 4)],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withOpacity(0.4)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.location_on, size: 16, color: Colors.white),
+                              const SizedBox(width: 6),
+                              StreamBuilder<DocumentSnapshot>(
+                                stream: farmerId.isEmpty
+                                    ? const Stream.empty()
+                                    : FirebaseFirestore.instance.collection('farmers').doc(farmerId).snapshots(),
+                                builder: (context, snap) {
+                                  final data = snap.data?.data() as Map<String, dynamic>?;
+                                  final liveLocation = data?['location'] ?? location;
+                                  final displayLoc = liveLocation == null
+                                      ? ''
+                                      : _shortenLocationString(liveLocation.toString());
+                                  return Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        displayLoc,
+                                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      if (FirebaseAuth.instance.currentUser?.uid == farmerId && farmerId.isNotEmpty)
+                                        GestureDetector(
+                                          onTap: () => showChangeLocationDialog(context, farmerId),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withOpacity(0.18),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Row(
+                                              children: const [
+                                                Icon(Icons.edit_location, size: 14, color: Colors.white),
+                                                SizedBox(width: 6),
+                                                Text('Change', style: TextStyle(color: Colors.white, fontSize: 12)),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          // Floating About card (replaces summary card)
-          Transform.translate(
-            offset: const Offset(0, -24),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+            // About card (no floating transform needed when entire page scrolls)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               child: _AboutFloatingCard(
                 collection: 'farmers',
                 docId: farmerId,
@@ -263,18 +260,22 @@ class FarmerDetailScreen extends StatelessWidget {
                 fallback: (farmerData['description'] ?? loc.noDescriptionYet) as String,
               ),
             ),
-          ),
 
-          // Main Content Area with earthy theme
-          Expanded(
-            child: Container(
-              color: const Color(0xFFF5F5DC), // Light beige
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
+            // Content section with rounded top similar to profile screen motion
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 16),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF5F5DC),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
                 child: Column(
                   children: [
-                    const SizedBox(height: 0),
-
                     // Contact Information Card
                     _buildEarthyCard(
                       child: Column(
@@ -285,33 +286,30 @@ class FarmerDetailScreen extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFF8FBC8F,
-                                  ).withOpacity(0.2),
+                                  color: const Color(0xFF8FBC8F).withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Icon(
                                   Icons.contact_phone,
-                                  color: Color(0xFF556B2F), // Dark olive green
+                                  color: Color(0xFF556B2F),
                                   size: 24,
                                 ),
                               ),
                               const SizedBox(width: 16),
-                                  Text(
-                                    loc.contactInfo,
-                                    style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF556B2F), // Dark olive green
-                                    ),
-                                  ),
+                              Text(
+                                loc.contactInfo,
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF556B2F),
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 20),
-
                           _buildContactRow(
                             icon: Icons.phone,
-                                label: loc.phone,
+                            label: loc.phone,
                             value: phone,
                             onTap: () => _launchPhone(phone),
                           ),
@@ -325,20 +323,14 @@ class FarmerDetailScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 20),
-
-                    // Delivery Price Per Km (editable by owner)
                     _buildEarthyCard(
                       child: _DeliveryPriceSection(
                         farmerId: farmerId,
                         canEdit: FirebaseAuth.instance.currentUser?.uid == farmerId && farmerId.isNotEmpty,
                       ),
                     ),
-
                     const SizedBox(height: 20),
-
-                    // Reviews Section
                     _buildEarthyCard(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,43 +340,38 @@ class FarmerDetailScreen extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFFDAA520,
-                                  ).withOpacity(0.2), // Goldenrod
+                                  color: const Color(0xFFDAA520).withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Icon(
                                   Icons.star_rounded,
-                                  color: Color(0xFFDAA520), // Goldenrod
+                                  color: Color(0xFFDAA520),
                                   size: 24,
                                 ),
                               ),
                               const SizedBox(width: 16),
-                                   Text(
-                                     loc.ratingsAndReviews,
-                                     style: const TextStyle(
+                              Text(
+                                loc.ratingsAndReviews,
+                                style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF556B2F), // Dark olive green
+                                  color: Color(0xFF556B2F),
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 20),
-
                           FutureBuilder<Map<String, dynamic>>(
                             future: _fetchFarmerReviews(farmerId),
                             builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
                                 return _buildLoadingState();
                               }
                               if (snapshot.hasError) {
                                 return _buildErrorState();
                               }
                               final data = snapshot.data;
-                              if (data == null ||
-                                  (data['reviews'] as List).isEmpty) {
+                              if (data == null || (data['reviews'] as List).isEmpty) {
                                 return _buildEmptyReviewsState();
                               }
                               final avg = data['average'] as double?;
@@ -395,11 +382,7 @@ class FarmerDetailScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-
-                    const SizedBox(height: 20),
-
-                    // Logout button at the bottom
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 28),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
@@ -421,7 +404,7 @@ class FarmerDetailScreen extends StatelessWidget {
                           }
                         },
                         icon: const Icon(Icons.logout),
-                             label: Text(loc.logOut),
+                        label: Text(loc.logOut),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFE53935),
                           foregroundColor: Colors.white,
@@ -433,13 +416,12 @@ class FarmerDetailScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
                   ],
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
