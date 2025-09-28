@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../constants/app_constants.dart';
@@ -286,7 +287,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
   Future<void> _showQuantityDialog(Map<String, dynamic> farmer) async {
     final TextEditingController quantityController = TextEditingController();
     final TextEditingController locationController = TextEditingController();
-    int? quantityVal; // for dynamic pricing display
+    double? quantityVal; // for dynamic pricing display (supports decimals)
 
     // Prefill address with customer's saved location if available
     try {
@@ -319,13 +320,17 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
                 children: [
                   TextField(
                     controller: quantityController,
-                    keyboardType: TextInputType.number,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      // Allow only numbers with optional decimal up to 2 places
+                      FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                    ],
                     decoration: const InputDecoration(
-                      labelText: 'Quantity in kg',
+                      labelText: 'Quantity in kg (e.g. 1.25)',
                       border: OutlineInputBorder(),
                     ),
                     onChanged: (val){
-                      final parsed = int.tryParse(val.trim());
+                      final parsed = double.tryParse(val.trim());
                       setStateDialog((){ quantityVal = parsed; });
                     },
                   ),
@@ -357,7 +362,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
               ElevatedButton(
                 onPressed: () async {
                   final quantityText = quantityController.text.trim();
-                  final quantity = int.tryParse(quantityText);
+                  final quantity = double.tryParse(quantityText);
                   if (quantity == null || quantity <= 0) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Enter a valid quantity')),
@@ -365,7 +370,11 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
                     return;
                   }
 
-                  if (quantity > (farmer['quantity'] ?? 0)) {
+                  final available = (farmer['quantity'] is num)
+                      ? (farmer['quantity'] as num).toDouble()
+                      : double.tryParse(farmer['quantity']?.toString() ?? '') ?? 0;
+
+                  if (quantity > available) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                           content: Text('Requested quantity exceeds available stock')),
@@ -426,7 +435,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
   }
 
   Future<void> _createTransaction(
-    Map<String, dynamic> farmer, int quantity, {required String location}) async {
+    Map<String, dynamic> farmer, double quantity, {required String location}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -452,13 +461,13 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
     final double ratePerKm = (farmer['deliveryPricePerKm'] is num)
         ? (farmer['deliveryPricePerKm'] as num).toDouble()
         : AppConstants.defaultDeliveryPricePerKm.toDouble();
-    final double baseAmount = unitPrice * quantity;
+  final double baseAmount = unitPrice * quantity;
     final double deliveryCost = distanceKm * ratePerKm;
     final double totalAmount = baseAmount + deliveryCost;
 
     final transaction = {
       'Crop': widget.cropName, // store canonical code
-      'Quantity Sold (1kg)': quantity,
+  'Quantity Sold (1kg)': quantity,
       'Sale Price Per kg': unitPrice,
       'Status': 'Pending',
       'Farmer ID': farmer['farmerId'],
@@ -526,7 +535,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
   }
 
   Future<void> _createScheduledOrder(
-    Map<String, dynamic> farmer, int quantity, {required String location}) async {
+    Map<String, dynamic> farmer, double quantity, {required String location}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -547,7 +556,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
 
     final scheduledOrder = {
       'Crop': widget.cropName,
-      'Quantity Sold (1kg)': quantity,
+  'Quantity Sold (1kg)': quantity,
       'Sale Price Per kg': farmer['price'],
       'Status': 'Pending',
       'Farmer ID': farmer['farmerId'],
@@ -617,7 +626,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
     required dynamic price,
     required dynamic originalQuantity,
     required dynamic harvestDate,
-    required int decrementBy,
+    required double decrementBy,
   }) async {
     final harvestDocRef = FirebaseFirestore.instance.collection('Harvests').doc(farmerId);
 
@@ -652,8 +661,8 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
 
   // Collect indices for the crop+week group
   final List<int> groupIndices = [];
-  int? groupAvailable; // aggregated available for the group based on last entry
-  int sumQuantityIfNoAvailable = 0;
+  double? groupAvailable; // aggregated available for the group based on last entry
+  double sumQuantityIfNoAvailable = 0;
 
       for (int i = 0; i < harvests.length; i++) {
         final entry = harvests[i];
@@ -698,12 +707,12 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
         // We want to base from the last added entry's available when present
         final val = entry['available'];
         if (val is num) {
-          groupAvailable = val.toInt();
+          groupAvailable = val.toDouble();
         }
 
         // For backfill scenarios where available isn't set at all, we prepare a sum
         final q = entry['quantity'];
-        if (q is num) sumQuantityIfNoAvailable += q.toInt();
+        if (q is num) sumQuantityIfNoAvailable += q.toDouble();
       }
 
       if (groupIndices.isEmpty) {
@@ -712,14 +721,14 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       }
 
   // If no 'available' seen across the group, assume sum of quantities (legacy)
-  final int currentGroupAvailable = (groupAvailable ?? sumQuantityIfNoAvailable);
-      int newAvailable = currentGroupAvailable - decrementBy;
-      if (newAvailable < 0) newAvailable = 0;
+  final double currentGroupAvailable = (groupAvailable ?? sumQuantityIfNoAvailable);
+    double newAvailable = currentGroupAvailable - decrementBy;
+    if (newAvailable < 0) newAvailable = 0;
 
       // Update the aggregated available across all entries in the group
       for (final idx in groupIndices) {
         final mutable = Map<String, dynamic>.from(harvests[idx] as Map);
-        mutable['available'] = newAvailable;
+        mutable['available'] = double.parse(newAvailable.toStringAsFixed(2)); // store trimmed to 2 d.p.
         harvests[idx] = mutable;
       }
 
@@ -1067,7 +1076,7 @@ Widget _buildEmptyState() {
 }
 
 class _CostPreview extends StatelessWidget {
-  final int? quantity;
+  final double? quantity;
   final double unitPrice;
   final double distanceKm;
   final double ratePerKm;
@@ -1124,7 +1133,7 @@ class _CostPreview extends StatelessWidget {
         children: [
           const Text('Cost Summary', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1D2939))),
           const SizedBox(height: 8),
-          _row('Base (${quantity} kg × LKR ${unitPrice.toStringAsFixed(0)})', f(base)),
+          _row('Base (${(quantity ?? 0).toStringAsFixed(2)} kg × LKR ${unitPrice.toStringAsFixed(0)})', f(base)),
           _row('Delivery (${distanceKm.toStringAsFixed(1)} km × LKR ${ratePerKm.toStringAsFixed(0)})', f(delivery)),
           const Divider(height: 20),
           _row('Total', f(total), emphasize: true),

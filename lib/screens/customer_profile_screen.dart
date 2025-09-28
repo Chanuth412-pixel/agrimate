@@ -704,32 +704,49 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
   String _formatTotalWithDelivery(Map<String, dynamic> tx, dynamic price, dynamic quantity){
     try {
-      final double unit = (price is num) ? price.toDouble() : double.parse(price.toString());
-      final double qty = (quantity is num) ? quantity.toDouble() : double.parse(quantity.toString());
-      // If enriched pricing fields exist use them
-      if (tx.containsKey('totalAmount')) {
+      // Safely parse unit price & quantity (fallback to 0 if null / invalid)
+      final double unit = (price is num)
+          ? price.toDouble()
+          : double.tryParse(price?.toString() ?? '') ?? 0;
+      final double qty = (quantity is num)
+          ? quantity.toDouble()
+          : double.tryParse(quantity?.toString() ?? '') ?? 0;
+
+      // Prefer stored totalAmount ONLY if it's actually a numeric value
+      if (tx['totalAmount'] is num) {
         final total = (tx['totalAmount'] as num).toDouble();
         return 'LKR ${total.toStringAsFixed(0)}';
       }
+
       final base = unit * qty;
       double delivery = 0;
-      if (tx.containsKey('deliveryDistanceKm') && tx.containsKey('deliveryRatePerKm')) {
-        final dist = (tx['deliveryDistanceKm'] as num?)?.toDouble();
-        final rate = (tx['deliveryRatePerKm'] as num?)?.toDouble();
-        if (dist != null && rate != null) delivery = dist * rate;
+      final distRaw = tx['deliveryDistanceKm'];
+      final rateRaw = tx['deliveryRatePerKm'];
+      final dist = (distRaw is num)
+          ? distRaw.toDouble()
+          : double.tryParse(distRaw?.toString() ?? '');
+      final rate = (rateRaw is num)
+          ? rateRaw.toDouble()
+          : double.tryParse(rateRaw?.toString() ?? '');
+      if (dist != null && rate != null) {
+        delivery = dist * rate;
       }
+
       final total = base + delivery;
       return 'LKR ${total.toStringAsFixed(0)}';
     } catch (_) {
-      return 'LKR ${(price * quantity)}';
+      return 'LKR 0';
     }
   }
 
   String _formatDeliveryBreakdown(Map<String, dynamic> tx) {
     try {
+      if (tx['deliveryDistanceKm'] is! num || tx['deliveryRatePerKm'] is! num) return 'N/A';
       final dist = (tx['deliveryDistanceKm'] as num).toDouble();
       final rate = (tx['deliveryRatePerKm'] as num).toDouble();
-      final cost = (tx['deliveryCost'] as num?)?.toDouble() ?? dist * rate;
+      final cost = (tx['deliveryCost'] is num)
+          ? (tx['deliveryCost'] as num).toDouble()
+          : dist * rate;
       return '${dist.toStringAsFixed(1)} km x LKR ${rate.toStringAsFixed(0)} = LKR ${cost.toStringAsFixed(0)}';
     } catch (_) {
       return 'N/A';
