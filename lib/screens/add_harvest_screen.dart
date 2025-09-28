@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui'; // For BackdropFilter (glassy UI)
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -6,8 +7,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../l10n/app_localizations.dart';
-import 'dart:ui' as ui;
-import 'dart:math' as math;
 
 double? _calculatedQtyPreview;
   // Helper to calculate quantity from area and crop
@@ -36,34 +35,25 @@ class AddHarvestScreen extends StatefulWidget {
   State<AddHarvestScreen> createState() => _AddHarvestScreenState();
 }
 
-class _AddHarvestScreenState extends State<AddHarvestScreen> with TickerProviderStateMixin {
+class _AddHarvestScreenState extends State<AddHarvestScreen> {
   final _formKey = GlobalKey<FormState>();
-  final ScrollController _scrollController = ScrollController();
-  final GlobalKey _insightsKey = GlobalKey();
-  final GlobalKey _estimatedQtyKey = GlobalKey();
   final _planting = TextEditingController();
   final _harvest = TextEditingController();
   final _area = TextEditingController();
   final _price = TextEditingController();
   final _deliveryRadius = TextEditingController();
 
-  final _crops = ['Tomato', 'Okra', 'Bean'];
+  // Internal crop identifiers; UI labels will use localization
+  final _crops = ['tomato', 'okra', 'bean'];
   String? _selectedCrop;
   String _precautions = '';
   String _weatherSummary = '';
   String _demandSupplyStatus = '';
+  String _priceStatus = '';
   String _actualPrecautions = '';
   bool _hasPreviewed = false;
   double _temp = 0;
   double _rain = 0;
-
-  // UI state helpers
-  bool _showCropSelectError = false; // show validation message when user tries preview without crop
-
-  // Delight / animation controllers
-  late final AnimationController _headerPulseController;
-  late final AnimationController _confettiController;
-  static const int _confettiCount = 26;
 
   // Make last previewed values nullable
   String? _lastPreviewedCrop;
@@ -79,13 +69,6 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> with TickerProvider
     _planting.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
     _harvest.text = DateFormat('yyyy-MM-dd').format(DateTime.now().add(const Duration(days: 60)));
     _fetchProximity();
-    _headerPulseController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
-    _confettiController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600));
-    _confettiController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _confettiController.reset();
-      }
-    });
   }
 
   Future<void> _fetchProximity() async {
@@ -116,10 +99,14 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> with TickerProvider
 
   @override
   void dispose() {
-    _headerPulseController.dispose();
-    _confettiController.dispose();
-    _scrollController.dispose();
     super.dispose();
+  }
+
+  // Week number helper (aligned with customer screen logic)
+  int _getWeekNumber(DateTime date) {
+    final beginningOfYear = DateTime(date.year, 1, 1);
+    final daysDifference = date.difference(beginningOfYear).inDays;
+    return ((daysDifference + beginningOfYear.weekday) / 7).ceil();
   }
 
   void _onInputChanged() {
@@ -136,6 +123,7 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> with TickerProvider
           _hasPreviewed = false;
           _precautions = '';
           _demandSupplyStatus = '';
+          _priceStatus = '';
           _weatherSummary = '';
           _actualPrecautions = '';
         });
@@ -149,7 +137,10 @@ class _AddHarvestScreenState extends State<AddHarvestScreen> with TickerProvider
 
   // Function to fetch weather data for the next 5 days
   Future<void> _fetchWeatherData(String city) async {
-    const String apiKey = '9fb4df22ed842a6a5b04febf271c4b1c'; // Hardcoded OpenWeather API key
+    const String _fallbackKey = '9fb4df22ed842a6a5b04febf271c4b1c'; // Hardcoded fallback
+    final String apiKey = dotenv.env['OPENWEATHER_API_KEY']?.trim().isNotEmpty == true
+        ? dotenv.env['OPENWEATHER_API_KEY']!.trim()
+        : _fallbackKey;
     
     try {
       // Use Colombo's coordinates as default
@@ -287,6 +278,36 @@ Weather is ${isIdealWeather ? 'IDEAL' : 'NOT IDEAL'} for ${_selectedCrop ?? 'sel
     }
   }
 
+  // Check price against Firestore price collection
+  Future<String> _checkPrice(String crop, int inputPrice) async {
+    try {
+      final priceDoc = await FirebaseFirestore.instance
+          .collection('price')
+          .doc(crop)
+          .get();
+
+      if (priceDoc.exists) {
+        final priceData = priceDoc.data() as Map<String, dynamic>;
+        final suggestedPrice = priceData['suggested_price'] ?? 0;
+        final capPrice = priceData['cap_price'] ?? 0;
+
+        print('Price Data for $crop: $priceData');
+        print('Input Price: $inputPrice, Suggested Price: $suggestedPrice, Cap Price: $capPrice');
+
+        if (inputPrice > capPrice) {
+          return '❌ PRICE TOO HIGH: Your price (LKR $inputPrice) exceeds the cap price (LKR $capPrice) for $crop. Please reduce your price.';
+        } else if (inputPrice < suggestedPrice) {
+          return '⚠️ LOW PRICE: Your price (LKR $inputPrice) is below suggested price (LKR $suggestedPrice) for $crop. Consider increasing your price.';
+        } else {
+          return '✅ GOOD PRICE: Your price (LKR $inputPrice) is within acceptable range. Suggested: LKR $suggestedPrice, Cap: LKR $capPrice';
+        }
+      } else {
+        return '❓ Unable to check price: Price data not available for $crop.';
+      }
+    } catch (e) {
+      return '❌ Error checking price: $e';
+    }
+  }
 
   // Enhanced method to generate comprehensive farming precautions
   Future<String> _getComprehensivePrecautions(String crop) async {
@@ -512,16 +533,6 @@ Current Month Analysis: $advice
   }
 
   Future<void> _preview() async {
-    if (_selectedCrop == null) {
-      setState(() => _showCropSelectError = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a crop first.'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
     if (!_formKey.currentState!.validate()) return;
 
     final crop = _selectedCrop ?? 'Unknown';
@@ -546,26 +557,14 @@ Current Month Analysis: $advice
     String city = "Kandy";
     await _fetchWeatherData(city);
     final txt = await _getComprehensivePrecautions(crop);
-  final demandSupplyStatus = await _checkDemandSupply(crop, calculatedQty.round());
+    final demandSupplyStatus = await _checkDemandSupply(crop, calculatedQty.round());
+    final priceStatus = await _checkPrice(crop, int.parse(_price.text));
 
     setState(() {
       _precautions = txt;
       _actualPrecautions = txt;
       _demandSupplyStatus = demandSupplyStatus;
-    });
-
-    // Delay a frame then scroll to insights smoothly
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_insightsKey.currentContext != null) {
-        final box = _insightsKey.currentContext!.findRenderObject() as RenderBox;
-        final offset = box.localToGlobal(Offset.zero, ancestor: context.findRenderObject());
-        final dy = offset.dy + _scrollController.offset - 100; // slight offset above header
-        _scrollController.animateTo(
-          dy.clamp(0, _scrollController.position.maxScrollExtent),
-          duration: const Duration(milliseconds: 650),
-          curve: Curves.easeInOutCubic,
-        );
-      }
+      _priceStatus = priceStatus;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -586,16 +585,6 @@ Current Month Analysis: $advice
   }
 
   Future<void> _submit() async {
-    if (_selectedCrop == null) {
-      setState(() => _showCropSelectError = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Select a crop before submitting.'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
     if (!_hasPreviewed) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -631,34 +620,108 @@ Current Month Analysis: $advice
       // Calculate quantity from area
       final crop = _selectedCrop ?? 'Unknown';
       double areaSqM = double.tryParse(_area.text) ?? 0;
-  double calculatedQty = await _calculateQuantityFromArea(crop, areaSqM);
-  // Format quantity to 2 decimal places (retain fractional precision instead of rounding to int)
-  double quantity2dp = double.parse(calculatedQty.toStringAsFixed(2));
+      double calculatedQty = await _calculateQuantityFromArea(crop, areaSqM);
       int deliveryRadiusValue = int.tryParse(_deliveryRadius.text) ?? 2;
 
-      final harvestData = {
+      // Build new harvest entry (available will be calculated below)
+      final Map<String, dynamic> harvestData = {
         'crop': _selectedCrop,
         'plantingDate': _planting.text,
         'harvestDate': _harvest.text,
-        'quantity': quantity2dp,
-        'area': double.parse(areaSqM.toStringAsFixed(2)),
-        'price': double.parse(((double.tryParse(_price.text) ?? int.tryParse(_price.text) ?? 0).toDouble()).toStringAsFixed(2)),
+        'quantity': calculatedQty.round(),
+        'area': areaSqM,
+        'price': int.parse(_price.text),
         'weather': {
           'temperature': _temp,
           'rainfall': _rain,
         },
         'precautions': _actualPrecautions,
         'farmerId': user.uid,
-        // No deliveryRadius field here
       };
 
-      // Add to Firestore
-      await FirebaseFirestore.instance
-          .collection('Harvests')
-          .doc(user.uid)
-          .set({
-            'harvests': FieldValue.arrayUnion([harvestData])
-          }, SetOptions(merge: true));
+      // Aggregate 'available' per crop and week: read-modify-write
+      final harvestRef = FirebaseFirestore.instance.collection('Harvests').doc(user.uid);
+      final harvestSnap = await harvestRef.get();
+      final List<dynamic> existing = List<dynamic>.from(harvestSnap.data()?["harvests"] ?? []);
+
+      // Compute week number for the new harvest
+      DateTime newHarvestDate;
+      try {
+        newHarvestDate = DateTime.parse(_harvest.text);
+      } catch (_) {
+        // If parsing fails, fallback to today to avoid crash
+        newHarvestDate = DateTime.now();
+      }
+      final int newWeek = _getWeekNumber(newHarvestDate);
+
+      // Sum quantities for same crop and same week among existing entries
+      int existingWeekSum = 0;
+      for (final e in existing) {
+        try {
+          if (e is! Map) continue;
+          if (e['crop'] != _selectedCrop) continue;
+          final dynamic rawDate = e['harvestDate'];
+          DateTime d;
+          if (rawDate is Timestamp) {
+            d = rawDate.toDate();
+          } else if (rawDate is String) {
+            d = DateTime.parse(rawDate);
+          } else {
+            continue;
+          }
+          if (_getWeekNumber(d) == newWeek) {
+            final int q = (e['quantity'] ?? 0) is int
+                ? (e['quantity'] ?? 0) as int
+                : ((e['quantity'] ?? 0) as num).round();
+            existingWeekSum += q;
+          }
+        } catch (_) {
+          // ignore malformed entries
+        }
+      }
+
+      final int newQty = calculatedQty.round();
+      final int newAvailable = existingWeekSum + newQty;
+      harvestData['available'] = newAvailable;
+
+      // Update 'available' for existing entries in the same crop/week group
+      final List<dynamic> updated = [];
+      for (final e in existing) {
+        if (e is! Map) {
+          updated.add(e);
+          continue;
+        }
+        try {
+          if (e['crop'] == _selectedCrop) {
+            final dynamic rawDate = e['harvestDate'];
+            DateTime d;
+            if (rawDate is Timestamp) {
+              d = rawDate.toDate();
+            } else if (rawDate is String) {
+              d = DateTime.parse(rawDate);
+            } else {
+              updated.add(e);
+              continue;
+            }
+            if (_getWeekNumber(d) == newWeek) {
+              // Clone map to avoid modifying Firestore cached map directly
+              final Map<String, dynamic> clone = Map<String, dynamic>.from(e);
+              clone['available'] = newAvailable;
+              updated.add(clone);
+              continue;
+            }
+          }
+          updated.add(e);
+        } catch (_) {
+          updated.add(e);
+        }
+      }
+
+      // Append the new entry
+      updated.add(harvestData);
+
+      // Write back full array
+      await harvestRef.set({'harvests': updated}, SetOptions(merge: true));
 
       // Update proximity in farmer profile if changed
       await FirebaseFirestore.instance
@@ -672,8 +735,6 @@ Current Month Analysis: $advice
           backgroundColor: Colors.green,
         ),
       );
-
-      _triggerConfetti();
 
       // Clear form and preview data
       setState(() {
@@ -695,1002 +756,658 @@ Current Month Analysis: $advice
     }
   }
 
-  // Trigger confetti animation
-  void _triggerConfetti() {
-    if (_confettiController.isAnimating) return; // avoid overlapping
-    _confettiController.forward(from: 0);
-  }
-
-  String _formatNumber(double v) {
-    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(2)}M';
-    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}K';
-    return v.toStringAsFixed(0);
-  }
-
-  LinearGradient _timeOfDayGradient() {
-    final hour = DateTime.now().hour;
-    if (hour < 11) {
-      // Morning warm fresh
-      return const LinearGradient(
-        colors: [Color(0xFFB2F7EF), Color(0xFF02C697)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    } else if (hour < 17) {
-      // Midday vibrant greens
-      return const LinearGradient(
-        colors: [Color(0xFF02C697), Color(0xFF0E9F6E)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    } else {
-      // Evening calm
-      return const LinearGradient(
-        colors: [Color(0xFF173F5F), Color(0xFF02C697)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-  }
-
-  Widget _buildDynamicHeader() {
-    final pulse = _headerPulseController.value;
-    final gradient = _timeOfDayGradient();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(26),
-          boxShadow: [
-            BoxShadow(
-              color: gradient.colors.last.withOpacity(0.35),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            )
-          ],
-        ),
-        child: Row(
-          children: [
-            // Pulsing eco icon badge
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: 54 + pulse * 6,
-                  height: 54 + pulse * 6,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.14 + pulse * 0.08),
-                  ),
-                ),
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.18),
-                    border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.2),
-                  ),
-                  child: const Icon(Icons.eco, color: Colors.white, size: 26),
-                )
-              ],
-            ),
-            const SizedBox(width: 18),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _greeting(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.4,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Plan Your Harvest',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Insights to maximize yield & profit',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.88),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _greeting() {
-    final h = DateTime.now().hour;
-    if (h < 12) return 'Good Morning';
-    if (h < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  }
-
-  Widget _buildConfettiOverlay(BoxConstraints constraints) {
-    if (!_confettiController.isAnimating) return const SizedBox.shrink();
-    final progress = _confettiController.value; // 0..1
-    final width = constraints.maxWidth;
-    final height = constraints.maxHeight;
-    final rnd = math.Random(7); // deterministic per frame to keep stable? Use index randomness instead.
-    return IgnorePointer(
-      child: SizedBox.expand(
-        child: CustomPaint(
-          painter: _ConfettiPainter(
-            animationValue: progress,
-            width: width,
-            height: height,
-            count: _confettiCount,
-          ),
-        ),
-      ),
-    );
-  }
-
   // Removed unused _dateField widget
 
   // Removed unused _textField widget
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      // Local theme override removing blue splash/highlight effects
-      data: Theme.of(context).copyWith(
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        hoverColor: Colors.transparent,
-        splashFactory: NoSplash.splashFactory,
-        // Keep existing color scheme but ensure consistent primary
-        colorScheme: Theme.of(context).colorScheme.copyWith(primary: const Color(0xFF02C697)),
-      ),
-      child: Scaffold(
-      backgroundColor: const Color(0xFF02C697),
+    return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: const Color(0xFF02C697),
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            const SizedBox(width: 8),
-            // Glass back button
-            GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      color: Colors.white.withOpacity(0.18),
-                      border: Border.all(color: Colors.white.withOpacity(0.35), width: 1),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        )
+        title: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withOpacity(0.3)),
+          ),
+          child: Text(
+            AppLocalizations.of(context)?.addNewHarvest ?? 'Add New Harvest',
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+              fontSize: 18,
+              letterSpacing: .5,
+            ),
+          ),
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Stack(
+        children: [
+          // Gradient background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF0F2027), // deep green/blue
+                  Color(0xFF203A43), // teal-ish dark
+                  Color(0xFF2C5364), // desaturated blue-green
+                ],
+              ),
+            ),
+          ),
+          // Subtle overlay pattern using blur & opacity layers
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.18,
+              child: Image(
+                image: AssetImage('assets/images/Add_harvest.jpg'),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          // Scrollable content
+          SingleChildScrollView(
+            padding: const EdgeInsets.only(top: 110, bottom: 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header glass panel
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _GlassPanel(
+                    borderRadius: 30,
+                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 26),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.eco, size: 48, color: Colors.white.withOpacity(0.95)),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          AppLocalizations.of(context)?.planYourHarvest ?? 'Plan Your Harvest',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: .8,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          AppLocalizations.of(context)?.harvestInsightsTagline ?? 'Get insights for better yield and profit',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(.85),
+                            fontSize: 14,
+                            height: 1.3,
+                          ),
+                        ),
                       ],
                     ),
-                    child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            const Text(
-              'Add New Harvest',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                fontSize: 20,
-                letterSpacing: 0.3,
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          return Stack(
-            children: [
-              Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF5F7FA), // background
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(28),
-                    topRight: Radius.circular(28),
-                  ),
-                ),
-                child: SafeArea(
-                  bottom: true,
-                  child: SingleChildScrollView(
-                                controller: _scrollController,
-                    padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + 32),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildDynamicHeader(),
 
-                        // Form Container
-                        Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Card(
-                            elevation: 5,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
+                // Form Glass Card
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 10),
+                  child: _GlassPanel(
+                    borderRadius: 28,
+                    padding: const EdgeInsets.all(22),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          // Crop Selection
+                          _glassFieldWrapper(
+                            child: DropdownButtonFormField<String>(
+                              dropdownColor: const Color(0xFF122026),
+                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                              decoration: InputDecoration(
+                                labelText: AppLocalizations.of(context)?.selectCrop ?? 'Select Crop',
+                                labelStyle: TextStyle(color: Colors.tealAccent.shade100, fontWeight: FontWeight.w600),
+                                border: InputBorder.none,
+                                prefixIcon: const Icon(Icons.eco, color: Color(0xFF14D6A2)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
+                              ),
+                              value: _selectedCrop,
+                              items: _crops.map((crop) {
+                                final loc = AppLocalizations.of(context);
+                                String label;
+                                switch (crop) {
+                                  case 'tomato':
+                                    label = loc?.cropTomato ?? 'Tomato';
+                                    break;
+                                  case 'okra':
+                                    label = loc?.cropOkra ?? 'Okra';
+                                    break;
+                                  case 'bean':
+                                    label = loc?.cropBeans ?? 'Bean';
+                                    break;
+                                  default:
+                                    label = crop;
+                                }
+                                return DropdownMenuItem(
+                                  value: crop,
+                                  child: Text(label),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() => _selectedCrop = value);
+                                _onInputChanged();
+                              },
+                              validator: (v) => v == null ? (AppLocalizations.of(context)?.selectCrop ?? 'Select crop') : null,
+                              isExpanded: true,
                             ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Form(
-                                key: _formKey,
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Date fields in a row
+                          Row(
+                            children: [
+                              Expanded(
                                 child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Crop Selection (chips similar to trend chips)
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Wrap(
-                                        spacing: 10,
-                                        runSpacing: 10,
-                                        children: _crops.map((c) {
-                                          final selected = _selectedCrop == c;
-                                          return InkWell(
-                                            borderRadius: BorderRadius.circular(30),
-                                            onTap: () {
-                                              setState(() {
-                                                _selectedCrop = c;
-                                                _showCropSelectError = false; // clear error on selection
-                                              });
-                                              _onInputChanged();
-                                            },
-                                            child: AnimatedContainer(
-                                              duration: const Duration(milliseconds: 220),
-                                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                                              decoration: BoxDecoration(
-                                                borderRadius: BorderRadius.circular(30),
-                                                color: selected ? const Color(0xFF02C697) : Colors.white,
-                                                border: Border.all(
-                                                  color: selected ? const Color(0xFF02C697) : Colors.grey.shade300,
-                                                  width: 1.4,
-                                                ),
-                                                boxShadow: selected
-                                                    ? [
-                                                        BoxShadow(
-                                                          color: const Color(0xFF02C697).withOpacity(0.35),
-                                                          blurRadius: 10,
-                                                          offset: const Offset(0, 4),
-                                                        )
-                                                      ]
-                                                    : [
-                                                        BoxShadow(
-                                                          color: Colors.black.withOpacity(0.03),
-                                                          blurRadius: 4,
-                                                          offset: const Offset(0, 2),
-                                                        )
-                                                      ],
-                                              ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(
-                                                    Icons.eco,
-                                                    size: 16,
-                                                    color: selected ? Colors.white : const Color(0xFF02C697),
-                                                  ),
-                                                  const SizedBox(width: 6),
-                                                  Text(
-                                                    c,
-                                                    style: TextStyle(
-                                                      fontSize: 14,
-                                                      fontWeight: FontWeight.w600,
-                                                      letterSpacing: 0.3,
-                                                      color: selected ? Colors.white : Colors.black87,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          );
-                                        }).toList(),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    if (_showCropSelectError && _selectedCrop == null)
-                                      Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Padding(
-                                          padding: const EdgeInsets.only(top: 6, left: 4),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(Icons.error_outline, size: 14, color: Colors.red.shade400),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                'Select a crop to continue',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Colors.red.shade400,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    const SizedBox(height: 20),
-
-                                    // Date fields in a row
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              const Padding(
-                                                padding: EdgeInsets.only(left: 5, bottom: 5),
-                                                child: Text(
-                                                  'Planting Date',
-                                                  style: TextStyle(
-                                                    color: Color(0xFF02C697), // Matching primary color
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ),
-                                              _DateField(
-                                                label: 'Select date',
-                                                icon: Icons.calendar_today,
-                                                controller: _planting,
-                                                onChanged: () => _onInputChanged(),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(width: 15),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              const Padding(
-                                                padding: EdgeInsets.only(left: 5, bottom: 5),
-                                                child: Text(
-                                                  'Harvest Date',
-                                                  style: TextStyle(
-                                                    color: Color(0xFF02C697), // Matching primary color
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ),
-                                              _DateField(
-                                                label: 'Select date',
-                                                icon: Icons.event,
-                                                controller: _harvest,
-                                                onChanged: () => _onInputChanged(),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 20),
-
-                                    // Area and Price fields in a row (kept a fixed vertical size; dynamic estimate moved below)
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              const Padding(
-                                                padding: EdgeInsets.only(left: 5, bottom: 5),
-                                                child: Text(
-                                                  'Planting Area (sq.m)',
-                                                  style: TextStyle(
-                                                    color: Color(0xFF02C697),
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ),
-                                              Container(
-                                                decoration: BoxDecoration(
-                                                  color: Colors.grey[50],
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  border: Border.all(color: Colors.grey[300]!),
-                                                ),
-                                                child: TextFormField(
-                                                  controller: _area,
-                                                  keyboardType: TextInputType.number,
-                                                  decoration: InputDecoration(
-                                                    hintText: 'Enter area in sq.m',
-                                                    border: InputBorder.none,
-                                                    prefixIcon: const Icon(Icons.square_foot, color: Color(0xFF02C697)),
-                                                    contentPadding: const EdgeInsets.symmetric(horizontal: 15),
-                                                  ),
-                                                  validator: (v) => v == null || v.isEmpty ? 'Enter Area' : null,
-                                                  onChanged: (value) => _onInputChanged(),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(width: 15),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              const Padding(
-                                                padding: EdgeInsets.only(left: 5, bottom: 5),
-                                                child: Text(
-                                                  'Price (LKR/kg)',
-                                                  style: TextStyle(
-                                                    color: Color(0xFF02C697),
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ),
-                                              Container(
-                                                decoration: BoxDecoration(
-                                                  color: Colors.grey[50],
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  border: Border.all(color: Colors.grey[300]!),
-                                                ),
-                                                child: TextFormField(
-                                                  controller: _price,
-                                                  keyboardType: TextInputType.number,
-                                                  decoration: InputDecoration(
-                                                    hintText: 'Enter price',
-                                                    border: InputBorder.none,
-                                                    prefixIcon: const Icon(Icons.attach_money, color: Color(0xFF02C697)),
-                                                    contentPadding: const EdgeInsets.symmetric(horizontal: 15),
-                                                  ),
-                                                  validator: (v) => v == null || v.isEmpty ? 'Enter Price' : null,
-                                                  onChanged: (value) => _onInputChanged(),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    // Animated estimated quantity BELOW the row so right column no longer shifts
-                                    AnimatedSwitcher(
-                                      duration: const Duration(milliseconds: 450),
-                                      switchInCurve: Curves.easeOutBack,
-                                      switchOutCurve: Curves.easeIn,
-                                      transitionBuilder: (child, anim) => SlideTransition(
-                                        position: Tween<Offset>(begin: const Offset(0, -0.15), end: Offset.zero).animate(anim),
-                                        child: FadeTransition(opacity: anim, child: child),
-                                      ),
-                                      child: (_hasPreviewed && _calculatedQtyPreview != null)
-                                          ? Padding(
-                                              key: _estimatedQtyKey,
-                                              padding: const EdgeInsets.only(top: 12),
-                                              child: DecoratedBox(
-                                                decoration: BoxDecoration(
-                                                  color: const Color(0xFF02C697).withOpacity(0.08),
-                                                  borderRadius: BorderRadius.circular(10),
-                                                ),
-                                                child: Padding(
-                                                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                                                  child: Row(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      const Icon(Icons.scale, color: Color(0xFF02C697), size: 20),
-                                                      const SizedBox(width: 8),
-                                                      Expanded(
-                                                        child: Text(
-                                                          'Estimated Quantity: ${_formatNumber(_calculatedQtyPreview!)} kg',
-                                                          style: const TextStyle(
-                                                            color: Color(0xFF02C697),
-                                                            fontWeight: FontWeight.w700,
-                                                            fontSize: 15,
-                                                            height: 1.25,
-                                                          ),
-                                                          softWrap: true,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            )
-                                          : const SizedBox.shrink(),
-                                    ),
-                                    const SizedBox(height: 20),
-
-                                    // Delivery Radius field
                                     Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 8),
-                                      child: TextFormField(
-                                        controller: _deliveryRadius,
-                                        keyboardType: TextInputType.number,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Delivery Radius (km)',
-                                          hintText: 'Enter delivery radius',
-                                          border: OutlineInputBorder(),
+                                      padding: EdgeInsets.only(left: 5, bottom: 5),
+                                      child: Text(
+                                        AppLocalizations.of(context)?.plantingDate ?? 'Planting Date',
+                                        style: TextStyle(
+                                          color: Colors.tealAccent.shade100,
+                                          fontWeight: FontWeight.w600,
                                         ),
-                                        validator: (val) {
-                                          if (val == null || val.isEmpty) return 'Enter delivery radius';
-                                          final num? value = num.tryParse(val);
-                                          if (value == null || value < 0) return 'Enter a valid radius';
-                                          return null;
-                                        },
-                                        onChanged: (value) => _onInputChanged(),
                                       ),
                                     ),
-
-                                    // Preview and Submit Buttons
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: _GradientButton(
-                                            onTap: _selectedCrop == null ? null : _preview,
-                                            colors: _selectedCrop == null
-                                                ? [Colors.grey.shade400, Colors.grey.shade500]
-                                                : const [Color(0xFFFFA726), Color(0xFFFF9800)],
-                                            icon: Icons.preview,
-                                            label: 'Preview',
-                                            disabled: _selectedCrop == null,
-                                          ),
+                                    _glassFieldWrapper(
+                                      child: TextFormField(
+                                        controller: _planting,
+                                        readOnly: true,
+                                        decoration: InputDecoration(
+                                          hintText: AppLocalizations.of(context)?.plantingDate ?? 'Select date',
+                                          border: InputBorder.none,
+                                          prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFF14D6A2)),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+                                          hintStyle: TextStyle(color: Colors.white.withOpacity(.45)),
                                         ),
-                                        const SizedBox(width: 15),
-                                        Expanded(
-                                          child: _GradientButton(
-                                            onTap: _hasPreviewed ? _submit : null,
-                                            colors: _hasPreviewed
-                                                ? const [Color(0xFF02C697), Color(0xFF019876)]
-                                                : [Colors.grey.shade400, Colors.grey.shade500],
-                                            icon: Icons.check_circle,
-                                            label: 'Submit',
-                                            disabled: !_hasPreviewed,
-                                          ),
-                                        ),
-                                      ],
+                                        onTap: () async {
+                                          final picked = await showDatePicker(
+                                            context: context,
+                                            initialDate: DateTime.now(),
+                                            firstDate: DateTime(2023),
+                                            lastDate: DateTime(2100),
+                                          );
+                                          if (picked != null) {
+                                            setState(() {
+                                              _planting.text = DateFormat('yyyy-MM-dd').format(picked);
+                                              _onInputChanged();
+                                            });
+                                          }
+                                        },
+                                        validator: (v) => v == null || v.isEmpty ? (AppLocalizations.of(context)?.plantingDate ?? 'Enter Planting Date') : null,
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
-                            ),
-                          ),
-                        ),
-
-                        // Information sections with cards
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Anchor key for auto-scroll after preview
-                              SizedBox(key: _insightsKey, height: 0),
-                              Row(
-                                children: [
-                                  Container(
-                                    height: 34,
-                                    width: 4,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF02C697),
-                                      borderRadius: BorderRadius.circular(4),
+                              const SizedBox(width: 15),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: EdgeInsets.only(left: 5, bottom: 5),
+                                      child: Text(
+                                        AppLocalizations.of(context)?.harvestDate ?? 'Harvest Date',
+                                        style: TextStyle(
+                                          color: Colors.tealAccent.shade100,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  const Text(
-                                    'Harvest Insights',
-                                    style: TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF1F2A20),
-                                      letterSpacing: 0.3,
+                                    _glassFieldWrapper(
+                                      child: TextFormField(
+                                        controller: _harvest,
+                                        readOnly: true,
+                                        decoration: InputDecoration(
+                                          hintText: AppLocalizations.of(context)?.harvestDate ?? 'Select date',
+                                          border: InputBorder.none,
+                                          prefixIcon: const Icon(Icons.event, color: Color(0xFF14D6A2)),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+                                          hintStyle: TextStyle(color: Colors.white.withOpacity(.45)),
+                                        ),
+                                        validator: (v) => v == null || v.isEmpty ? (AppLocalizations.of(context)?.harvestDate ?? 'Enter Harvest Date') : null,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 15),
-
-                              // Weather Section
-                              _buildInfoCard(
-                                icon: Icons.wb_sunny,
-                                title: 'Weather Forecast',
-                                content: _weatherSummary.isEmpty
-                                    ? 'Preview to see weather insights'
-                                    : _weatherSummary,
-                                iconColor: const Color(0xFFFFA726),
-                              ),
-                              const SizedBox(height: 15),
-
-                              // Market Analysis Section
-                              _buildInfoCard(
-                                icon: Icons.trending_up,
-                                title: 'Market Analysis',
-                                content: _demandSupplyStatus.isEmpty
-                                    ? 'Preview to see market analysis'
-                                    : _demandSupplyStatus,
-                                iconColor: const Color(0xFF2196F3),
-                              ),
-                              const SizedBox(height: 15),
-
-                              // Price Analysis removed
-
-                              // Precautions Section
-                              _buildInfoCard(
-                                icon: Icons.health_and_safety,
-                                title: 'Precautions for Crop Care',
-                                content: _precautions.isEmpty
-                                    ? 'Preview to see crop care recommendations'
-                                    : _precautions,
-                                iconColor: const Color(0xFFD32F2F),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                        ),
+                          const SizedBox(height: 20),
 
-                        const SizedBox(height: 40), // bottom breathing space to avoid overflow when keyboard opens
-                      ],
+                          // Area and Price fields in a row
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: EdgeInsets.only(left: 5, bottom: 5),
+                                      child: Text(
+                                        AppLocalizations.of(context)?.plantingArea ?? 'Planting Area (sq.m)',
+                                        style: TextStyle(
+                                          color: Colors.tealAccent.shade100,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    _glassFieldWrapper(
+                                      child: TextFormField(
+                                        controller: _area,
+                                        keyboardType: TextInputType.number,
+                                        decoration: InputDecoration(
+                                          hintText: AppLocalizations.of(context)?.enterAreaSqm ?? 'Enter area in sq.m',
+                                          border: InputBorder.none,
+                                          prefixIcon: const Icon(Icons.square_foot, color: Color(0xFF14D6A2)),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+                                          hintStyle: TextStyle(color: Colors.white.withOpacity(.45)),
+                                        ),
+                                        validator: (v) => v == null || v.isEmpty ? (AppLocalizations.of(context)?.enterAreaSqm ?? 'Enter Area') : null,
+                                        onChanged: (value) => _onInputChanged(),
+                                      ),
+                                    ),
+                                    if (_hasPreviewed && _calculatedQtyPreview != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 10),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.scale, color: Color(0xFF14D6A2), size: 20),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'Estimated Quantity: ${_calculatedQtyPreview!.toStringAsFixed(0)} kg',
+                                              style: const TextStyle(
+                                                color: Color(0xFF14D6A2),
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 15),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: EdgeInsets.only(left: 5, bottom: 5),
+                                      child: Text(
+                                        AppLocalizations.of(context)?.priceLkrPerKg ?? 'Price (LKR/kg)',
+                                        style: TextStyle(
+                                          color: Colors.tealAccent.shade100,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    _glassFieldWrapper(
+                                      child: TextFormField(
+                                        controller: _price,
+                                        keyboardType: TextInputType.number,
+                                        decoration: InputDecoration(
+                                          hintText: AppLocalizations.of(context)?.priceLkrPerKg ?? 'Enter price',
+                                          border: InputBorder.none,
+                                          prefixIcon: const Icon(Icons.attach_money, color: Color(0xFF14D6A2)),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+                                          hintStyle: TextStyle(color: Colors.white.withOpacity(.45)),
+                                        ),
+                                        validator: (v) => v == null || v.isEmpty ? (AppLocalizations.of(context)?.priceLkrPerKg ?? 'Enter Price') : null,
+                                        onChanged: (value) => _onInputChanged(),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Delivery Radius field
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: _glassFieldWrapper(
+                              child: TextFormField(
+                                controller: _deliveryRadius,
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: AppLocalizations.of(context)?.deliveryRadiusKm ?? 'Delivery Radius (km)',
+                                  hintText: AppLocalizations.of(context)?.deliveryRadiusKm ?? 'Enter delivery radius',
+                                  border: InputBorder.none,
+                                  prefixIcon: const Icon(Icons.delivery_dining, color: Color(0xFF14D6A2)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+                                  hintStyle: TextStyle(color: Colors.white.withOpacity(.45)),
+                                ),
+                                validator: (val) {
+                                  if (val == null || val.isEmpty) return (AppLocalizations.of(context)?.deliveryRadiusKm ?? 'Enter delivery radius');
+                                  final num? value = num.tryParse(val);
+                                  if (value == null || value < 0) return 'Enter a valid radius';
+                                  return null;
+                                },
+                                onChanged: (value) => _onInputChanged(),
+                              ),
+                            ),
+                          ),
+
+                          // Preview and Submit Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _glassButton(
+                                  onTap: _preview,
+                                  gradientColors: const [Color(0xFFFFA726), Color(0xFFFF7043)],
+                                  icon: Icons.preview,
+                                  label: AppLocalizations.of(context)?.preview ?? 'Preview',
+                                ),
+                              ),
+                              const SizedBox(width: 15),
+                              Expanded(
+                                child: _glassButton(
+                                  onTap: _hasPreviewed ? _submit : null,
+                                  gradientColors: _hasPreviewed
+                                      ? const [Color(0xFF02C697), Color(0xFF26D7A1)]
+                                      : [Colors.grey.shade600, Colors.grey.shade500],
+                                  icon: Icons.check_circle,
+                                  label: AppLocalizations.of(context)?.submit ?? 'Submit',
+                                  disabled: !_hasPreviewed,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
 
-              // Confetti overlay above everything
-              _buildConfettiOverlay(constraints),
-            ],
-          );
-        },
-      ),
-    ), // end Scaffold
-    ); // end Theme
-  }
+                // Information sections with glass cards
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppLocalizations.of(context)?.harvestInsights ?? 'Harvest Insights',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
 
-  Widget _buildInfoCard({required IconData icon, required String title, required String content, required Color iconColor}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+                      _buildInfoCard(
+                        icon: Icons.wb_sunny,
+                        title: AppLocalizations.of(context)?.weatherForecast ?? 'Weather Forecast',
+                        content: _weatherSummary.isEmpty
+                            ? (AppLocalizations.of(context)?.previewWeatherInsights ?? 'Preview to see weather insights')
+                            : _weatherSummary,
+                        iconColor: const Color(0xFFFFA726),
+                      ),
+                      const SizedBox(height: 18),
+                      _buildInfoCard(
+                        icon: Icons.trending_up,
+                        title: AppLocalizations.of(context)?.marketAnalysis ?? 'Market Analysis',
+                        content: _demandSupplyStatus.isEmpty
+                            ? (AppLocalizations.of(context)?.previewMarketAnalysis ?? 'Preview to see market analysis')
+                            : _demandSupplyStatus,
+                        iconColor: const Color(0xFF2196F3),
+                      ),
+                      const SizedBox(height: 18),
+                      _buildInfoCard(
+                        icon: Icons.monetization_on,
+                        title: AppLocalizations.of(context)?.priceAnalysis ?? 'Price Analysis',
+                        content: _priceStatus.isEmpty
+                            ? (AppLocalizations.of(context)?.previewPriceAnalysis ?? 'Preview to see price analysis')
+                            : _priceStatus,
+                        iconColor: const Color(0xFF4CAF50),
+                      ),
+                      const SizedBox(height: 18),
+                      _buildInfoCard(
+                        icon: Icons.health_and_safety,
+                        title: AppLocalizations.of(context)?.cropCarePrecautions ?? 'Precautions for Crop Care',
+                        content: _precautions.isEmpty
+                            ? (AppLocalizations.of(context)?.previewCropCareRecommendations ?? 'Preview to see crop care recommendations')
+                            : _precautions,
+                        iconColor: const Color(0xFFD32F2F),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: iconColor.withOpacity(0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(icon, color: iconColor, size: 22),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1F2A20),
-                          letterSpacing: 0.2,
-                        ),
-                      ),
+    );
+  }
+
+  Widget _buildInfoCard({required IconData icon, required String title, required String content, required Color iconColor}) {
+    return _GlassPanel(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [iconColor.withOpacity(.85), iconColor.withOpacity(.55)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: iconColor.withOpacity(.4),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
-                Container(
-                  constraints: BoxConstraints(
-                    maxHeight: content.length > 220 ? 260 : double.infinity,
-                  ),
-                  child: content.length > 220
-                      ? SingleChildScrollView(
-                          child: _insightText(content),
-                        )
-                      : _insightText(content),
-                ),
-                if (content.length > 220)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.swipe_down_alt, size: 18, color: Colors.grey[500]),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Scroll for more',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontStyle: FontStyle.italic,
-                            color: Colors.grey[500],
-                          ),
-                        )
-                      ],
-                    ),
-                  )
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-Widget _insightText(String content) => Text(
-      content,
-      style: TextStyle(
-        fontSize: 13.5,
-        height: 1.52,
-        color: Colors.grey.shade800,
-        fontWeight: FontWeight.w500,
-      ),
-    );
-
-class _GradientButton extends StatelessWidget {
-  final VoidCallback? onTap;
-  final List<Color> colors;
-  final IconData icon;
-  final String label;
-  final bool disabled;
-  const _GradientButton({
-    required this.onTap,
-    required this.colors,
-    required this.icon,
-    required this.label,
-    this.disabled = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 200),
-      opacity: disabled ? 0.55 : 1,
-      child: InkWell(
-        onTap: disabled ? null : onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Ink(
-          height: 54,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: LinearGradient(
-                colors: colors,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                child: Icon(icon, color: Colors.white, size: 20),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: colors.last.withOpacity(0.35),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                )
-              ],
-            ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: Colors.white, size: 22),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: 0.4,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: .4,
+                  ),
                 ),
-              )
+              ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// Reusable date field widget with custom bottom sheet picker (no dark barrier overlay)
-class _DateField extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final TextEditingController controller;
-  final VoidCallback onChanged;
-
-  const _DateField({
-    required this.label,
-    required this.icon,
-    required this.controller,
-    required this.onChanged,
-  });
-
-  Future<void> _openPicker(BuildContext context) async {
-    DateTime initial = DateTime.tryParse(controller.text) ?? DateTime.now();
-    await showModalBottomSheet(
-      context: context,
-      barrierColor: Colors.transparent, // remove black overlay
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        DateTime tempDate = initial;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 42,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Pick Date',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 8),
-              CalendarDatePicker(
-                initialDate: initial,
-                firstDate: DateTime(2023),
-                lastDate: DateTime(2100),
-                onDateChanged: (d) => tempDate = d,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          const SizedBox(height: 14),
+          Container(
+            constraints: BoxConstraints(
+              maxHeight: content.length > 200 ? 300 : double.infinity,
+            ),
+            child: content.length > 200
+                ? Scrollbar(
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      child: Text(
+                        content,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: Colors.white.withOpacity(.85),
+                          height: 1.5,
+                          letterSpacing: .2,
+                        ),
                       ),
-                      child: const Text('Cancel'),
+                    ),
+                  )
+                : Text(
+                    content,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white.withOpacity(.9),
+                      height: 1.42,
+                      letterSpacing: .2,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        controller.text = DateFormat('yyyy-MM-dd').format(tempDate);
-                        onChanged();
-                        Navigator.pop(ctx);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF02C697),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text('Select', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+          ),
+          if (content.length > 200)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.white.withOpacity(.55)),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Scroll for more details',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withOpacity(.6),
+                      fontStyle: FontStyle.italic,
+                      letterSpacing: .3,
                     ),
                   ),
                 ],
-              )
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // --- Glass helpers ---
+  Widget _GlassPanel({required Widget child, double borderRadius = 20, EdgeInsets? padding}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(color: Colors.white.withOpacity(.25), width: 1),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withOpacity(.12),
+                Colors.white.withOpacity(.07),
+                Colors.white.withOpacity(.04),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(.45),
+                blurRadius: 25,
+                offset: const Offset(0, 12),
+              ),
             ],
           ),
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: TextFormField(
-        controller: controller,
-        readOnly: true,
-        decoration: InputDecoration(
-          hintText: label,
-          border: InputBorder.none,
-          prefixIcon: Icon(icon, color: const Color(0xFF02C697)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+          padding: padding ?? const EdgeInsets.all(18),
+          child: child,
         ),
-        validator: (v) => v == null || v.isEmpty ? 'Enter date' : null,
-        onTap: () => _openPicker(context),
       ),
     );
   }
-}
 
-// Painter for lightweight confetti animation
-class _ConfettiPainter extends CustomPainter {
-  final double animationValue; // 0..1
-  final double width;
-  final double height;
-  final int count;
-  _ConfettiPainter({
-    required this.animationValue,
-    required this.width,
-    required this.height,
-    required this.count,
-  });
-
-  final List<Color> _colors = const [
-    Color(0xFF02C697),
-    Color(0xFF019876),
-    Color(0xFFFFA726),
-    Color(0xFFFF9800),
-    Color(0xFF8BC34A),
-    Color(0xFF26C6DA),
-  ];
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rnd = math.Random(1234); // deterministic each frame for stability of paths
-    for (int i = 0; i < count; i++) {
-      final progress = (animationValue + (i * 0.017)) % 1.0;
-      final fallY = progress * (height * 0.75) + 30;
-      final startXSeed = rnd.nextDouble();
-      final drift = math.sin(progress * math.pi * 6 + i) * 40;
-      final x = startXSeed * width + drift;
-      final rotation = progress * math.pi * 2 + i;
-      final color = _colors[i % _colors.length];
-      final opacity = (1 - progress).clamp(0.0, 1.0);
-      final paint = Paint()..color = color.withOpacity(opacity);
-      final sizeFactor = 6 + (i % 5);
-      canvas.save();
-      canvas.translate(x, fallY);
-      canvas.rotate(rotation);
-      final rect = Rect.fromCenter(center: Offset.zero, width: sizeFactor.toDouble(), height: (sizeFactor * 1.4));
-      final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(3));
-      canvas.drawRRect(rrect, paint);
-      // small leaf-like arc
-      if (i % 3 == 0) {
-        final leafPaint = Paint()..color = color.withOpacity(opacity * 0.7);
-        final path = Path();
-        path.moveTo(0, -sizeFactor * 0.6);
-        path.quadraticBezierTo(sizeFactor * 0.6, 0, 0, sizeFactor * 0.6);
-        path.quadraticBezierTo(-sizeFactor * 0.6, 0, 0, -sizeFactor * 0.6);
-        canvas.drawPath(path, leafPaint);
-      }
-      canvas.restore();
-    }
+  Widget _glassFieldWrapper({required Widget child}) {
+    return _GlassPanel(
+      borderRadius: 16,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          inputDecorationTheme: const InputDecorationTheme(
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            errorBorder: InputBorder.none,
+            focusedErrorBorder: InputBorder.none,
+          ),
+          textTheme: Theme.of(context).textTheme.apply(bodyColor: Colors.white),
+        ),
+        child: DefaultTextStyle.merge(
+          style: const TextStyle(color: Colors.white),
+          child: child,
+        ),
+      ),
+    );
   }
 
-  @override
-  bool shouldRepaint(covariant _ConfettiPainter oldDelegate) => oldDelegate.animationValue != animationValue;
+  Widget _glassButton({
+    required VoidCallback? onTap,
+    required List<Color> gradientColors,
+    required IconData icon,
+    required String label,
+    bool disabled = false,
+  }) {
+    return Opacity(
+      opacity: disabled ? .55 : 1,
+      child: GestureDetector(
+        onTap: disabled ? null : onTap,
+        child: _GlassPanel(
+          borderRadius: 18,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: gradientColors.reversed.toList(),
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Icon(icon, size: 18, color: Colors.white),
+              ),
+              const SizedBox(width: 10),
+              ShaderMask(
+                shaderCallback: (rect) => LinearGradient(
+                  colors: gradientColors,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ).createShader(rect),
+                blendMode: BlendMode.srcIn,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: .4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

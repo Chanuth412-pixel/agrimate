@@ -284,9 +284,9 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
   }
 
   Future<void> _showQuantityDialog(Map<String, dynamic> farmer) async {
-  final TextEditingController quantityController = TextEditingController();
-  final TextEditingController locationController = TextEditingController();
-  double? quantityVal; // support fractional kg
+    final TextEditingController quantityController = TextEditingController();
+    final TextEditingController locationController = TextEditingController();
+    int? quantityVal; // for dynamic pricing display
 
     // Prefill address with customer's saved location if available
     try {
@@ -319,14 +319,14 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
                 children: [
                   TextField(
                     controller: quantityController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                      labelText: 'Quantity in kg (e.g. 0.5)',
+                      labelText: 'Quantity in kg',
                       border: OutlineInputBorder(),
                     ),
                     onChanged: (val){
-                      final parsed = double.tryParse(val.trim());
-                      setStateDialog((){ quantityVal = (parsed == null || parsed <= 0) ? null : parsed; });
+                      final parsed = int.tryParse(val.trim());
+                      setStateDialog((){ quantityVal = parsed; });
                     },
                   ),
                   const SizedBox(height: 16),
@@ -357,15 +357,15 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
               ElevatedButton(
                 onPressed: () async {
                   final quantityText = quantityController.text.trim();
-                  final quantity = double.tryParse(quantityText);
+                  final quantity = int.tryParse(quantityText);
                   if (quantity == null || quantity <= 0) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Enter a valid quantity')),
                     );
                     return;
                   }
-                  final available = (farmer['quantity'] is num) ? (farmer['quantity'] as num).toDouble() : 0.0;
-                  if (quantity > available) {
+
+                  if (quantity > (farmer['quantity'] ?? 0)) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                           content: Text('Requested quantity exceeds available stock')),
@@ -426,7 +426,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
   }
 
   Future<void> _createTransaction(
-    Map<String, dynamic> farmer, double quantity, {required String location}) async {
+    Map<String, dynamic> farmer, int quantity, {required String location}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -458,7 +458,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
 
     final transaction = {
       'Crop': widget.cropName, // store canonical code
-  'Quantity Sold (kg)': quantity,
+      'Quantity Sold (1kg)': quantity,
       'Sale Price Per kg': unitPrice,
       'Status': 'Pending',
       'Farmer ID': farmer['farmerId'],
@@ -526,7 +526,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
   }
 
   Future<void> _createScheduledOrder(
-    Map<String, dynamic> farmer, double quantity, {required String location}) async {
+    Map<String, dynamic> farmer, int quantity, {required String location}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -547,7 +547,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
 
     final scheduledOrder = {
       'Crop': widget.cropName,
-  'Quantity Sold (kg)': quantity,
+      'Quantity Sold (1kg)': quantity,
       'Sale Price Per kg': farmer['price'],
       'Status': 'Pending',
       'Farmer ID': farmer['farmerId'],
@@ -617,7 +617,7 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
     required dynamic price,
     required dynamic originalQuantity,
     required dynamic harvestDate,
-    required double decrementBy,
+    required int decrementBy,
   }) async {
     final harvestDocRef = FirebaseFirestore.instance.collection('Harvests').doc(farmerId);
 
@@ -712,14 +712,14 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
       }
 
   // If no 'available' seen across the group, assume sum of quantities (legacy)
-  final double currentGroupAvailable = (groupAvailable ?? sumQuantityIfNoAvailable).toDouble();
-    double newAvailable = currentGroupAvailable - decrementBy;
-    if (newAvailable < 0) newAvailable = 0;
+  final int currentGroupAvailable = (groupAvailable ?? sumQuantityIfNoAvailable);
+      int newAvailable = currentGroupAvailable - decrementBy;
+      if (newAvailable < 0) newAvailable = 0;
 
       // Update the aggregated available across all entries in the group
       for (final idx in groupIndices) {
         final mutable = Map<String, dynamic>.from(harvests[idx] as Map);
-  mutable['available'] = double.parse(newAvailable.toStringAsFixed(3));
+        mutable['available'] = newAvailable;
         harvests[idx] = mutable;
       }
 
@@ -809,43 +809,59 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
 
   @override
   Widget build(BuildContext context) {
-    const double headerHeight = 170;
-    final int count = _matchingFarmers.length;
-    final String subtitle = _loading
-        ? 'Fetching farmers near you'
-        : (count == 0
-            ? 'No farmers available this week'
-            : '$count farmer${count == 1 ? '' : 's'} available this week');
-
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: Text('Farmers • ${widget.cropName}'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        foregroundColor: Colors.white,
+      ),
       body: Stack(
         children: [
-          // Content List
-          if (_loading)
-            const Center(child: CircularProgressIndicator(color: Color(0xFF02C697)))
-          else if (count == 0)
-            Padding(
-              padding: EdgeInsets.only(top: headerHeight - 10),
-              child: _buildEmptyState(),
-            )
-          else
-            ListView.builder(
-              padding: EdgeInsets.fromLTRB(16, headerHeight + 8, 16, 32),
-              itemCount: count,
-              itemBuilder: (context, index) {
-                final farmer = _matchingFarmers[index];
-                return _GlassFarmerCard(
-                  farmer: farmer,
-                  fetchRating: () async => farmer['avgRating'] as double?,
-                  onTap: () => _showQuantityDialog(farmer),
-                );
-              },
+          // Gradient background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF0F9B79), Color(0xFF0F9B79), Color(0xFFdfffe9)],
+                stops: [0, 0.35, 1],
+              ),
             ),
-
-          // Header
-          _buildHeader(headerHeight, subtitle, localizedCrop),
+          ),
+          // Subtle leaf overlay (optional future asset)
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.white.withOpacity(.08), Colors.white.withOpacity(.02)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+            ),
+          ),
+          // Content
+          SafeArea(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                : _matchingFarmers.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                        itemCount: _matchingFarmers.length,
+                        itemBuilder: (context, index) {
+                          final farmer = _matchingFarmers[index];
+                          return _GlassFarmerCard(
+                            farmer: farmer,
+                            fetchRating: () async => farmer['avgRating'] as double?,
+                            onTap: () => _showQuantityDialog(farmer),
+                          );
+                        },
+                      ),
+          ),
         ],
       ),
     );
@@ -865,94 +881,84 @@ class _GlassFarmerCard extends StatelessWidget {
     final price = farmer['price'] ?? 0;
     final priceDisplay = CurrencyUtil.format(price).replaceAll('.00', '');
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+      padding: const EdgeInsets.only(bottom: 18),
+      child: GestureDetector(
         onTap: onTap,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(26),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                color: Colors.white.withOpacity(.55),
-                border: Border.all(color: Colors.white.withOpacity(.65), width: 1.2),
+                borderRadius: BorderRadius.circular(26),
+                color: Colors.white.withOpacity(.18),
+                border: Border.all(color: Colors.white.withOpacity(.35), width: 1.2),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(.06),
-                    blurRadius: 14,
-                    offset: const Offset(0, 6),
+                    color: Colors.black.withOpacity(.15),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Leaf / crop icon avatar (replaces tractor/agriculture)
+                  // Icon badge
                   Container(
-                    width: 50,
-                    height: 50,
+                    width: 52,
+                    height: 52,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF02C697), Color(0xFF019876)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      gradient: const LinearGradient(colors: [Color(0xFF56ab2f), Color(0xFFa8e063)]),
                       boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF02C697).withOpacity(.35),
-                          blurRadius: 12,
-                          offset: const Offset(0, 5),
-                        ),
+                        BoxShadow(color: const Color(0xFF56ab2f).withOpacity(.35), blurRadius: 12, offset: const Offset(0,6)),
                       ],
-                      border: Border.all(color: Colors.white.withOpacity(.55), width: 2),
                     ),
-                    child: const Icon(Icons.eco, color: Colors.white, size: 26),
+                    child: const Icon(Icons.agriculture, color: Colors.white, size: 28),
                   ),
                   const SizedBox(width: 16),
-                  // Body
+                  // Textual content
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
                               child: Text(
                                 farmer['farmerName'] ?? 'Unknown',
                                 style: const TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF142017),
-                                  letterSpacing: .25,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  letterSpacing: .2,
                                 ),
                               ),
                             ),
                             _RatingChip(fetchRating: fetchRating),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        // Detailed info (no boxes, clear labels)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _detailLine(label: 'Price per kg', value: priceDisplay + ' / kg', icon: Icons.sell_outlined),
-                            _detailLine(label: 'Distance from you', value: (farmer['distance'] as num).toStringAsFixed(1) + ' km', icon: Icons.place_outlined),
-                            _detailLine(label: 'Available quantity', value: '${farmer['quantity']} kg', icon: Icons.inventory_2_outlined),
-                            if (farmer['deliveryPricePerKm'] != null)
-                              _detailLine(label: 'Delivery rate', value: CurrencyUtil.format((farmer['deliveryPricePerKm'] as num).toDouble()).replaceAll('.00', '') + ' / km', icon: Icons.local_shipping_outlined),
-                          ],
+                        const SizedBox(height: 6),
+                        RichText(
+                          text: TextSpan(
+                            style: const TextStyle(fontSize: 13.5, color: Colors.white70, height: 1.35),
+                            children: [
+                              TextSpan(text: 'Price: ', style: TextStyle(color: Colors.white.withOpacity(.75), fontWeight: FontWeight.w500)),
+                              TextSpan(text: '$priceDisplay / kg\n'),
+                              TextSpan(text: 'Distance: ', style: TextStyle(color: Colors.white.withOpacity(.75), fontWeight: FontWeight.w500)),
+                              TextSpan(text: '${(farmer['distance'] as num).toStringAsFixed(1)} km\n'),
+                              TextSpan(text: 'Available: ', style: TextStyle(color: Colors.white.withOpacity(.75), fontWeight: FontWeight.w500)),
+                              TextSpan(text: '${farmer['quantity']} kg'),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            _FlatAction(label: 'Order', icon: Icons.shopping_cart_checkout),
-                          ],
-                        ),
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: _Pill(label: 'Tap to Order', icon: Icons.shopping_cart_checkout, colors: const [Color(0xFF02C697), Color(0xFF00E8A0)]),
+                        )
                       ],
                     ),
                   ),
@@ -987,20 +993,20 @@ class _RatingChip extends StatelessWidget {
         }
         final rating = snapshot.data;
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            color: const Color(0xFFFFD54F).withOpacity(.25),
-            border: Border.all(color: const Color(0xFFFFB300).withOpacity(.6)),
+            borderRadius: BorderRadius.circular(40),
+            gradient: const LinearGradient(colors: [Color(0xFFFFC837), Color(0xFFFF8008)]),
+            boxShadow: [BoxShadow(color: const Color(0xFFFFA726).withOpacity(.35), blurRadius: 10, offset: const Offset(0,4))],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.star_rounded, color: Color(0xFFFF8F00), size: 16),
+              const Icon(Icons.star_rounded, color: Colors.white, size: 16),
               const SizedBox(width: 4),
               Text(
                 rating == null ? '—' : rating.toStringAsFixed(1),
-                style: const TextStyle(color: Color(0xFF8D6E00), fontWeight: FontWeight.w600, fontSize: 12),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
               ),
             ],
           ),
@@ -1010,242 +1016,28 @@ class _RatingChip extends StatelessWidget {
   }
 }
 
-class _FlatAction extends StatelessWidget {
+class _Pill extends StatelessWidget {
   final String label;
   final IconData icon;
-  const _FlatAction({required this.label, required this.icon});
+  final List<Color> colors;
+  const _Pill({required this.label, required this.icon, required this.colors});
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF02C697).withOpacity(.15),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFF02C697).withOpacity(.45)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: const Color(0xFF026E55)),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Color(0xFF024D3B),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  letterSpacing: .4,
-                ),
-              ),
-            ],
-          ),
-        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: colors),
+        borderRadius: BorderRadius.circular(40),
+        boxShadow: [BoxShadow(color: colors.last.withOpacity(.35), blurRadius: 12, offset: const Offset(0,6))],
       ),
-    );
-  }
-}
-
-Widget _miniStat(String label, String value) {
-  return Row(
-    mainAxisSize: MainAxisSize.min,
-    mainAxisAlignment: MainAxisAlignment.start,
-    children: [
-      Text(label + ': ', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: Color(0xFF475467))),
-      Text(value, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF1F2A20))),
-    ],
-  );
-}
-
-// New glass stat chip
-Widget _statChip(IconData icon, String value) {
-  return ClipRRect(
-    borderRadius: BorderRadius.circular(10),
-    child: BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          color: Colors.white.withOpacity(.5),
-          border: Border.all(color: Colors.white.withOpacity(.65)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 15, color: const Color(0xFF026E55)),
-            const SizedBox(width: 6),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF133027),
-                letterSpacing: .2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-Widget _detailLine({required String label, required String value, required IconData icon}) {
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: const Color(0xFF026E55)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: RichText(
-            text: TextSpan(
-              children: [
-                TextSpan(
-                  text: label + ': ',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF3D5247),
-                    letterSpacing: .2,
-                  ),
-                ),
-                TextSpan(
-                  text: value,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF142017),
-                    letterSpacing: .25,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        )
-      ],
-    ),
-  );
-}
-
-// Redesigned header with gradient background & glass back button
-Widget _buildHeader(double height, String subtitle, String cropName) {
-  return SizedBox(
-    height: height,
-    child: Stack(
-      children: [
-        // Gradient background with soft curve effect using container + shadow
-        Container(
-          height: height,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF02C697), Color(0xFF018A67)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(28),
-              bottomRight: Radius.circular(28),
-            ),
-          ),
-        ),
-        // Subtle overlay pattern (optional light glaze)
-        Container(
-          height: height,
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(28),
-              bottomRight: Radius.circular(28),
-            ),
-            gradient: LinearGradient(
-              colors: [Colors.white.withOpacity(.08), Colors.white.withOpacity(.02)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-        ),
-        // Content
-        SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Back button glass
-                _GlassBackButton(),
-                const Spacer(),
-                Text(
-                  'Farmers • ',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: .4,
-                  ),
-                ),
-                Text(
-                  cropName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 30,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: .5,
-                    height: 1.05,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(.85),
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: .3,
-                  ),
-                ),
-                const SizedBox(height: 18),
-              ],
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _GlassBackButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: InkWell(
-          onTap: () => Navigator.pop(context),
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(.18),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withOpacity(.5)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(.15),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                )
-              ],
-            ),
-            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
-          ),
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+        ],
       ),
     );
   }
@@ -1257,25 +1049,25 @@ Widget _buildEmptyState() {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Container(
-          padding: const EdgeInsets.all(22),
+          padding: const EdgeInsets.all(26),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: const Color(0xFF02C697).withOpacity(.08),
-            border: Border.all(color: const Color(0xFF02C697).withOpacity(.35)),
+            color: Colors.white.withOpacity(.18),
+            border: Border.all(color: Colors.white.withOpacity(.35)),
           ),
-          child: const Icon(Icons.nature_outlined, size: 40, color: Color(0xFF02C697)),
+          child: const Icon(Icons.nature_outlined, size: 46, color: Colors.white),
         ),
-        const SizedBox(height: 20),
-        const Text('No available farmers found', style: TextStyle(color: Color(0xFF1F2A20), fontSize: 16, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        Text('Try again later or pick another crop', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+        const SizedBox(height: 24),
+        const Text('No available farmers found', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Text('Try again later or pick another crop', style: TextStyle(color: Colors.white.withOpacity(.75), fontSize: 13)),
       ],
     ),
   );
 }
 
 class _CostPreview extends StatelessWidget {
-  final double? quantity;
+  final int? quantity;
   final double unitPrice;
   final double distanceKm;
   final double ratePerKm;
@@ -1283,9 +1075,9 @@ class _CostPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-  final q = quantity;
-  final base = (q == null) ? null : q * unitPrice;
-  final delivery = (q == null) ? null : distanceKm * ratePerKm;
+    final q = quantity;
+    final base = (q == null) ? null : q * unitPrice;
+    final delivery = (q == null) ? null : distanceKm * ratePerKm;
     final total = (base != null && delivery != null) ? base + delivery : null;
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
@@ -1332,22 +1124,13 @@ class _CostPreview extends StatelessWidget {
         children: [
           const Text('Cost Summary', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1D2939))),
           const SizedBox(height: 8),
-          _row('Base (${_fmtQty(quantity)} kg × LKR ${unitPrice.toStringAsFixed(0)})', f(base)),
+          _row('Base (${quantity} kg × LKR ${unitPrice.toStringAsFixed(0)})', f(base)),
           _row('Delivery (${distanceKm.toStringAsFixed(1)} km × LKR ${ratePerKm.toStringAsFixed(0)})', f(delivery)),
           const Divider(height: 20),
           _row('Total', f(total), emphasize: true),
         ],
       ),
     );
-  }
-  
-  String _fmtQty(double? q) {
-    if (q == null) return '?';
-    // Show up to 3 decimals but trim trailing zeros
-    String raw = q.toStringAsFixed(3);
-    raw = raw.replaceFirst(RegExp(r'\.0{1,3}'), '');
-    raw = raw.replaceFirst(RegExp(r'(\.\d*?)0+'), r'$1');
-    return raw.endsWith('.') ? raw.substring(0, raw.length - 1) : raw;
   }
 
   Widget _row(String label, String value, {bool emphasize = false}) {
