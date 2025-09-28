@@ -21,7 +21,10 @@ class FarmerDetailScreen extends StatelessWidget {
   final loc = AppLocalizations.of(context)!;
   // Fetching farmer data from the passed map with localized fallbacks
         String name = farmerData['name'] ?? loc.notProvided;
-        String location = farmerData['location'] ?? loc.notProvided;
+    final String _rawLocation = (farmerData['location'] ?? '') as String;
+    String location = _rawLocation.isNotEmpty
+    ? _shortenLocationString(_rawLocation)
+    : loc.notProvided;
         String phone = farmerData['phone'] ?? loc.notProvided;
   String email = farmerData['email'] ?? loc.notProvided;
     String farmerId = farmerData['uid'] ?? farmerData['id'] ?? '';
@@ -203,11 +206,14 @@ class FarmerDetailScreen extends StatelessWidget {
                               builder: (context, snap) {
                                 final data = snap.data?.data() as Map<String, dynamic>?;
                                 final liveLocation = data?['location'] ?? location;
+                                final displayLoc = liveLocation == null
+                                    ? ''
+                                    : _shortenLocationString(liveLocation.toString());
                                 return Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      liveLocation.toString(),
+                                      displayLoc,
                                       style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
                                     ),
                                     const SizedBox(width: 8),
@@ -1056,6 +1062,20 @@ class FarmerDetailScreen extends StatelessWidget {
     return '';
   }
 
+  // Shorten a long address string like
+  // "Marawanagoda Road, Hedeniya, Kandy District, Central Province, 20232, Sri Lanka"
+  // to just "Marawanagoda Road, Hedeniya" for compact display.
+  String _shortenLocationString(String input) {
+    final parts = input
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return input.trim();
+    if (parts.length == 1) return parts.first;
+    return '${parts[0]}, ${parts[1]}';
+  }
+
   // Method to fetch farmer reviews from Firestore
   Future<Map<String, dynamic>> _fetchFarmerReviews(String farmerId) async {
     try {
@@ -1475,7 +1495,32 @@ Future<String> _getLocationName(double lat, double lng) async {
     final response = await http.get(url, headers: {'User-Agent': 'agrimate-app'});
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      return data['display_name']?.toString() ?? '';
+      // Prefer address components to compose a short string
+      if (data is Map && data['address'] is Map) {
+        final addr = data['address'] as Map;
+        final raw = <String?>[
+          addr['road']?.toString(),
+          addr['suburb']?.toString(),
+          addr['village']?.toString(),
+          addr['town']?.toString(),
+          addr['city']?.toString(),
+          addr['hamlet']?.toString(),
+          addr['neighbourhood']?.toString(),
+        ];
+        final candidates = raw
+            .whereType<String>()
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        if (candidates.isNotEmpty) {
+          // Keep only first two components max
+          final short = candidates.take(2).join(', ');
+          return short;
+        }
+      }
+      // Fallback to display_name shortened
+      final display = data['display_name']?.toString() ?? '';
+      return display.isNotEmpty ? _shortenLocationString(display) : '';
     }
   } catch (_) {}
   return '';
@@ -1488,10 +1533,47 @@ Future<String> _getNearestLocationName(double lat, double lng) async {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       if (data is List && data.isNotEmpty) {
-        return data[0]['display_name']?.toString() ?? '';
+        final item = data[0];
+        if (item is Map) {
+          // If address components are present, build short
+          if (item['address'] is Map) {
+            final addr = item['address'] as Map;
+            final raw = <String?>[
+              addr['road']?.toString(),
+              addr['suburb']?.toString(),
+              addr['village']?.toString(),
+              addr['town']?.toString(),
+              addr['city']?.toString(),
+              addr['hamlet']?.toString(),
+              addr['neighbourhood']?.toString(),
+            ];
+            final candidates = raw
+                .whereType<String>()
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)
+                .toList();
+            if (candidates.isNotEmpty) {
+              return candidates.take(2).join(', ');
+            }
+          }
+          final display = item['display_name']?.toString() ?? '';
+          return display.isNotEmpty ? _shortenLocationString(display) : '';
+        }
       }
     }
   } catch (_) {}
   return '';
+}
+
+// Top-level helper so non-class helpers can also use it
+String _shortenLocationString(String input) {
+  final parts = input
+      .split(',')
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toList();
+  if (parts.isEmpty) return input.trim();
+  if (parts.length == 1) return parts.first;
+  return '${parts[0]}, ${parts[1]}';
 }
 
