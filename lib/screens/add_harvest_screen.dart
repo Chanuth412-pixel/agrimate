@@ -987,6 +987,28 @@ Current Month Analysis: $advice
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
                                           hintStyle: TextStyle(color: Colors.white.withOpacity(.45)),
                                         ),
+                                        onTap: () async {
+                                          // Use current field value if parsable; otherwise keep default (today + 60 days)
+                                          DateTime initialDate;
+                                          try {
+                                            initialDate = DateTime.parse(_harvest.text);
+                                          } catch (_) {
+                                            initialDate = DateTime.now().add(const Duration(days: 60));
+                                          }
+
+                                          final picked = await showDatePicker(
+                                            context: context,
+                                            initialDate: initialDate,
+                                            firstDate: DateTime(2023),
+                                            lastDate: DateTime(2100),
+                                          );
+                                          if (picked != null) {
+                                            setState(() {
+                                              _harvest.text = DateFormat('yyyy-MM-dd').format(picked);
+                                              _onInputChanged();
+                                            });
+                                          }
+                                        },
                                         validator: (v) => v == null || v.isEmpty ? (AppLocalizations.of(context)?.harvestDate ?? 'Enter Harvest Date') : null,
                                       ),
                                     ),
