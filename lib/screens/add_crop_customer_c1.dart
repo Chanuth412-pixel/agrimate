@@ -442,16 +442,38 @@ class _AddCropCustomerC1State extends State<AddCropCustomerC1> {
     final customerPhone = customerDoc.data()?['phone'] ?? customerDoc.data()?['Phone'] ?? 'Not Provided';
     final customerLocation = customerDoc.data()?['location'] ?? 'Not specified';
 
+    // Derive pricing breakdown (align with scheduled order + customer profile breakdown widget)
+    final double unitPrice = (farmer['price'] is num)
+        ? (farmer['price'] as num).toDouble()
+        : double.tryParse(farmer['price']?.toString() ?? '0') ?? 0;
+    final double distanceKm = (farmer['distance'] is num)
+        ? (farmer['distance'] as num).toDouble()
+        : 0;
+    final double ratePerKm = (farmer['deliveryPricePerKm'] is num)
+        ? (farmer['deliveryPricePerKm'] as num).toDouble()
+        : AppConstants.defaultDeliveryPricePerKm.toDouble();
+    final double baseAmount = unitPrice * quantity;
+    final double deliveryCost = distanceKm * ratePerKm;
+    final double totalAmount = baseAmount + deliveryCost;
+
     final transaction = {
       'Crop': widget.cropName, // store canonical code
       'Quantity Sold (1kg)': quantity,
-      'Sale Price Per kg': farmer['price'],
+      'Sale Price Per kg': unitPrice,
       'Status': 'Pending',
       'Farmer ID': farmer['farmerId'],
       'Farmer Name': farmer['farmerName'],
       'Phone_NO': farmer['phone'] ?? 'Unknown',
       'Harvest Date': farmer['harvestDate'],
-      'Date': now,
+      'Date': now, // legacy field
+      'orderPlacedAt': now, // explicit ordering timestamp used for sorting
+      'location': location, // capture address / location similar to scheduled orders
+      // Pricing breakdown fields (so Recent Transactions can show full price)
+      'deliveryDistanceKm': distanceKm,
+      'deliveryRatePerKm': ratePerKm,
+      'baseAmount': baseAmount,
+      'deliveryCost': deliveryCost,
+      'totalAmount': totalAmount,
     };
 
     // Transaction data for farmer (add customer info)
