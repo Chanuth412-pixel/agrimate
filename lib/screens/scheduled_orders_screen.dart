@@ -361,15 +361,48 @@ class _ScheduleActionsCard extends StatelessWidget {
                               continue;
                             }
                             final harvests = List.from(harvestDoc['harvests'] ?? []);
-                            final match = harvests.firstWhere(
-                              (h) => h['crop'] == order['Crop'] &&
-                                     h['expectedPrice'] == order['Sale Price Per kg'] &&
-                                     h['harvestDate'] == order['Harvest Date'],
-                              orElse: () => null,
-                            );
-                            final reqQty = order['Quantity Sold (1kg)'] ?? 0;
-                            final availQty = match != null ? (match['available'] ?? match['quantity'] ?? 0) : 0;
-                            if (match == null || availQty < reqQty) {
+
+                            double _toDouble(dynamic v) {
+                              if (v is num) return v.toDouble();
+                              return double.tryParse(v.toString()) ?? 0;
+                            }
+
+                            DateTime? _toDate(dynamic d) {
+                              try {
+                                if (d is Timestamp) return d.toDate();
+                                if (d is DateTime) return d;
+                                return DateTime.parse(d.toString());
+                              } catch (_) { return null; }
+                            }
+
+                            final orderDate = _toDate(order['Harvest Date']);
+                            final orderPrice = _toDouble(order['Sale Price Per kg']);
+
+                            Map<String,dynamic>? match;
+                            for (final h in harvests) {
+                              if (h is! Map) continue;
+                              if (h['crop'] != order['Crop']) continue;
+                              // Price match using expectedPrice OR price
+                              final hp = _toDouble(h['expectedPrice'] ?? h['price'] ?? 0);
+                              if ((hp - orderPrice).abs() > 0.0001) continue;
+                              final hd = _toDate(h['harvestDate']);
+                              if (orderDate != null && hd != null) {
+                                // Compare by same day (ignore time component)
+                                final sameDay = hd.year == orderDate.year && hd.month == orderDate.month && hd.day == orderDate.day;
+                                if (!sameDay) continue;
+                              } else if (h['harvestDate'] != order['Harvest Date']) {
+                                // fallback direct equality test
+                                continue;
+                              }
+                              match = h as Map<String,dynamic>;
+                              break;
+                            }
+
+                            final reqRaw = order['Quantity Sold (1kg)'];
+                            final double reqQty = reqRaw is num ? reqRaw.toDouble() : double.tryParse(reqRaw?.toString() ?? '0') ?? 0;
+                            final availRaw = match != null ? (match['available'] ?? match['quantity'] ?? 0) : 0;
+                            final double availQty = availRaw is num ? availRaw.toDouble() : double.tryParse(availRaw.toString()) ?? 0;
+                            if (match == null || availQty + 1e-9 < reqQty) { // small epsilon
                               unavailable.add(order);
                             } else {
                               available.add(order);
@@ -426,6 +459,46 @@ class _ScheduleActionsCard extends StatelessWidget {
                           }
                           batch.set(docRef, {'orders': updatedOrders});
                           await batch.commit();
+
+                          // Decrement harvest availability for newly activated orders (those just moved this week)
+                          for (final order in updatedOrders) {
+                            final lastScheduledWeek = order['lastScheduledWeek'];
+                            if (lastScheduledWeek != currentWeek) continue; // skip not activated now
+                            final farmerId = order['Farmer ID'];
+                            if (farmerId == null) continue;
+                            final qtyRaw = order['Quantity Sold (1kg)'];
+                            final double qty = qtyRaw is num ? qtyRaw.toDouble() : double.tryParse(qtyRaw.toString()) ?? 0;
+                            if (qty <= 0) continue;
+                            try {
+                              final harvestRef = FirebaseFirestore.instance.collection('Harvests').doc(farmerId);
+                              await FirebaseFirestore.instance.runTransaction((tx) async {
+                                final snap = await tx.get(harvestRef);
+                                if (!snap.exists) return;
+                                List harvests = List.from(snap.data()?['harvests'] ?? []);
+                                int? targetIndex;
+                                for (int i = 0; i < harvests.length; i++) {
+                                  final h = harvests[i];
+                                  if (h is Map &&
+                                      h['crop'] == order['Crop'] &&
+                                      h['harvestDate'] == order['Harvest Date'] &&
+                                      (h['expectedPrice'] == order['Sale Price Per kg'] || h['price'] == order['Sale Price Per kg'])) {
+                                    targetIndex = i;
+                                  }
+                                }
+                                if (targetIndex == null) return;
+                                final mutable = Map<String, dynamic>.from(harvests[targetIndex] as Map);
+                                final availableRaw = mutable['available'] ?? mutable['quantity'] ?? 0;
+                                int available = availableRaw is num ? availableRaw.toInt() : int.tryParse(availableRaw.toString()) ?? 0;
+                                available -= qty.floor();
+                                if (available < 0) available = 0;
+                                mutable['available'] = available;
+                                harvests[targetIndex] = mutable;
+                                tx.update(harvestRef, {'harvests': harvests});
+                              });
+                            } catch (e) {
+                              debugPrint('[ScheduleWeek] Decrement error: $e');
+                            }
+                          }
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(

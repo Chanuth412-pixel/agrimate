@@ -36,12 +36,13 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
 
   // Chart navigation state
   int _currentChartIndex = 0;
+  // Demand percentage series (already absolute % values 0-100)
   final List<List<int>> _cropData = [
-    [65, 70, 75, 80], // Tomato
-    [50, 55, 60, 58], // Carrot
-    [45, 48, 52, 49], // Brinjal
+    [100, 84, 32, 48], // Tomato
+    [32, 68, 100, 92], // Beans
+    [45, 88, 100, 66], // Okra
   ];
-  // Display crop names localized where rendered; raw identifiers remain for logic
+  // Display crop names localized where rendered; order aligns with _cropData
   final List<String> _cropNames = ['Tomato', 'Beans', 'Okra'];
 
   static const double _trendScrollDistance = 300.0;
@@ -318,35 +319,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                     ),
                   ),
 
-                  // Simple Route Button
-                  Container(
-                    margin: const EdgeInsets.all(16),
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const FarmerRouteScreen(),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF02C697),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        AppLocalizations.of(context)?.viewDeliveryRoute ?? 'View Delivery Route',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
+                  // (Moved) Route button will appear as a tile under advertisements
 
                   // Content section
                   Container(
@@ -362,6 +335,8 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                         const SizedBox(height: 16),
                         // Advertisements carousel
                         _buildAdvertisementsSection(),
+                        const SizedBox(height: 16),
+                        _buildRouteTile(),
                         const SizedBox(height: 16),
                         _buildCropDemandTrendsCard(),
                         _buildOngoingTransactionsCard(),
@@ -486,6 +461,97 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
           }),
         )
       ],
+    );
+  }
+
+  // ================= Route Tile (moved from standalone button) =================
+  Widget _buildRouteTile() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFF02C697).withOpacity(0.15), width: 1),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const FarmerRouteScreen(),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF02C697).withOpacity(0.25),
+                      const Color(0xFF02C697).withOpacity(0.08),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFF02C697).withOpacity(0.35),
+                    width: 1.2,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.route_rounded,
+                  color: Color(0xFF02C697),
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      AppLocalizations.of(context)?.viewDeliveryRoute ?? 'View Delivery Route',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF2D3748),
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'See optimized path & stops',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFF02C697),
+                size: 24,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -768,9 +834,8 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Flexible(
+                Expanded(
                   flex: 2,
                   child: Text(
                     (AppLocalizations.of(context)?.cropDemandTrends ?? 'Crop Demand Trends'),
@@ -782,10 +847,10 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Flexible(
-                  flex: 1,
+                const SizedBox(width: 6),
+                Expanded(
+                  flex: 2,
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
                         padding: const EdgeInsets.all(4),
@@ -805,15 +870,19 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                               : Colors.grey,
                         ),
                       ),
-                      Flexible(
-                        child: Text(
-                          _cropNames[_currentChartIndex],
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF02C697),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          child: Text(
+                            _cropNames[_currentChartIndex],
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF02C697),
+                            ),
+                            softWrap: false,
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       IconButton(
@@ -850,20 +919,17 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
 
   // Build a smooth gradient line chart with soft area fill for the current crop
   Widget _buildCropLineChart() {
-    // Raw absolute price values
-    final rawValues = _cropData[_currentChartIndex].map((e) => e.toDouble()).toList();
-    final latest = rawValues.last;
-    // Convert to percentage change relative to first value (baseline)
-    final baseline = rawValues.first == 0 ? 1.0 : rawValues.first; // avoid divide-by-zero
-    final percentValues = [
-      for (final v in rawValues) ((v - baseline) / baseline) * 100.0,
-    ];
-    final minPct = percentValues.reduce((a, b) => a < b ? a : b);
-    final maxPct = percentValues.reduce((a, b) => a > b ? a : b);
-    final padding = (maxPct - minPct).abs() * 0.18; // breathing room
-
-    final spots = <FlSpot>[
-      for (int i = 0; i < percentValues.length; i++) FlSpot(i.toDouble(), percentValues[i])
+    // Use provided absolute percentage values directly
+    final values = _cropData[_currentChartIndex].map((e) => e.toDouble()).toList();
+    final latest = values.last;
+    final minVal = values.reduce((a, b) => a < b ? a : b);
+    final maxVal = values.reduce((a, b) => a > b ? a : b);
+  final padding = (maxVal - minVal).abs() * 0.18; // breathing room
+  // Clamp Y axis within 0–100 so we never show >100% (e.g. 112%) due to padding
+  final double paddedMin = (minVal - padding).clamp(0, 100).toDouble();
+  final double paddedMax = (maxVal + padding).clamp(0, 100).toDouble();
+    final spots = [
+      for (int i = 0; i < values.length; i++) FlSpot(i.toDouble(), values[i])
     ];
 
     return Container(
@@ -877,8 +943,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            // Show both latest absolute and its % delta from first
-            '${AppLocalizations.of(context)?.currentPricePerKg ?? 'Current'}: ${latest.toInt()} %  (${percentValues.last >= 0 ? '+' : ''}${percentValues.last.toStringAsFixed(1)}%)',
+            '${AppLocalizations.of(context)?.currentPricePerKg ?? 'Current'}: ${latest.toStringAsFixed(0)}%',
             style: const TextStyle(
               fontSize: 12,
               color: Color(0xFF02C697),
@@ -890,26 +955,25 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
             child: LineChart(
               LineChartData(
                 minX: 0,
-                maxX: (percentValues.length - 1).toDouble(),
-                minY: (minPct - padding),
-                maxY: (maxPct + padding),
+                maxX: (values.length - 1).toDouble(),
+                minY: paddedMin,
+                maxY: paddedMax,
                 lineTouchData: LineTouchData(
                   touchTooltipData: LineTouchTooltipData(
                     tooltipBgColor: const Color(0xFF1F2A20).withOpacity(0.9),
                     tooltipRoundedRadius: 10,
                     getTooltipItems: (touched) => touched.map((t) {
                       final idx = t.spotIndex;
-                      final absVal = rawValues[idx].toInt();
-                      final pctVal = percentValues[idx];
-                      final prevPct = idx > 0 ? percentValues[idx - 1] : percentValues[idx];
-                      final deltaPct = pctVal - prevPct;
-            final deltaTxt = deltaPct == 0
+                      final val = values[idx];
+                      final prev = idx > 0 ? values[idx - 1] : values[idx];
+                      final delta = val - prev;
+                      final deltaTxt = delta == 0
                           ? '• 0%'
-                          : deltaPct > 0
-                              ? '▲ +${deltaPct.toStringAsFixed(1)}%'
-                              : '▼ ${deltaPct.abs().toStringAsFixed(1)}%';
+                          : delta > 0
+                              ? '▲ +${delta.toStringAsFixed(1)}%'
+                              : '▼ ${delta.abs().toStringAsFixed(1)}%';
                       return LineTooltipItem(
-                        'Week ${idx + 1}\nLKR$absVal\n${pctVal >= 0 ? '+' : ''}${pctVal.toStringAsFixed(1)}%\n$deltaTxt',
+                        'Point ${idx + 1}\n${val.toStringAsFixed(1)}%\n$deltaTxt',
                         const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -923,7 +987,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: ((maxPct - minPct).abs() / 4).clamp(2, 50),
+                  horizontalInterval: ((paddedMax - paddedMin).abs() / 4).clamp(2, 50),
                   getDrawingHorizontalLine: (v) => FlLine(
                     color: Colors.grey.withOpacity(0.18),
                     strokeWidth: 1,
@@ -952,7 +1016,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                       getTitlesWidget: (value, meta) {
                         if (value % 1 != 0) return const SizedBox.shrink();
                         final i = value.toInt();
-                        if (i < 0 || i >= percentValues.length) return const SizedBox.shrink();
+                        if (i < 0 || i >= values.length) return const SizedBox.shrink();
                         return Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(
