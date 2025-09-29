@@ -517,6 +517,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   final deliveryMethod = tx['deliveryMethod'];
   final farmerDelivered = tx['farmerDelivered'] == true;
   final canDelete = status.toLowerCase() == 'delivered';
+  final declinedReason = tx['declineReason'];
+  final cancelledReason = tx['cancelReason'];
+  final isDeclined = status.toString().toLowerCase() == 'declined';
+  final isCancelled = status.toString().toLowerCase() == 'cancelled';
+  final canArchive = canDelete || isDeclined || isCancelled;
 
     return Container(
       decoration: BoxDecoration(
@@ -551,7 +556,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               _buildStatusChip(status),
             ],
           ),
-              if (canDelete)
+              if (canArchive)
                 IconButton(
                   tooltip: 'Remove from list',
                   icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
@@ -601,6 +606,64 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             if (deliveryGuyPhone != null && deliveryGuyPhone.toString().isNotEmpty)
               _buildInfoRow(Icons.phone, 'Driver Phone', deliveryGuyPhone),
           ],
+          if (isDeclined && declinedReason != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF1F2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE11D48).withOpacity(.35)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.error_outline, color: Color(0xFFE11D48)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Declined Reason', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFE11D48))),
+                        const SizedBox(height: 4),
+                        Text(declinedReason.toString(), style: const TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ]
+          else if (isCancelled && cancelledReason != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFF97316).withOpacity(.35)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline, color: Color(0xFFF97316)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Cancelled Reason', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFF97316))),
+                        const SizedBox(height: 4),
+                        Text(cancelledReason.toString(), style: const TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const Divider(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -629,7 +692,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               padding: const EdgeInsets.only(top: 14.0),
               child: _buildPricingBreakdown(tx, price, quantity),
             ),
-          if (status == 'delivered' && !reviewed)
           if (status.toLowerCase() == 'delivered' && !reviewed)
             Padding(
               padding: const EdgeInsets.only(top: 12.0),
@@ -640,6 +702,25 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                 onPressed: () async {
                   await _openReviewScreen(tx);
                   if (mounted) setState(() {});
+                },
+              ),
+            ),
+          if (status.toString().toLowerCase() == 'pending')
+            Padding(
+              padding: const EdgeInsets.only(top: 12.0),
+              child: _GlassyActionButton(
+                icon: Icons.cancel_schedule_send,
+                label: 'Cancel Order',
+                gradientColors: const [Color(0xFFee0979), Color(0xFFff6a00)],
+                onPressed: () async {
+                  final reason = await _showCancelReasonDialog(context);
+                  if (reason != null && reason.trim().isNotEmpty) {
+                    final ok = await _showCancelConfirm(context);
+                    if (ok == true) {
+                      await _cancelCustomerOrder(tx, reason.trim());
+                      if (mounted) setState(() {});
+                    }
+                  }
                 },
               ),
             ),
@@ -858,6 +939,16 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         bgColor = Colors.green.shade100;
         textColor = Colors.green.shade800;
         displayText = 'Delivered';
+        break;
+      case 'declined':
+        bgColor = Colors.red.shade100;
+        textColor = Colors.red.shade800;
+        displayText = 'Declined';
+        break;
+      case 'cancelled':
+        bgColor = Colors.red.shade100;
+        textColor = Colors.red.shade800;
+        displayText = 'Cancelled';
         break;
       default:
         bgColor = Colors.grey.shade100;
@@ -1137,6 +1228,108 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     }
     await docRef.update({'transactions': list});
     if (mounted) setState(() {});
+  }
+
+  Future<String?> _showCancelReasonDialog(BuildContext context) async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Order'),
+        content: TextField(
+          controller: controller,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: 'Enter reason for cancellation',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Back')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Submit'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool?> _showCancelConfirm(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Cancellation'),
+        content: const Text('Are you sure you want to cancel this order? This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Yes, Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _cancelCustomerOrder(Map<String, dynamic> tx, String reason) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final docRef = FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(user.uid);
+    final snap = await docRef.get();
+    if (!snap.exists) return;
+    final data = snap.data() as Map<String, dynamic>?;
+    if (data == null || !data.containsKey('transactions')) return;
+    List<dynamic> list = List.from(data['transactions']);
+    bool updated = false;
+    for (int i = 0; i < list.length; i++) {
+      final item = list[i];
+      if (item is Map<String, dynamic> &&
+          item['Crop'] == tx['Crop'] &&
+          item['Farmer ID'] == tx['Farmer ID'] &&
+          item['orderPlacedAt'] == tx['orderPlacedAt']) {
+        if ((item['Status'] ?? '').toString().toLowerCase() == 'pending') {
+          item['Status'] = 'Cancelled';
+          item['cancelReason'] = reason;
+          item['cancelledAt'] = Timestamp.now();
+          list[i] = item;
+          updated = true;
+        }
+        break;
+      }
+    }
+    if (updated) {
+      await docRef.update({'transactions': list});
+      // Mirror to farmer side
+      final farmerId = tx['Farmer ID'];
+      if (farmerId != null) {
+        final farmDoc = await FirebaseFirestore.instance.collection('Ongoing_Trans_Farm').doc(farmerId).get();
+        if (farmDoc.exists) {
+          final fData = farmDoc.data();
+          if (fData != null && fData.containsKey('transactions')) {
+            List<dynamic> fList = List.from(fData['transactions']);
+            for (int j = 0; j < fList.length; j++) {
+              final fItem = fList[j];
+              if (fItem is Map<String, dynamic> &&
+                  fItem['Crop'] == tx['Crop'] &&
+                  fItem['Customer ID'] == FirebaseAuth.instance.currentUser?.uid &&
+                  fItem['orderPlacedAt'] == tx['orderPlacedAt']) {
+                if ((fItem['Status'] ?? '').toString().toLowerCase() == 'pending') {
+                  fItem['Status'] = 'Cancelled';
+                  fItem['cancelReason'] = reason;
+                  fItem['cancelledAt'] = Timestamp.now();
+                  fList[j] = fItem;
+                }
+                break;
+              }
+            }
+            await FirebaseFirestore.instance.collection('Ongoing_Trans_Farm').doc(farmerId).update({'transactions': fList});
+          }
+        }
+      }
+    }
   }
 }
 

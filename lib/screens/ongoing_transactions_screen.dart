@@ -366,7 +366,7 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildStatusChip(status),
-                    if (status.toLowerCase() == 'delivered') ...[
+                    if (status.toLowerCase() == 'delivered' || status.toLowerCase() == 'declined' || status.toLowerCase() == 'cancelled') ...[
                       const SizedBox(width: 8),
                       Tooltip(
                         message: 'Remove from your list',
@@ -536,6 +536,65 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
             ],
             const SizedBox(height: 16),
 
+            // Declined / Cancelled Reasons
+            if (status.toLowerCase() == 'declined' && tx['declineReason'] != null) ...[
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFEBEE),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFD32F2F).withOpacity(.3)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.report_gmailerrorred, color: Color(0xFFD32F2F)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Declined Reason', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFD32F2F))),
+                          const SizedBox(height: 4),
+                          Text(tx['declineReason'].toString(), style: const TextStyle(fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (status.toLowerCase() == 'cancelled' && tx['cancelReason'] != null) ...[
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3E0),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFF9800).withOpacity(.3)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline, color: Color(0xFFFF9800)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Cancelled by Customer', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFFF9800))),
+                          const SizedBox(height: 4),
+                          Text(tx['cancelReason'].toString(), style: const TextStyle(fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             // Delivery Information
             if (deliveryMethod != null) ...[
               Container(
@@ -624,81 +683,100 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
 
             // Action Buttons (Three separate controls)
             const SizedBox(height: 16),
-            Row(
-              children: [
-                // 1. Select Delivery Method
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: deliveryMethod == null
-                        ? () => _showDeliveryMethodDialog(context, tx, userId, transactions)
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: deliveryMethod == null ? const Color(0xFF02C697) : Colors.grey.shade400,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      disabledBackgroundColor: Colors.grey.shade300,
-                    ),
-                    child: const Text(
-                      'Method',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // 2. Approve Order (Farmer confirms & locks in progress)
-                Expanded(
-                  child: ElevatedButton(
-          onPressed: (status.toLowerCase() == 'pending' && deliveryMethod != null)
-            ? () async {
-                final ok = await _showIrreversibleConfirm(context,
-                  title: 'Approve Order?',
-                  message: 'Once you approve this order it will move to In Progress and you cannot revert to Pending. Continue?');
-                if (ok == true) {
-                  await _approveOrder(userId, tx, transactions);
-                }
-              }
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: (status.toLowerCase() == 'pending' && deliveryMethod != null)
-                          ? Colors.blueAccent
-                          : Colors.grey.shade400,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      disabledBackgroundColor: Colors.grey.shade300,
-                    ),
-                    child: const Text(
-                      'Approve',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+            // Action Workflow:
+            // Pending: show Approve + Decline only
+            // After Approve (In Progress): show Method (if not selected yet)
+            // After Method chosen (still In Progress): show Delivered
+            if (status.toLowerCase() == 'pending')
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final ok = await _showIrreversibleConfirm(
+                          context,
+                          title: 'Approve Order?',
+                          message: 'Approving moves order to In Progress. Continue?',
+                        );
+                        if (ok == true) {
+                          await _approveOrder(userId, tx, transactions);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: const Text('Approve', style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                // 3. Mark Farmer Delivered (customer still must confirm)
-                Expanded(
-                  child: ElevatedButton(
-          onPressed: (status.toLowerCase() == 'in progress' || status.toLowerCase() == 'assigned')
-            ? () async {
-                final ok = await _showIrreversibleConfirm(context,
-                  title: 'Mark As Delivered?',
-                  message: 'Once marked, customer will be asked to confirm. Status stays In Progress until customer confirms. Continue?');
-                if (ok == true) {
-                  await _confirmDelivered(userId, tx, transactions);
-                }
-              }
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: (status.toLowerCase() == 'in_transit' || status.toLowerCase() == 'assigned')
-                          ? Colors.green
-                          : Colors.grey.shade400,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      disabledBackgroundColor: Colors.grey.shade300,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final reason = await _showDeclineReasonDialog(context);
+                        if (reason != null && reason.trim().isNotEmpty) {
+                          final ok = await _showIrreversibleConfirm(
+                            context,
+                            title: 'Decline Order?',
+                            message: 'This will set status to Declined. Continue?',
+                          );
+                          if (ok == true) {
+                            await _declineOrder(userId, tx, transactions, reason.trim());
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: const Text('Decline', style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
-                    child: const Text('Delivered', style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
-                ),
-              ],
-            ),
+                ],
+              )
+            else if (status.toLowerCase() == 'in progress' && deliveryMethod == null)
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => _showDeliveryMethodDialog(context, tx, userId, transactions),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF02C697),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: const Text('Method', style: TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              )
+            else if (status.toLowerCase() == 'in progress' && deliveryMethod != null)
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final ok = await _showIrreversibleConfirm(
+                          context,
+                          title: 'Mark As Delivered?',
+                          message: 'Customer will need to confirm delivery. Continue?',
+                        );
+                        if (ok == true) {
+                          await _confirmDelivered(userId, tx, transactions);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: const Text('Delivered', style: TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              ),
             const SizedBox(height: 12),
             // Customer Review (customer -> farmer) display & Farmer Review button
             FutureBuilder<Map<String, dynamic>?>(
@@ -794,6 +872,14 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
       case 'in progress':
         backgroundColor = const Color(0xFFFFF9C4);
         textColor = const Color(0xFFF57F17);
+        break;
+      case 'declined':
+        backgroundColor = const Color(0xFFFFEBEE);
+        textColor = const Color(0xFFD32F2F);
+        break;
+      case 'cancelled':
+        backgroundColor = const Color(0xFFFFEBEE);
+        textColor = const Color(0xFFD32F2F);
         break;
       case 'pending':
       default:
@@ -1066,6 +1152,76 @@ class _OngoingTransactionsScreenState extends State<OngoingTransactionsScreen> {
   await _updateCustomerSideStatus(customerId, tx, 'In Progress');
     }
     setState(() {});
+  }
+
+  Future<void> _declineOrder(String? userId, Map<String, dynamic> tx, List<Map<String, dynamic>> transactions, String reason) async {
+    if (userId == null) return;
+    final updatedTransactions = transactions.map((t) {
+      if (t['Crop'] == tx['Crop'] && t['Customer ID'] == tx['Customer ID'] && t['orderPlacedAt'] == tx['orderPlacedAt']) {
+        final copy = Map<String, dynamic>.from(t);
+        copy['Status'] = 'Declined';
+        copy['declinedAt'] = Timestamp.now();
+        copy['declineReason'] = reason;
+        return copy;
+      }
+      return t;
+    }).toList();
+    await FirebaseFirestore.instance
+        .collection('Ongoing_Trans_Farm')
+        .doc(userId)
+        .update({'transactions': updatedTransactions});
+    // Mirror to customer side
+    final customerId = tx['Customer ID'];
+    if (customerId != null) {
+      final cusDoc = await FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(customerId).get();
+      if (cusDoc.exists) {
+        final data = cusDoc.data();
+        if (data != null && data.containsKey('transactions')) {
+          List<dynamic> list = List.from(data['transactions']);
+          for (int i = 0; i < list.length; i++) {
+            final item = list[i];
+            if (item is Map<String, dynamic> &&
+                item['Crop'] == tx['Crop'] &&
+                item['Farmer ID'] == tx['Farmer ID'] &&
+                item['orderPlacedAt'] == tx['orderPlacedAt']) {
+              item['Status'] = 'Declined';
+              item['declinedAt'] = Timestamp.now();
+              item['declineReason'] = reason;
+              list[i] = item;
+              break;
+            }
+          }
+          await FirebaseFirestore.instance.collection('Ongoing_Trans_Cus').doc(customerId).update({'transactions': list});
+        }
+      }
+    }
+    setState(() {});
+  }
+
+  Future<String?> _showDeclineReasonDialog(BuildContext context) async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Decline Reason'),
+        content: TextField(
+          controller: controller,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: 'Enter reason (e.g., stock issue, quality concern)',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Submit'),
+          )
+        ],
+      ),
+    );
   }
 
   Future<void> _confirmDelivered(String? userId, Map<String, dynamic> tx, List<Map<String, dynamic>> transactions) async {
